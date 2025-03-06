@@ -1,5 +1,7 @@
 *.swp
 *.pyc
+*.json
+*.safetensors
 
 *.egg-info/
 dist/

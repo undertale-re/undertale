@@ -61,6 +61,9 @@ filelock==3.16.1
     # via
     #   datasets
     #   huggingface-hub
+    #   torch
+    #   transformers
+    #   triton
     #   virtualenv
 flake8==7.1.1
     # via undertale (setup.py)
@@ -72,6 +75,7 @@ fsspec==2024.6.1
     # via
     #   datasets
     #   huggingface-hub
+    #   torch
 h11==0.14.0
     # via httpcore
 httpcore==1.0.6
@@ -79,7 +83,10 @@ httpcore==1.0.6
 httpx==0.27.2
     # via openai
 huggingface-hub==0.25.2
-    # via datasets
+    # via
+    #   datasets
+    #   tokenizers
+    #   transformers
 identify==2.6.1
     # via pre-commit
 idna==3.10
@@ -90,12 +97,20 @@ idna==3.10
     #   yarl
 isort==5.13.2
     # via undertale (setup.py)
+jinja2==3.1.5
+    # via torch
 jiter==0.6.1
     # via openai
+joblib==1.4.2
+    # via scikit-learn
 jpype1==1.5.0
     # via pyhidra
+markupsafe==3.0.2
+    # via jinja2
 mccabe==0.7.0
     # via flake8
+mpmath==1.3.0
+    # via sympy
 multidict==6.1.0
     # via
     #   aiohttp
@@ -105,7 +120,9 @@ multiprocess==0.70.16
 mypy-extensions==1.0.0
     # via black
 networkx==3.4.2
-    # via undertale (setup.py)
+    # via
+    #   torch
+    #   undertale (setup.py)
 nodeenv==1.9.1
     # via pre-commit
 numpy==2.1.2
@@ -113,6 +130,41 @@ numpy==2.1.2
     #   datasets
     #   pandas
     #   pyarrow
+    #   scikit-learn
+    #   scipy
+    #   transformers
+nvidia-cublas-cu12==12.4.5.8
+    # via
+    #   nvidia-cudnn-cu12
+    #   nvidia-cusolver-cu12
+    #   torch
+nvidia-cuda-cupti-cu12==12.4.127
+    # via torch
+nvidia-cuda-nvrtc-cu12==12.4.127
+    # via torch
+nvidia-cuda-runtime-cu12==12.4.127
+    # via torch
+nvidia-cudnn-cu12==9.1.0.70
+    # via torch
+nvidia-cufft-cu12==11.2.1.3
+    # via torch
+nvidia-curand-cu12==10.3.5.147
+    # via torch
+nvidia-cusolver-cu12==11.6.1.9
+    # via torch
+nvidia-cusparse-cu12==12.3.1.170
+    # via
+    #   nvidia-cusolver-cu12
+    #   torch
+nvidia-nccl-cu12==2.21.5
+    # via torch
+nvidia-nvjitlink-cu12==12.4.127
+    # via
+    #   nvidia-cusolver-cu12
+    #   nvidia-cusparse-cu12
+    #   torch
+nvidia-nvtx-cu12==12.4.127
+    # via torch
 openai==1.51.2
     # via undertale (setup.py)
 packaging==24.1
@@ -123,6 +175,7 @@ packaging==24.1
     #   huggingface-hub
     #   jpype1
     #   pyhidra
+    #   transformers
 pandas==2.2.3
     # via datasets
 pathspec==0.12.1
@@ -164,11 +217,21 @@ pyyaml==6.0.2
     #   datasets
     #   huggingface-hub
     #   pre-commit
+    #   transformers
+regex==2024.11.6
+    # via transformers
 requests==2.32.3
     # via
     #   datasets
     #   huggingface-hub
+    #   transformers
     #   undertale (setup.py)
+safetensors==0.5.3
+    # via transformers
+scikit-learn==1.6.1
+    # via undertale (setup.py)
+scipy==1.15.2
+    # via scikit-learn
 six==1.16.0
     # via python-dateutil
 sniffio==1.3.1
@@ -178,16 +241,29 @@ sniffio==1.3.1
     #   openai
 soupsieve==2.6
     # via beautifulsoup4
+sympy==1.13.1
+    # via torch
+threadpoolctl==3.5.0
+    # via scikit-learn
+tokenizers==0.21.0
+    # via transformers
 tomli==2.0.2
     # via
     #   black
     #   build
     #   pip-tools
+torch==2.5.1
+    # via undertale (setup.py)
 tqdm==4.66.5
     # via
     #   datasets
     #   huggingface-hub
     #   openai
+    #   transformers
+transformers==4.48.1
+    # via undertale (setup.py)
+triton==3.1.0
+    # via torch
 typing-extensions==4.12.2
     # via
     #   anyio
@@ -197,6 +273,7 @@ typing-extensions==4.12.2
     #   openai
     #   pydantic
     #   pydantic-core
+    #   torch
 tzdata==2024.2
     # via pandas
 urllib3==2.2.3
