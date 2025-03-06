@@ -8,6 +8,8 @@ import requests
 from bs4 import BeautifulSoup
 
 from . import dataset
+from .transforms.disassemble import ghidra as ghidra_disassemble
+from .transforms.segment import ghidra as ghidra_segment
 
 logger = logging.getLogger(__name__)
 
@@ -95,23 +97,23 @@ class APT(dataset.Dataset):
                         f.write(download_link + "\n")
 
     @classmethod
-    def create_dataset(
-        cls,
-        url_path: str,
-        path: str,
-        raw_data_path: str,
-        unpackaged_path: str,
-        download=True,
-    ):
-        if not os.path.isdir(unpackaged_path):
-            os.mkdir(unpackaged_path)
+    def create_dataset(cls, url_path: str, downloaded_data_path: str):
+        if not os.path.isdir(downloaded_data_path):
+            os.mkdir(downloaded_data_path)
+            download = True
+        else:
+            download = False
         # downloading the raw packages
-        data = {"binary": [], "filename": [], "metadata": [], "package": []}
+        data = {"code": [], "filename": [], "metadata": [], "package": []}
         with open(url_path) as f:
             all_download_links = [
                 link.strip() for link in f.readlines()[1:] if link[-5:-1] == ".deb"
             ]
+        unpackaged_path = os.path.join(downloaded_data_path, "unpackaged")
+        raw_data_path = os.path.join(downloaded_data_path, "raw")
         if download:
+            os.mkdir(unpackaged_path)
+            os.mkdir(raw_data_path)
             for download_link in all_download_links:
                 print(f"now downloading {download_link}")
                 floc = os.path.join(raw_data_path, download_link.split("/")[-1])
@@ -139,13 +141,47 @@ class APT(dataset.Dataset):
                 floc = os.path.join(project, fname)
                 if check_executable(floc):
                     with open(floc, "rb") as f:
-                        data["binary"].append(f.read())
+                        data["code"].append(f.read())
                     data["filename"].append(fname)
                     data["metadata"].append(metadata)
                     data["package"].append(project)
+
         ds = datasets.Dataset.from_dict(data)
-        ds.save_to_disk(path)
+        return ds
+
+    @classmethod
+    def parse(cls, path: str, processes=None):
+        if path == "download":
+            logger.info(f"downloading {cls.__name__} from APT")
+            list_loc = "../datasets/apt_url_list.txt"
+            if not os.path.isfile(list_loc):
+                cls.generate_url_list(list_loc)
+            downloaded_data_path = "../datasets/apt_downloaded/"
+            dataset = cls.create_dataset(list_loc, downloaded_data_path)
+        else:
+            dataset = datasets.load_from_disk(path)
+
+        dataset.__class__ = cls
+
+        return dataset
+
+
+class APTSegmented(APT):
+    path = "apt-segmented"
+
+    transforms = [
+        ghidra_segment.GhidraFunctionSegment(),
+    ]
+
+
+class APTSegmentedDisassembled(APT):
+    path = "apt-segmented-disassembled"
+
+    transforms = [
+        ghidra_segment.GhidraFunctionSegment(),
+        ghidra_disassemble.GhidraDisassemble(),
+    ]
 
 
 if __name__ == "__main__":
-    dataset.main(APT)
+    dataset.main([APTSegmentedDisassembled, APTSegmented, APT])
