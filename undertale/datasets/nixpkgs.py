@@ -5,6 +5,7 @@ import typing
 import datasets
 
 from . import dataset, schema
+from .transforms.segment import lief
 
 logger = logging.getLogger(__name__)
 
@@ -16,8 +17,9 @@ class NixPkgsBinaries(dataset.Dataset):
 
     @classmethod
     def parse(cls, path: str, processes: typing.Optional[int] = None):
+        ds_path = "-".join(cls.path.split("-")[:2])
         base_path = (
-            f"/home/gridsan/groups/undertale_shared/binaries/{cls.path}/nix/store"
+            f"/home/gridsan/groups/undertale_shared/binaries/{ds_path}/nix/store"
         )
 
         def gen_from_dir():
@@ -39,9 +41,13 @@ class NixPkgsBinaries(dataset.Dataset):
                         "binary": contents,
                         "package": package,
                         "path": rel_path,
+                        "architecture": "x64",
                     }
 
-        ds = datasets.Dataset.from_generator(gen_from_dir)
+        try:
+            ds = datasets.load_from_disk(ds_path)
+        except:
+            ds = datasets.Dataset.from_generator(gen_from_dir)
         ds.__class__ = cls
         return ds
 
@@ -52,5 +58,15 @@ class NixPkgs2405Binaries(NixPkgsBinaries):
     path = "nixpkgs-2405"
 
 
+class NixPkgs2405Functions(NixPkgs2405Binaries):
+    description = "repository of compiled open source projects with debugging symbols from the Nix packages project"
+    path = "nixpkgs-2405-functions"
+    schema = schema.Function
+
+    transforms = [
+        lief.LIEFFunctionSegment(),
+    ]
+
+
 if __name__ == "__main__":
-    dataset.main([NixPkgs2405Binaries])
+    dataset.main([NixPkgs2405Functions])

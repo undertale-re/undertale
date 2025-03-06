@@ -27,6 +27,11 @@ setup(
         "networkx",
         "bs4",
         "requests",
+        "lief",
+        "unix_ar",
+        "cpp-demangle",
+        "rust_demangler",
+        "itanium_demangler",
     ],
     extras_require={
         "development": [
