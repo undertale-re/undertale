@@ -88,7 +88,7 @@ class GhidraFunctionSegment(Map):
                         function[key] = batch[key][idx]
 
                     sample_functions.append(function)
-            if len(sample_functions) > 0:
+            if len(sample_functions) > 0: 
                 batch_functions.extend(sample_functions)
             else:
                 logger.warning(
