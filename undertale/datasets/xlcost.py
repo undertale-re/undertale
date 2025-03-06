@@ -62,7 +62,7 @@ class XLCost(dataset.Dataset):
 class XLCostCompiled(XLCost):
     path = "xlcost-compiled"
 
-    transforms = [compile.Compile(), compile.CompileErrorsFilter()]
+    transforms = [compile.CompileCpp(), compile.CompileErrorsFilter()]
 
 
 class XLCostCompiledDisassembled(XLCost):
@@ -70,7 +70,7 @@ class XLCostCompiledDisassembled(XLCost):
     schema = schema.SummarizedFunction
 
     transforms = [
-        compile.Compile(),
+        compile.CompileCpp(),
         compile.CompileErrorsFilter(),
         capstone.CapstoneDisassemble(),
     ]
