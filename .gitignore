@@ -1,5 +1,5 @@
 *.swp
 *.pyc
-
+.venv/
 *.egg-info/
 dist/

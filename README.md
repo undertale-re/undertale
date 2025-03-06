@@ -85,6 +85,69 @@ dependency versions from `constraints.txt`:
 pip install -e .[development] -c constraints.txt
 ```
 
+#### Nix Support
+
+You can also automatically build and create deployment envrionments and nix
+packages for nix with the `flake.nix` in the repository.  
+
+#### Installation of Nix Tooling
+To learn how to install nix on your systems [see here](https://nix.dev/install-nix.html)
+
+Once you have nix working on your system make sure to [enable flakes](https://nixos.wiki/wiki/Flakes)
+
+If you'd like to leverage the automatic development environment setup, install [direnv](https://github.com/nix-community/nix-direnv)
+
+If you use `direnv`, once it is installed and hooked into your shell, make sure to allow the
+``.envrc` file to turn on automatic shell creation and descruction.
+
+#### Development Environments
+Once you've cloned the `undertale` repo, in that directory you can easily enter a
+developer shell by running:
+
+```bash
+nix develop
+```
+This may take a while if you've never built anything before.
+
+You will automatically have all of the included development tools in scope as well as all 
+of the python dependencies in your python environment.  To exit the shell, run the `exit`
+command or hit control-D.
+
+#### Nix Packaging options
+If you'd just want to export or package, you can build the package as 
+
+```bash
+nix build
+```
+
+which will build undertale as a nix package and generate a symlink in the current directory
+called `result` pointing to the build entry in `/nix/store`
+
+Additionally, you can also build a package containing all of the environment depenencies for
+`undertale` by running
+
+```bash
+nix build .#undertale-environment
+```
+
+You can also create singularity or docker containers with a full isolated and built
+environment by calling the respective commands:
+
+```bash
+nix build .#singularity-image
+```
+
+or
+
+```bash
+nix build .#docker-image
+```
+
+which will create a `result` symlink in the current directory pointing to the respective image
+binaries.  Since they contain all dependencies, they are quite large tar.gz/sif files (>1GB)
+but the docker image is layered, so upon deployment will minimally occupy space as incremental
+versions are added.
+
 ### Code Style
 
 Pre-commit hooks are available for automatic code formatting, linting, and type
