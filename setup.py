@@ -27,6 +27,7 @@ setup(
         "networkx",
         "bs4",
         "requests",
+        "gdown",
     ],
     extras_require={
         "development": [

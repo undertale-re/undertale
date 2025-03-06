@@ -22,8 +22,10 @@ async-timeout==4.0.3
     # via aiohttp
 attrs==24.2.0
     # via aiohttp
-beautifulsoup4==4.12.3
-    # via bs4
+beautifulsoup4==4.13.3
+    # via
+    #   bs4
+    #   gdown
 black==24.10.0
     # via undertale (setup.py)
 bs4==0.0.2
@@ -60,6 +62,7 @@ exceptiongroup==1.2.2
 filelock==3.16.1
     # via
     #   datasets
+    #   gdown
     #   huggingface-hub
     #   virtualenv
 flake8==7.1.1
@@ -72,6 +75,8 @@ fsspec==2024.6.1
     # via
     #   datasets
     #   huggingface-hub
+gdown==5.2.0
+    # via undertale (setup.py)
 h11==0.14.0
     # via httpcore
 httpcore==1.0.6
@@ -92,7 +97,7 @@ isort==5.13.2
     # via undertale (setup.py)
 jiter==0.6.1
     # via openai
-jpype1==1.5.0
+jpype1==1.5.2
     # via pyhidra
 mccabe==0.7.0
     # via flake8
@@ -155,6 +160,8 @@ pyproject-hooks==1.2.0
     # via
     #   build
     #   pip-tools
+pysocks==1.7.1
+    # via requests
 python-dateutil==2.9.0.post0
     # via pandas
 pytz==2024.2
@@ -167,6 +174,7 @@ pyyaml==6.0.2
 requests==2.32.3
     # via
     #   datasets
+    #   gdown
     #   huggingface-hub
     #   undertale (setup.py)
 six==1.16.0
@@ -186,11 +194,13 @@ tomli==2.0.2
 tqdm==4.66.5
     # via
     #   datasets
+    #   gdown
     #   huggingface-hub
     #   openai
 typing-extensions==4.12.2
     # via
     #   anyio
+    #   beautifulsoup4
     #   black
     #   huggingface-hub
     #   multidict
