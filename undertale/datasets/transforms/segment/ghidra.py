@@ -1,7 +1,9 @@
 import logging
+import math
 import os
 import tempfile
 
+import psutil
 import pyhidra
 
 from ..transform import Map
@@ -71,7 +73,7 @@ class GhidraFunctionSegment(Map):
                             function[key] = batch[key][idx]
 
                         sample_functions.append(function)
-                if len(sample_functions) > 0: 
+                if len(sample_functions) > 0:
                     batch_functions.extend(sample_functions)
                 else:
                     logger.warning(
@@ -80,7 +82,7 @@ class GhidraFunctionSegment(Map):
 
             except Exception as e:
                 logger.error(
-                    f"failed to process sample at row {index} with error: {e} - removed from dataset"
+                    f"failed to process sample at row {row_idx} with error: {e} - removed from dataset"
                 )
 
                 # Convert to the format that the Datasets library expects.
