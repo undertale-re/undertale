@@ -67,7 +67,7 @@ def unpack_deb(orig_file, dest):
 
 class APT(dataset.Dataset):
     description = "A collection of binaries for Debian based linux distributions downloaded by the APT tool "
-    path = "apt-dataset"
+    path = "apt_dataset_v3"
     base_url = "http://cybersecmirrors.llan.ll.mit.edu/mirrors/ubuntu/pool/universe/"
 
     @classmethod
