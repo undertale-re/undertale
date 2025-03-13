@@ -1,111 +1,113 @@
 import logging
 
-import datasets
-
-from . import dataset, schema
-from .transforms import compile
-from .transforms.disassemble import capstone, ghidra
+from datatrove.data import Document, DocumentsPipeline
+from datatrove.executor import LocalPipelineExecutor
+from datatrove.pipeline.base import PipelineStep
+from datatrove.pipeline.readers import HuggingFaceDatasetReader
+from datatrove.pipeline.writers import ParquetWriter
 
 logger = logging.getLogger(__name__)
 
 
-class HumanEvalX(dataset.Dataset):
-    url = "https://huggingface.co/datasets/THUDM/humaneval-x"
-    description = "natural language descriptions of programming problems and source code implmentations, compiled"
-    path = "humaneval-x"
-
-    @classmethod
-    def download(cls, processes=None):
-        """Download this dataset from the HuggingFace Hub.
-
-        Also do a little pre-processing.
-        """
-
-        def parse(sample):
-            annotation = sample["prompt"]
-
-            if annotation[:2] != "/*":
-                return {"id": sample["task_id"], "summary": "SKIP", "source": ""}
-
-            annotation = annotation.split(">>>")[0]
-            annotation = annotation[2:].strip()
-            annotation = annotation.replace("\n", "")
-
-            source = f"{sample['declaration']}{sample['canonical_solution']}"
-
-            return {
-                "id": sample["task_id"],
-                "summary": annotation,
-                "source": source,
-            }
-
-        dataset = datasets.load_dataset("THUDM/humaneval-x", "cpp")["test"]
-        dataset = dataset.map(
-            parse,
-            remove_columns=[
-                "task_id",
-                "prompt",
-                "declaration",
-                "canonical_solution",
-                "test",
-                "example_test",
-            ],
-            num_proc=processes,
-        )
-        dataset = dataset.filter(lambda d: d["summary"] != "SKIP", num_proc=processes)
-
-        return dataset
-
-    @classmethod
-    def parse(cls, path: str, processes=None):
-        if path == "download":
-            logger.info(f"downloading {cls.__name__} from the HuggingFace Hub")
-
-            dataset = cls.download(processes=processes)
-        else:
-            dataset = datasets.load_from_disk(path)
-
-        dataset.__class__ = cls
-
-        return dataset
+def adapt_humanevalx_from_huggingface(
+    self, data: dict, path: str, id_in_file: int | str
+) -> dict:
+    return {
+        "id": data["task_id"],
+        "text": f"{data['declaration']}{data['canonical_solution']}",
+        "metadata": {"summary": data["prompt"]},
+    }
 
 
-class HumanEvalXCompiled(HumanEvalX):
-    path = "humaneval-x-compiled"
+def adapt_humanevalx_to_parquet(self, document: Document) -> dict:
+    sample = {}
 
-    transforms = [
-        compile.Compile(),
-        compile.CompileErrorsFilter(),
-    ]
+    sample["id"] = document.id
+    sample["code"] = document.text
 
+    for k, v in document.metadata.items():
+        if k in ["dataset"]:
+            continue
+        sample[k] = v
 
-class HumanEvalXCompiledDisassembled(HumanEvalX):
-    path = "humaneval-x-compiled-disassembled"
-    schema = schema.SummarizedFunction
-
-    transforms = [
-        compile.Compile(),
-        compile.CompileErrorsFilter(),
-        capstone.CapstoneDisassemble(),
-    ]
+    return sample
 
 
-class HumanEvalXCompiledGhidraDisassembled(HumanEvalX):
-    path = "humaneval-x-compiled-ghidra-disassembled"
+class CompileCpp(PipelineStep):
+    type = "⚙️ - PROCESS"
+    name = "🏗️ Compile C++"
 
-    transforms = [
-        compile.Compile(),
-        compile.CompileErrorsFilter(),
-        ghidra.GhidraDisassemble(),
-    ]
+    def run(
+        self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
+    ) -> DocumentsPipeline:
+        import os
+        import subprocess
+        import tempfile
+
+        from datatrove.data import Document
+
+        if not data:
+            return
+
+        for document in data:
+            with self.track_time():
+                source = document.text
+
+                working = tempfile.TemporaryDirectory()
+
+                sourcefile = os.path.join(working.name, "source.cpp")
+
+                with open(sourcefile, "w") as f:
+                    f.write(source)
+
+                objectfile = os.path.join(working.name, "source.o")
+
+                process = subprocess.run(
+                    f"g++ -c {sourcefile} -o {objectfile}",
+                    cwd=working.name,
+                    shell=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+
+                if process.returncode == 0:
+                    with open(objectfile, "rb") as f:
+                        code = f.read()
+
+                    metadata = document.metadata.copy()
+                    metadata["source"] = document.text
+
+                    yield Document(id=document.id, text=code, metadata=metadata)
+
+                    self.stat_update("succeeded")
+                else:
+                    message = "failed to compile source:\n"
+                    message += "=" * 80 + "\n"
+                    message += source.strip() + "\n"
+                    message += "-" * 36 + " stdout " + "-" * 36 + "\n"
+                    message += process.stdout.decode().strip() + "\n"
+                    message += "-" * 36 + " stderr " + "-" * 36 + "\n"
+                    message += process.stderr.decode().strip() + "\n"
+                    message += "=" * 80
+
+                    logger.warning(message)
+
+                    self.stat_update("failed")
+
+
+humanevalx = [
+    HuggingFaceDatasetReader(
+        "THUDM/humaneval-x",
+        {"name": "cpp", "split": "test"},
+        adapter=adapt_humanevalx_from_huggingface,
+    ),
+    CompileCpp(),
+    ParquetWriter("output", adapter=adapt_humanevalx_to_parquet),
+]
 
 
 if __name__ == "__main__":
-    dataset.main(
-        [
-            HumanEvalXCompiledDisassembled,
-            HumanEvalXCompiledGhidraDisassembled,
-            HumanEvalXCompiled,
-            HumanEvalX,
-        ]
+    executor = LocalPipelineExecutor(
+        pipeline=humanevalx,
     )
+    executor.run()
