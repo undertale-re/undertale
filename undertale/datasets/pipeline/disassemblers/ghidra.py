@@ -28,7 +28,7 @@ class GhidraDisassembler(PipelineStep):
         field.
     """
 
-    type = "🔧 - Disassemble"
+    type = "🔧 - DISASSEMBLER"
     name = "🐲 Ghidra"
 
     @staticmethod

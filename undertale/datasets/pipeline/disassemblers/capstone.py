@@ -20,7 +20,7 @@ class CapstoneDisassembler(PipelineStep):
         field.
     """
 
-    type = "🔧 - Disassemble"
+    type = "🔧 - DISASSEMBLER"
     name = "🔺 Capstone"
 
     def __init__(

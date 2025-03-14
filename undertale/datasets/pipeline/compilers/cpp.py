@@ -20,8 +20,8 @@ class CppCompiler(PipelineStep):
     Discards any samples that fail to compile and logs the compilation errors.
     """
 
-    type = "🔨 - COMPILE"
-    name = "🟥 Compile C++"
+    type = "🔨 - COMPILER"
+    name = "🟥 C++ Compiler"
 
     def run(
         self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
