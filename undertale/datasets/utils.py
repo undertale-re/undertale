@@ -1,10 +1,19 @@
 import argparse
+import logging
 from typing import Dict, List
+import code
+
+import datasets
 
 from datatrove.data import Document
 from datatrove.executor import LocalPipelineExecutor, SlurmPipelineExecutor
 from datatrove.pipeline.base import PipelineStep
 from datatrove.pipeline.writers import ParquetWriter
+
+from .. import logging as undertale_logging
+
+
+logger = logging.getLogger(__name__)
 
 
 def adapt_to_flatten(self, document: Document) -> dict:
@@ -107,3 +116,33 @@ def main(pipelines: Dict[str, List[PipelineStep]], default: str) -> None:
     pipeline.append(writers[arguments.writer](arguments.output))
     executor = executors[arguments.executor](pipeline, arguments.__dict__)
     executor.run()
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="utilities for managing datasets")
+
+    subparsers = parser.add_subparsers(
+        dest="command", required=True, help="dataset utility to run"
+    )
+
+    shell_parser = subparsers.add_parser(
+        "shell",
+        help="load a dataset and open a python shell for exploration",
+    )
+
+    shell_parser.add_argument(
+        "path", help="path to a dataset file to load (or the name of one on the HuggingFace hub)"
+    )
+
+    arguments = parser.parse_args()
+
+    undertale_logging.setup_logging()
+
+    if arguments.command == 'shell':
+        try:
+            dataset = datasets.load_dataset(arguments.path)
+        except Exception as e:
+            logger.critical(e)
+            exit(1)
+
+        logger.info(f"the loaded dataset is available in the `dataset` variable")
+        code.interact(local={"dataset": dataset})
