@@ -1,12 +1,8 @@
-import logging
-
 from datatrove.pipeline.readers import HuggingFaceDatasetReader
 
 from . import utils
 from .pipeline.compilers import CppCompiler
 from .pipeline.disassemblers import GhidraDisassembler
-
-logger = logging.getLogger(__name__)
 
 
 def adapt_humanevalx_from_huggingface(
