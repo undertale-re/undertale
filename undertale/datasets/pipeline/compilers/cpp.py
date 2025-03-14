@@ -7,6 +7,19 @@ logger = logging.getLogger(__name__)
 
 
 class CppCompiler(PipelineStep):
+    """Compiles the given C/C++ code.
+
+    Input:
+        C or C++ source code that can be written to a single file and compiled.
+
+    Output:
+        Replaces the current `text` field with the raw bytes of the compiled
+        code and stores the original source in a metadata field called
+        `source`.
+
+    Discards any samples that fail to compile and logs the compilation errors.
+    """
+
     type = "🔨 - COMPILE"
     name = "ⓒ Compile C++"
 

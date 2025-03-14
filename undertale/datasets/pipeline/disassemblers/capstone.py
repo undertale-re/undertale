@@ -4,6 +4,22 @@ from datatrove.pipeline.base import PipelineStep
 
 
 class CapstoneDisassembler(PipelineStep):
+    """Disassembles the given code with Capstone.
+
+    Arguments:
+        architecture: A Capstone architecture constant.
+        mode: A Capstone mode constant.
+        base: The base address to use for disassembly.
+
+    Input:
+        Raw shellcode (or compiled, individual functions).
+
+    Output:
+        Adds a field to the metadata called `disassembly` containing the
+        disassembled code produced by Capstone. Does not modify the `text`
+        field.
+    """
+
     type = "🔧 - Disassemble"
     name = "🔺 Capstone"
 
