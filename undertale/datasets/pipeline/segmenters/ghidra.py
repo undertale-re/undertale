@@ -1,9 +1,7 @@
-import logging
-
 from datatrove.data import DocumentsPipeline
 from datatrove.pipeline.base import PipelineStep
 
-logger = logging.getLogger(__name__)
+from ..disassemblers.ghidra import build_control_flow_graph
 
 
 class GhidraFunctionSegmenter(PipelineStep):
@@ -13,8 +11,10 @@ class GhidraFunctionSegmenter(PipelineStep):
         Whole binaries in some executable format (ELF, PE, DLL, Mach-O, etc.)
 
     Output:
-        Yields documents for each function in the given binary. Raises
-        exceptions if Ghidra auto-analysis does not work for some reason.
+        Yields documents for each function in the given binary. Also
+        disassembles, decompiles, and generates the CFG for each function.
+        Raises exceptions if Ghidra auto-analysis does not work for some
+        reason.
     """
 
     type = "✂️ - SEGMENTER"
@@ -24,6 +24,7 @@ class GhidraFunctionSegmenter(PipelineStep):
         self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
     ) -> DocumentsPipeline:
         import os
+        import pickle
         import tempfile
 
         import pyhidra
@@ -57,7 +58,17 @@ class GhidraFunctionSegmenter(PipelineStep):
                         end = body.getMaxAddress().getOffset()
 
                         code = binary[start - base : end - base]
+
+                        # Also disassemble, decompile, and build the CFG.
+                        graph, disassembly, decompilation = build_control_flow_graph(
+                            api, function.getEntryPoint(), ipcfg=False
+                        )
+
                         metadata = document.metadata.copy()
+
+                        metadata["cfg"] = pickle.dumps(graph)
+                        metadata["disassembly"] = disassembly
+                        metadata["decompilation"] = decompilation
 
                         yield Document(
                             id=f"{document.id}:{start}",
