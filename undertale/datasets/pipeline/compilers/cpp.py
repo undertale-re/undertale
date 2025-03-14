@@ -21,7 +21,7 @@ class CppCompiler(PipelineStep):
     """
 
     type = "🔨 - COMPILE"
-    name = "ⓒ Compile C++"
+    name = "🟥 Compile C++"
 
     def run(
         self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1

@@ -4,7 +4,7 @@ from datatrove.pipeline.readers import HuggingFaceDatasetReader
 
 from . import utils
 from .pipeline.compilers import CppCompiler
-from .pipeline.disassemblers import CapstoneDisassembler
+from .pipeline.disassemblers import GhidraDisassembler
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ humanevalx = [
         adapter=adapt_humanevalx_from_huggingface,
     ),
     CppCompiler(),
-    CapstoneDisassembler(),
+    GhidraDisassembler(),
 ]
 
 if __name__ == "__main__":
