@@ -15,15 +15,27 @@ def adapt_humanevalx_from_huggingface(
     }
 
 
-humanevalx = [
-    HuggingFaceDatasetReader(
-        "THUDM/humaneval-x",
-        {"name": "cpp", "split": "test"},
-        adapter=adapt_humanevalx_from_huggingface,
-    ),
-    CppCompiler(),
-    GhidraDisassembler(),
-]
+readers = {
+    "huggingface": lambda input: [
+        HuggingFaceDatasetReader(
+            "THUDM/humaneval-x",
+            {"name": "cpp", "split": "test"},
+            adapter=adapt_humanevalx_from_huggingface,
+        )
+    ],
+}
+
+pipelines = {
+    "humanevalx": [
+        CppCompiler(),
+        GhidraDisassembler(),
+    ],
+}
 
 if __name__ == "__main__":
-    utils.main(pipelines={"humanevalx": humanevalx}, default="humanevalx")
+    utils.main(
+        readers=readers,
+        default_reader="huggingface",
+        pipelines=pipelines,
+        default_pipeline="humanevalx",
+    )

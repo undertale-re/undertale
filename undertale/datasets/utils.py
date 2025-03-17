@@ -1,7 +1,7 @@
 import argparse
 import code
 import logging
-from typing import Dict, List
+from typing import Callable, Dict, List
 
 import datasets
 from datatrove.data import Document
@@ -46,14 +46,21 @@ executors = {
 }
 
 
-def main(pipelines: Dict[str, List[PipelineStep]], default: str) -> None:
+def main(
+    readers: Dict[str, Callable[[str], List[PipelineStep]]],
+    default_reader: str,
+    pipelines: Dict[str, List[PipelineStep]],
+    default_pipeline: str,
+) -> None:
     """The CLI entrypoint for parsing a dataset.
 
     This should be called in `__main__` for dataset modules.
 
     Arguments:
+        readers: A mapping of reader name to lists of pipeline steps.
+        default_reader: The default reader name.
         pipelines: A mapping of pipeline name to lists of pipeline steps.
-        default: The default pipeline name.
+        default_pipeline: The default pipeline name.
     """
 
     parser = argparse.ArgumentParser(
@@ -62,10 +69,18 @@ def main(pipelines: Dict[str, List[PipelineStep]], default: str) -> None:
     )
 
     parser.add_argument(
+        "-r",
+        "--reader",
+        choices=readers,
+        default=default_reader,
+        help="the reader to use",
+    )
+
+    parser.add_argument(
         "-p",
         "--pipeline",
         choices=pipelines,
-        default=default,
+        default=default_pipeline,
         help="the pipeline to run",
     )
 
@@ -106,13 +121,16 @@ def main(pipelines: Dict[str, List[PipelineStep]], default: str) -> None:
         help="output writer (format)",
     )
 
+    parser.add_argument("input", help="input location")
     parser.add_argument("output", help="output location")
 
     arguments = parser.parse_args()
 
-    pipeline = pipelines[arguments.pipeline].copy()
+    pipeline = readers[arguments.reader](arguments.input).copy()
+    pipeline += pipelines[arguments.pipeline].copy()
     pipeline.append(writers[arguments.writer](arguments.output))
     executor = executors[arguments.executor](pipeline, arguments.__dict__)
+
     executor.run()
 
 
