@@ -23,18 +23,27 @@ class PairwiseContrastive(PipelineStep):
         """
         self.num_samples = num_samples
         self.negative_multiple = negative_multiple
-        
+
+    type = "PAIRWISE-CONTRASTIVE"
+    name = "ALEX-CHRIS"
+    
     def run(
             self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
     ) -> DocumentsPipeline:
         """
         Input:
-            The data is an iterable the documents in which have a `text` field 
-            that contains the binary data for a function.
+            `data` is an iterable the documents in which have a `text` field 
+            that contains the binary data for a single function.
+            Note: It is assumed that a document also has an `equiv_class` 
+            field in its `metadata` dictionary. If two documents have the same 
+            value for `equiv_class` then they are the same function (same source, 
+            same program), perhaps compiled with different compilers / settings.
 
         Output:
-            Yields documents that are pairs of either similar or dissimilar 
-            for contrastive training.
+            Yields documents the `text` field of which are pairs of either 
+            similar or dissimilar functions for contrastive training. The 
+            similarity value (0 is not similar, 1 is similar) is in the 
+            `metadata` field's dictionary. 
 
         """
 
