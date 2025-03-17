@@ -91,5 +91,5 @@ class PairwiseContrastive(PipelineStep):
                 # equiv class
                 ind = list(range(len(equivalence_classes[ec])))
                 random.shuffle(ind)
-                yield_pair_doc(ec[ind[0]], ec[ind[1]])
+                yield_pair_doc(ec[ind[0]], ec[ind[1]], 1.0)
 
