@@ -8,7 +8,7 @@ import datasets
 import pefile
 
 from . import dataset
-from .transforms.disassemble import ghidra
+from .transforms.disassemble import ghidra, radare2
 
 logger = logging.getLogger(__name__)
 
@@ -134,5 +134,11 @@ class AssemblageVcpkgDisassembled(AssemblageVcpkg):
     transforms = [ghidra.GhidraDisassemble()]
 
 
+class AssemblageVcpkgR2Disassembled(AssemblageVcpkg):
+    path = "assemblage-vcpkg-r2-disassembled"
+
+    transforms = [radare2.RadareDisassemble()]
+
+
 if __name__ == "__main__":
-    dataset.main([AssemblageVcpkg, AssemblageVcpkgDisassembled])
+    dataset.main([AssemblageVcpkg, AssemblageVcpkgR2Disassembled])

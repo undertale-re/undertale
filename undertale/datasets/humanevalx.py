@@ -4,7 +4,7 @@ import datasets
 
 from . import dataset, schema
 from .transforms import compile
-from .transforms.disassemble import capstone, ghidra
+from .transforms.disassemble import capstone, ghidra, radare2
 
 logger = logging.getLogger(__name__)
 
@@ -100,11 +100,18 @@ class HumanEvalXCompiledGhidraDisassembled(HumanEvalX):
     ]
 
 
+class HumanEvalXCompiledR2Disassembled(HumanEvalXCompiled):
+    path = "humaneval-x-compiled-r2-disassembled"
+
+    transforms = [radare2.RadareDisassemble()]
+
+
 if __name__ == "__main__":
     dataset.main(
         [
             HumanEvalXCompiledDisassembled,
             HumanEvalXCompiledGhidraDisassembled,
+            HumanEvalXCompiledR2Disassembled,
             HumanEvalXCompiled,
             HumanEvalX,
         ]
