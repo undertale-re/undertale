@@ -1,106 +1,165 @@
-import io
 import logging
-import os
-import tarfile
-
+import chardet
+import code
 import datasets
-import pandas as pd
+import json
+import os
+import sqlite3
+import sys
 
-from . import dataset
+from . import dataset, schema
 from .transforms import compile
-from .transforms.disassemble import capstone
+from .transforms.disassemble import capstone, ghidra
 
 logger = logging.getLogger(__name__)
 
 
+def unpack_sqlite(path: str):
+    """Unpack a given sqlite file into a dict of file names and content.
+
+    This parses the Google Code Jam archive sqlite file format.
+
+    Arguemnts:
+        path: The path to the sqlite file to unpack.
+
+    Returns:
+        A dictionary mapping file name to parsed content.
+    """
+
+    connection = sqlite3.connect(path)
+    cursor = connection.cursor()
+
+    files = {}
+    for name, _, _, _, content in cursor.execute("select * from sqlar;"):
+        files[name] = content
+        logging.debug(f"unpacked {name!r}")
+
+    return files
+
+
 class GoogleCodeJam(dataset.Dataset):
-    url = "https://codingcompetitions.withgoogle.com/codejam/archive"
-    description = "Googe Code Jam competition from 2008-2020"
+    url = "https://zibada.guru/gcj/"
+    description = "Unofficial arhive of Google Cod Jam from 2008 to 2023"
     path = "google-code-jam"
 
+    
     @classmethod
-    def list_bz2_file(cls, dir_path):
-        """List all files with .bz2 extension in 'dir_path' and sort."""
+    def loaddata(cls, path: str):
+        logging.info(f"loading .sqlar files")
 
-        bz2_files = [file for file in os.listdir(dir_path) if file.endswith(".bz2")]
-        bz2_files.sort()
+        home = os.path.expanduser("~")
+        raw = 'undertale_shared/datasets/raw/google-code-jam'
 
-        return bz2_files
+        competition = os.path.join(home, raw, f'{path}/raw_data.sqlar')
+        competition = unpack_sqlite(competition)
+
+        solutions = os.path.join(home, raw, f'{path}/solutions.sqlar')
+        solutions = unpack_sqlite(solutions)
+
+        index = json.loads(competition["raw_data/index.json"])
+        return competition, solutions, index
+
 
     @classmethod
-    def parse_bz2_file(cls, file_path):
-        """Parse .csv.tar.bz2 file to dataframe."""
+    def sqlar2tasks(cls, competition, solutions, index):
+        logging.info(f"parsing .sqlar files")
 
-        with tarfile.open(file_path, "r:bz2") as tar:
-            # There should be only one file in the archive
-            csv_file_name = tar.getmembers()[0]
+        tasks = {}
+        for task in index["challenge"]["tasks"]:
+            tasks[task["id"]] = {
+                "title": task["title"],
+                "statement": task["statement"],
+                "analysis": task["analysis"],
+                "solutions": [],
+            }
+        for key, content in competition.items():
+            if not key.startswith("raw_data/attempts/"):
+                continue
+    
+            author, _ = os.path.splitext(os.path.basename(key))
+    
+            ## Detect encoding
+            detected = chardet.detect(content)
+            encoding = detected['encoding']
+            ##confidence = detected['confidence']
+            content = content.decode(encoding,errors="replace").encode('utf-8')
+    
+            attempts = json.loads(content)
+            for index, attempt in enumerate(attempts["attempts"]):
+                task_id = attempt["task_id"]
+                language = attempt["src_language__str"]
+    
+                # Filter source language.
+                if language not in ["C", "CPP"]:
+                    #- logging.warning(
+                    #-     f"unsupported language {language}: attempt at {task_id} by {author}"
+                    #- )
+                    continue
+    
+                # Filter incorrect solutions.
+                correct = True
+                for judgement in attempt["judgement"]["results"]:
+                    if judgement.get("verdict__str") == "WRONG_ANSWER":
+                        correct = False
+                        break
+    
+                if not correct:
+                    #- logging.debug(f"failed attempt at {task_id} by {author}")
+                    continue
+    
+                #- logging.info(f"problem {task_id} solved by {author}")
+    
+                _, extension = os.path.splitext(attempt["source_file"]["filename"])
+                solution = os.path.join("solutions", f"{author}.{index}{extension}")
+    
+                tasks[task_id]["solutions"].append(
+                    {"author": author, "source": solutions[solution].decode()}
+                )
 
-            # Extract file as a file-like object
-            csv_file = tar.extractfile(csv_file_name)
+        return tasks
 
-            if csv_file is None:
-                raise ValueError("Failed to extract CSV file from the archive.")
 
-            # Convert csv to dataframe
-            df = pd.read_csv(
-                io.BytesIO(csv_file.read()),
-                dtype={
-                    "Unnamed: 0": "int64",
-                    "file": "str",
-                    "flines": "str",
-                    "full_path": "str",
-                    "round": "str",
-                    "solution": "str",
-                    "task": "str",
-                    "username": "str",
-                    "year": "int64",
-                },
-            )
+    @classmethod
+    def tasks2rows(cls, tasks):
+        logging.info(f"converting tasks to rows")
+        logging.info(f"number of tasks: {len(tasks.keys()):,}")
 
-            # Select and rename columns
-            df = df.drop(
-                columns=[
-                    "round",
-                    "username",
-                    "solution",
-                    "full_path",
-                    "Unnamed: 0",
-                    "year",
-                    "file",
-                ]
-            )
-            df = df.rename(columns={"flines": "source", "task": "summary"})
+        total_solutions = 0
+        rows = []
+        for task, problem in tasks.items():
+            num = len(problem["solutions"])
+            logging.info(f"task - number of solutions: {num:,}")
+            total_solutions += len(problem["solutions"])
 
-        return df
+            for sol in problem['solutions']:
+                rows.append({
+                    'id': f"{task}.{problem['title']}.{sol['author']}",
+                    'summary': problem['statement'],
+                    'source': sol['source']
+            })
+
+        logging.info(f'total - number of solutions = {total_solutions:,}')
+
+        return rows
+
 
     @classmethod
     def parse(cls, path: str, processes=None):
-        raw_dataset_path = os.path.abspath(os.path.expanduser(path))
+        if path == "download":
+            print('error: download not supported')
+            sys.exit()
+        else:
+            competition, solutions, index = cls.loaddata(path)
+            tasks = cls.sqlar2tasks(competition, solutions, index)
+            logging.info(f"tasks variable avaiable")
 
-        # get sorted file list of .bz2 files
-        bz2_files = cls.list_bz2_file(raw_dataset_path)
-        tot_rows = 0
+            rows = cls.tasks2rows(tasks)
+            logging.info(f"rows variable avaiable")
 
-        # process .bz2 files in raw_dataset directory
-        for index, item in enumerate(bz2_files):
-            logger.info(f"processing file: {item}")
+            dataset = datasets.Dataset.from_list(rows)
+            logging.info(f"dataset variable avaiable")
 
-            file_path = os.path.join(raw_dataset_path, item)
-
-            df = cls.parse_bz2_file(file_path)
-
-            if index == 0:
-                DF = df
-            else:
-                DF = pd.concat([DF, df], ignore_index=True)
-
-            tot_rows += len(df)
-            logger.info(f"collected {len(df)} samples from {item}")
-
-        dataset = datasets.Dataset.from_pandas(DF)
         dataset.__class__ = cls
-
-        logger.info(f"collected {tot_rows} from {len(bz2_files)} files")
 
         return dataset
 
@@ -116,6 +175,7 @@ class GoogleCodeJamCompiled(GoogleCodeJam):
 
 class GoogleCodeJamCompiledDisassembled(GoogleCodeJam):
     path = "google-code-jam-compiled-disassembled"
+    schema = schema.SummarizedFunction
 
     transforms = [
         compile.Compile(),
@@ -124,7 +184,23 @@ class GoogleCodeJamCompiledDisassembled(GoogleCodeJam):
     ]
 
 
+class GoogleCodeJamCompiledGhidraDisassembled(GoogleCodeJam):
+    path = "google-code-jam-compiled-ghidra-disassembled"
+
+    transforms = [
+        compile.Compile(),
+        compile.CompileErrorsFilter(),
+        ghidra.GhidraDisassemble(),
+    ]
+
+
 if __name__ == "__main__":
     dataset.main(
-        [GoogleCodeJamCompiledDisassembled, GoogleCodeJamCompiled, GoogleCodeJam]
+        [
+            GoogleCodeJamCompiledDisassembled,
+            GoogleCodeJamCompiledGhidraDisassembled,
+            GoogleCodeJamCompiled,
+            GoogleCodeJam,
+        ]
     )
+
