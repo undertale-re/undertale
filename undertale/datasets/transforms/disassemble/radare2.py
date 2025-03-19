@@ -24,7 +24,11 @@ class RadareDisassemble(transform.Map):
         r.cmd("aa")
         # pdf is "print disassembly of function" j means json
         pdf = r.cmd("pdfj")
-        return json.loads(pdf)
+        try:
+            pdf_dict = json.loads(pdf)
+            return pdf_dict
+        except:
+            return {}
 
     def __call__(self, sample):
         code = sample["code"]
@@ -41,8 +45,9 @@ class RadareDisassemble(transform.Map):
         d = self.disas_buf(r, code)
 
         disassembly = []
-        for i in range(len(d["ops"])):
-            disassembly.append(d["ops"][i]["disasm"])
+        if "ops" in d.keys():
+            for i in range(len(d["ops"])):
+                disassembly.append(d["ops"][i]["disasm"])
 
         disassembly = "\n".join(disassembly)
 
