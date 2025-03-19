@@ -5,7 +5,6 @@ from datatrove.pipeline.base import PipelineStep
 
 
 class PairwiseContrastive(PipelineStep):
-
     def __init__(self, num_samples, negative_multiple):
         """
 
