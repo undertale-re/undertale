@@ -1,6 +1,6 @@
 from datatrove.pipeline.readers import HuggingFaceDatasetReader
 
-from . import utils
+from .base import Dataset, main
 from .pipeline.compilers import CppCompiler
 from .pipeline.disassemblers import GhidraDisassembler
 
@@ -15,27 +15,28 @@ def adapt_humanevalx_from_huggingface(
     }
 
 
-readers = {
-    "huggingface": lambda input: [
-        HuggingFaceDatasetReader(
-            "THUDM/humaneval-x",
-            {"name": "cpp", "split": "test"},
-            adapter=adapt_humanevalx_from_huggingface,
-        )
-    ],
-}
+class HumanEvalX(Dataset):
+    name = "humaneval-x"
 
-pipelines = {
-    "humanevalx": [
-        CppCompiler(),
-        GhidraDisassembler(),
-    ],
-}
+    readers = {
+        "huggingface": lambda input: [
+            HuggingFaceDatasetReader(
+                "THUDM/humaneval-x",
+                {"name": "cpp", "split": "test"},
+                adapter=adapt_humanevalx_from_huggingface,
+            )
+        ],
+    }
+    default_reader = "huggingface"
+
+    pipelines = {
+        "humanevalx": [
+            CppCompiler(),
+            GhidraDisassembler(),
+        ],
+    }
+    default_pipeline = "humanevalx"
+
 
 if __name__ == "__main__":
-    utils.main(
-        readers=readers,
-        default_reader="huggingface",
-        pipelines=pipelines,
-        default_pipeline="humanevalx",
-    )
+    main(HumanEvalX)
