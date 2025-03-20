@@ -184,4 +184,5 @@ class APTSegmentedDisassembled(APT):
 
 
 if __name__ == "__main__":
-    dataset.main([APTSegmentedDisassembled, APTSegmented, APT])
+    # dataset.main([APTSegmentedDisassembled, APTSegmented, APT])
+    dataset.main([APTSegmented, APT])
