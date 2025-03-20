@@ -1,7 +1,8 @@
 import os
 
 from datatrove.executor import SlurmPipelineExecutor
-from datatrove.io import DataFolderLike, DocumentsPipeline
+from datatrove.io import DataFolderLike
+from datatrove.data import DocumentsPipeline
 from datatrove.pipeline.base import PipelineStep
 from datatrove.pipeline.filters import LambdaFilter
 from datatrove.pipeline.readers import JsonlReader
@@ -485,7 +486,7 @@ builds_dir = os.path.join(base_dir, "builds")
 working_dir = os.path.join(tmp_dir, "working-build")
 github_cache_dir = "/home/gridsan/CH17997/github_cache"
 github_token = "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"
-dataset_dir = "home/gridsan/groups/undertale_shared/datasets/nixpkgs"
+dataset_dir = "/home/gridsan/groups/undertale_shared/datasets/nixpkgs"
 dataset_working_dir = os.path.join(tmp_dir, "working-dataset")
 proxies = {
     "http": "http://llproxy-rr.llgrid.ll.mit.edu:8080",
@@ -579,7 +580,10 @@ build_packages = SlurmPipelineExecutor(
             wrapper_args=["/home/gridsan/CH17997/bin/llnix", "-n", "--"],
             build_timeout=2 * 60 * 60,
         ),
-        JsonlWriter(output_folder=builds_dir),
+        JsonlWriter(
+            output_folder=builds_dir,
+            max_file_size = 50 * 1024,
+        ),
     ],
     logging_dir=f"{log_dir}/build",
     tasks=len(flakes) * 32,
@@ -599,16 +603,15 @@ extract_dataset = SlurmPipelineExecutor(
         ParquetWriter(
             output_folder=dataset_dir,
             adapter=lambda self, doc: doc.metadata,
-            max_file_size=500 * 1024 * 1024,
+            max_file_size=100 * 1024 * 1024,
         ),
     ],
     logging_dir=f"{log_dir}/export",
-    tasks=64,  # len(flakes)*32,
+    tasks=len(flakes)*32,
     time="02:00:00",
     job_name="extract_nixpkgs",
     mem_per_cpu_gb=4,
     cpus_per_task=2,
-    # max_array_launch_parallel = True,
     partition="xeon-p8",
     sbatch_args={"distribution": "cyclic:cyclic"},
 )
