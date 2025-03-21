@@ -35,13 +35,13 @@ class GhidraFunctionSegmenter(PipelineStep):
 
         for document in data:
             with self.track_time():
-                binary = document.text
+                code = document.text
 
                 working = tempfile.TemporaryDirectory()
                 binary = os.path.join(working.name, "binary")
 
                 with open(binary, "wb") as f:
-                    f.write(binary)
+                    f.write(code)
 
                 with pyhidra.open_program(binary) as api:
                     program = api.getCurrentProgram()
@@ -57,7 +57,7 @@ class GhidraFunctionSegmenter(PipelineStep):
                         start = body.getMinAddress().getOffset()
                         end = body.getMaxAddress().getOffset()
 
-                        code = binary[start - base : end - base]
+                        code = code[start - base : end - base]
 
                         # Also disassemble, decompile, and build the CFG.
                         graph, disassembly, decompilation = build_control_flow_graph(
