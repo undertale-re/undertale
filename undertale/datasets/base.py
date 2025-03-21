@@ -4,11 +4,12 @@ import logging
 import os
 import shutil
 from abc import ABCMeta, abstractmethod
-from typing import Any, Callable, Dict, List, Optional
+from typing import List, Optional
 
 import datasets
 from datatrove.data import Document
 from datatrove.executor import LocalPipelineExecutor, SlurmPipelineExecutor
+from datatrove.executor.base import PipelineExecutor
 from datatrove.pipeline.base import PipelineStep
 from datatrove.pipeline.writers import ParquetWriter
 
@@ -46,29 +47,24 @@ writers = {
 default_writer = "parquet"
 
 executors = {
-    "local": lambda pipeline, options: LocalPipelineExecutor(
-        pipeline,
-        tasks=options.get("executor_tasks"),
-        logging_dir=options.get("executor_logging_directory"),
-    ),
-    "slurm": lambda pipeline, options: SlurmPipelineExecutor(
-        pipeline,
-        tasks=options.get("executor_tasks"),
-        time=options.get("slurm_time"),
-        job_name=options.get("slurm_job_name"),
-        mem_per_cpu_gb=options.get("slurm_mem_per_cpu"),
-        cpus_per_task=options.get("slurm_cpus_per_task"),
-        max_array_launch_parallel=True,
-        partition=options.get("slurm_partition"),
-        logging_dir=options.get("executor_logging_directory"),
-    ),
+    "local": LocalPipelineExecutor,
+    "slurm": SlurmPipelineExecutor,
 }
 
 default_executor = "local"
 
 
 class Dataset(metaclass=ABCMeta):
-    """The base class for all Undertale datasets."""
+    """The base class for all Undertale datasets.
+
+    Arguments:
+        writer: The name of the dataset writer to use.
+        executor: The name of the dataset executor to use.
+    """
+
+    def __init__(self, writer: str = default_writer, executor: str = default_executor):
+        self.writer = writer
+        self.executor = executor
 
     @property
     @abstractmethod
@@ -78,71 +74,38 @@ class Dataset(metaclass=ABCMeta):
         This should be lowercase, kebab-case.
         """
 
-    @property
-    @abstractmethod
-    def readers(self) -> Dict[str, Callable[[str], Pipeline]]:
-        """A mapping of names to reader pipelines factories.
-
-        These pipelines should handle all of the steps for reading a raw
-        dataset, but not yet process it.
-
-        Factories take a single argument - an input string provided by the user
-        that can be used to indicate from where data should be read.
-
-        These allow you to specify multiple possible sources of input to your
-        pipeline.
-        """
-
-    @property
-    @abstractmethod
-    def default_reader(self) -> str:
-        """The default reader pipeline to use."""
-
-    @property
-    @abstractmethod
-    def pipelines(self) -> Dict[str, Pipeline]:
-        """A mapping of names to processing pipelines.
-
-        These pipelines should handle only data processing, not parsing.
-        """
-
-    @property
-    @abstractmethod
-    def default_pipeline(self) -> str:
-        """The default processing pipeline to use."""
-
-    def process(
-        self,
-        input: str,
-        output: str,
-        reader: Optional[str] = None,
-        pipeline: Optional[str] = None,
-        executor: Optional[str] = None,
-        options: Optional[Dict[str, Any]] = None,
-        writer: Optional[str] = None,
-    ) -> None:
-        """Process this dataset from raw datas files or input.
+    def get_executor(self, pipeline: List[PipelineStep], **kwargs) -> PipelineExecutor:
+        """Returns an executor for the current pipeline.
 
         Arguments:
-            input: Input value (path, name, etc.).
-            output: Output value (path, name, etc.).
-            reader: Name of the reader pipeline to use.
-            pipeline: Name of the processing pipeline to run.
-            executor: Name of the executor to use.
-            options: A dictionary of options to provide to the executor.
-            writer: Name of the writer pipeline to use.
+            pipeline: A list of pipeline steps.
         """
 
-        reader = reader or self.default_reader
-        pipeline = pipeline or self.default_pipeline
-        executor = executor or default_executor
-        options = options or {}
-        writer = writer or default_writer
+        return executors[self.executor](pipeline, **kwargs)
 
-        workflow = self.readers[reader](input).copy()
-        workflow += self.pipelines[pipeline].copy()
-        workflow += writers[writer](output)
-        executor = executors[executor](workflow, options)
+    @abstractmethod
+    def get_pipeline(
+        self, input: str, writer: List[PipelineStep], parallelism: int = 1
+    ) -> PipelineExecutor:
+        """Build and reutrn the dataset processing pipeline.
+
+        This should make use of the `executor` method to wrape the configured
+        executor.
+
+        Arguments:
+            input: Some input data from the user (path, name, etc.).
+            writer: A series of output writer steps to add to the pipeline.
+            parallelism: The degree of parallelism; dataset authors can choose
+                to implement this however they want.
+        """
+
+    def build(
+        self, input: str, output: Optional[str] = None, parallelism: int = 1
+    ) -> None:
+        output = output or self.path
+
+        writer = writers[self.writer](output)
+        executor = self.get_pipeline(input, writer, parallelism)
 
         executor.run()
 
@@ -249,27 +212,9 @@ def main(dataset_class: Dataset) -> None:
 
     undertale_logging.setup_logging()
 
-    dataset = dataset_class()
-
     parser = argparse.ArgumentParser(
-        description=f"process {dataset.name}",
+        description="process this dataset",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-
-    parser.add_argument(
-        "-r",
-        "--reader",
-        choices=dataset.readers,
-        default=dataset.default_reader,
-        help="the reader to use",
-    )
-
-    parser.add_argument(
-        "-p",
-        "--pipeline",
-        choices=dataset.pipelines,
-        default=dataset.default_pipeline,
-        help="the pipeline to run",
     )
 
     parser.add_argument(
@@ -281,33 +226,6 @@ def main(dataset_class: Dataset) -> None:
     )
 
     parser.add_argument(
-        "--executor-logging-directory",
-        default="./logs/",
-        help="logging directory for executor logs",
-    )
-    parser.add_argument(
-        "--executor-tasks", type=int, default=1, help="number of parallel tasks to run"
-    )
-
-    parser.add_argument(
-        "--slurm-time",
-        default="02:00:00",
-        help="maximum time a job can be allowed to run",
-    )
-    parser.add_argument(
-        "--slurm-job-name", default="build-dataset", help="a name for this job"
-    )
-    parser.add_argument(
-        "--slurm-mem-per-cpu", type=int, default=1, help="maximum memory per cpu (GB)"
-    )
-    parser.add_argument(
-        "--slurm-cpus-per-task", type=int, default=4, help="CPUs allocated to each task"
-    )
-    parser.add_argument(
-        "--slurm-partition", help="partition to which this job should be submitted"
-    )
-
-    parser.add_argument(
         "-w",
         "--writer",
         choices=writers,
@@ -315,18 +233,23 @@ def main(dataset_class: Dataset) -> None:
         help="output writer (format)",
     )
 
+    parser.add_argument(
+        "-p",
+        "--parallelism",
+        type=int,
+        default=1,
+        help="degree of parallelism (dataset implementation dependent)",
+    )
+
     parser.add_argument("input", help="input location")
 
-    parser.add_argument("-o", "--output", default=dataset.path, help="output location")
+    parser.add_argument("-o", "--output", help="output location")
 
     arguments = parser.parse_args()
 
-    dataset.process(
+    dataset = dataset_class(writer=arguments.writer, executor=arguments.executor)
+    dataset.build(
         input=arguments.input,
         output=arguments.output,
-        reader=arguments.reader,
-        pipeline=arguments.pipeline,
-        executor=arguments.executor,
-        options=arguments.__dict__,
-        writer=arguments.writer,
+        parallelism=arguments.parallelism,
     )
