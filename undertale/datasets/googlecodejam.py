@@ -1,11 +1,11 @@
-import logging
-import chardet
-import code
-import datasets
 import json
+import logging
 import os
 import sqlite3
 import sys
+
+import chardet
+import datasets
 
 from . import dataset, schema
 from .transforms import compile
@@ -42,22 +42,20 @@ class GoogleCodeJam(dataset.Dataset):
     description = "Unofficial arhive of Google Cod Jam from 2008 to 2023"
     path = "google-code-jam"
 
-    
     @classmethod
-    def loaddata(cls, path: str):   # path: full path
+    def loaddata(cls, path: str):  # path: full path
         logging.info(f"loading .sqlar files from: {path}")
 
-        competition = unpack_sqlite(f'{path}/raw_data.sqlar')
+        competition = unpack_sqlite(f"{path}/raw_data.sqlar")
 
-        solutions = unpack_sqlite(f'{path}/solutions.sqlar')
+        solutions = unpack_sqlite(f"{path}/solutions.sqlar")
 
         index = json.loads(competition["raw_data/index.json"])
         return competition, solutions, index
 
-
     @classmethod
     def sqlar2tasks(cls, competition, solutions, index):
-        logging.info(f"parsing .sqlar files")
+        logging.info("parsing .sqlar files")
 
         tasks = {}
         for task in index["challenge"]["tasks"]:
@@ -70,53 +68,52 @@ class GoogleCodeJam(dataset.Dataset):
         for key, content in competition.items():
             if not key.startswith("raw_data/attempts/"):
                 continue
-    
+
             author, _ = os.path.splitext(os.path.basename(key))
-    
+
             ## Detect encoding
             detected = chardet.detect(content)
-            encoding = detected['encoding']
+            encoding = detected["encoding"]
             ##confidence = detected['confidence']
-            content = content.decode(encoding,errors="replace").encode('utf-8')
-    
+            content = content.decode(encoding, errors="replace").encode("utf-8")
+
             attempts = json.loads(content)
             for index, attempt in enumerate(attempts["attempts"]):
                 task_id = attempt["task_id"]
                 language = attempt["src_language__str"]
-    
+
                 # Filter source language.
                 if language not in ["C", "CPP"]:
-                    #- logging.warning(
-                    #-     f"unsupported language {language}: attempt at {task_id} by {author}"
-                    #- )
+                    # - logging.warning(
+                    # -     f"unsupported language {language}: attempt at {task_id} by {author}"
+                    # - )
                     continue
-    
+
                 # Filter incorrect solutions.
                 correct = True
                 for judgement in attempt["judgement"]["results"]:
                     if judgement.get("verdict__str") == "WRONG_ANSWER":
                         correct = False
                         break
-    
+
                 if not correct:
-                    #- logging.debug(f"failed attempt at {task_id} by {author}")
+                    # - logging.debug(f"failed attempt at {task_id} by {author}")
                     continue
-    
-                #- logging.info(f"problem {task_id} solved by {author}")
-    
+
+                # - logging.info(f"problem {task_id} solved by {author}")
+
                 _, extension = os.path.splitext(attempt["source_file"]["filename"])
                 solution = os.path.join("solutions", f"{author}.{index}{extension}")
-    
+
                 tasks[task_id]["solutions"].append(
                     {"author": author, "source": solutions[solution].decode()}
                 )
 
         return tasks
 
-
     @classmethod
     def tasks2rows(cls, tasks):
-        logging.info(f"converting tasks to rows")
+        logging.info("converting tasks to rows")
         logging.info(f"number of tasks: {len(tasks.keys()):,}")
 
         competition_solutions = 0
@@ -126,35 +123,36 @@ class GoogleCodeJam(dataset.Dataset):
             logging.info(f"task - number of solutions: {num:,}")
             competition_solutions += len(problem["solutions"])
 
-            for sol in problem['solutions']:
-                rows.append({
-                    'id': f"{task}.{problem['title']}.{sol['author']}",
-                    'summary': problem['statement'],
-                    'source': sol['source']
-            })
+            for sol in problem["solutions"]:
+                rows.append(
+                    {
+                        "id": f"{task}.{problem['title']}.{sol['author']}",
+                        "summary": problem["statement"],
+                        "source": sol["source"],
+                    }
+                )
 
-        logging.info(f'Number of solutions in all tasks = {competition_solutions:,}')
+        logging.info(f"Number of solutions in all tasks = {competition_solutions:,}")
 
         return rows, competition_solutions
-
 
     @classmethod
     def parse(cls, path: str, processes=None):
         """
         parse unpack:
-            Unpack .sqlar file into json files 
+            Unpack .sqlar file into json files
         parse fuse:
             Combine json files and compile dataset
         parse {dir}:
             Directory dir has raw_data.sqlar and solutions.sqlar file pair to compile dataset
             Example: parse y2023/2023a
-        
+
         """
         if path == "unpack":
             home = os.path.expanduser("~")
-            raw = 'undertale_shared/datasets/raw/google-code-jam'
+            raw = "undertale_shared/datasets/raw/google-code-jam"
             path = os.path.join(home, raw)
-    
+
             # find directories with both files
             dir_list = []
             for dirpath, dirnames, filenames in os.walk(path):
@@ -165,7 +163,7 @@ class GoogleCodeJam(dataset.Dataset):
             staging = f"{path}/staging"
             if not os.path.exists(staging):
                 os.makedirs(staging)
-    
+
             total_number = 0
             for idx, dir in enumerate(dir_list):
                 logging.info(f"processing dir #{idx:04} : {dir}")
@@ -175,49 +173,49 @@ class GoogleCodeJam(dataset.Dataset):
                     rows, number_solutions = cls.tasks2rows(tasks)
                 except Exception as e:
                     logging.exception(f"in unpack;idx={idx} Execption: {e}")
-    
+
                 total_number += number_solutions
                 fname = f"{staging}/rows-{idx:04}.json"
                 with open(fname, "w") as f:
-                        json.dump(rows, f)
-    
-            logging.info(f"finished unpacking .sqlar files")
+                    json.dump(rows, f)
+
+            logging.info("finished unpacking .sqlar files")
             logging.info(f"Total number of solutions: {total_number}")
             sys.exit()
 
         elif path == "fuse":
 
             home = os.path.expanduser("~")
-            raw = 'undertale_shared/datasets/raw/google-code-jam'
-            staging = os.path.join(home, raw, 'staging')
+            raw = "undertale_shared/datasets/raw/google-code-jam"
+            staging = os.path.join(home, raw, "staging")
             logging.info(f"collecting .json files in dir: {staging}")
 
             rows = []
             for fname in os.listdir(staging):
-                if (fname.endswith(".json")):
-                        full_path = os.path.join(staging, fname)
-                        with open(full_path, 'r', encoding='utf-8') as f:
-                            data = json.load(f)
-                            rows.extend(data)
+                if fname.endswith(".json"):
+                    full_path = os.path.join(staging, fname)
+                    with open(full_path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                        rows.extend(data)
             logging.info(f"items in dataset: {len(rows)}")
 
             dataset = datasets.Dataset.from_list(rows)
-            logging.info(f"compile json files to dataset")
-            
-        else: # path has both competition and solutions files
+            logging.info("compile json files to dataset")
+
+        else:  # path has both competition and solutions files
             home = os.path.expanduser("~")
-            raw = 'undertale_shared/datasets/raw/google-code-jam'
+            raw = "undertale_shared/datasets/raw/google-code-jam"
             path = os.path.join(home, raw, path)
-            
+
             competition, solutions, index = cls.loaddata(path)
             tasks = cls.sqlar2tasks(competition, solutions, index)
-            logging.info(f"tasks variable avaiable")
+            logging.info("tasks variable avaiable")
 
             rows = cls.tasks2rows(tasks)
-            logging.info(f"rows variable avaiable")
+            logging.info("rows variable avaiable")
 
             dataset = datasets.Dataset.from_list(rows)
-            logging.info(f"dataset variable avaiable")
+            logging.info("dataset variable avaiable")
 
         dataset.__class__ = cls
 
@@ -263,4 +261,3 @@ if __name__ == "__main__":
             GoogleCodeJam,
         ]
     )
-
