@@ -44,17 +44,12 @@ class GoogleCodeJam(dataset.Dataset):
 
     
     @classmethod
-    def loaddata(cls, path: str):
-        logging.info(f"loading .sqlar files")
+    def loaddata(cls, path: str):   # path: full path
+        logging.info(f"loading .sqlar files from: {path}")
 
-        home = os.path.expanduser("~")
-        raw = 'undertale_shared/datasets/raw/google-code-jam'
+        competition = unpack_sqlite(f'{path}/raw_data.sqlar')
 
-        competition = os.path.join(home, raw, f'{path}/raw_data.sqlar')
-        competition = unpack_sqlite(competition)
-
-        solutions = os.path.join(home, raw, f'{path}/solutions.sqlar')
-        solutions = unpack_sqlite(solutions)
+        solutions = unpack_sqlite(f'{path}/solutions.sqlar')
 
         index = json.loads(competition["raw_data/index.json"])
         return competition, solutions, index
@@ -124,12 +119,12 @@ class GoogleCodeJam(dataset.Dataset):
         logging.info(f"converting tasks to rows")
         logging.info(f"number of tasks: {len(tasks.keys()):,}")
 
-        total_solutions = 0
+        competition_solutions = 0
         rows = []
         for task, problem in tasks.items():
             num = len(problem["solutions"])
             logging.info(f"task - number of solutions: {num:,}")
-            total_solutions += len(problem["solutions"])
+            competition_solutions += len(problem["solutions"])
 
             for sol in problem['solutions']:
                 rows.append({
@@ -138,17 +133,82 @@ class GoogleCodeJam(dataset.Dataset):
                     'source': sol['source']
             })
 
-        logging.info(f'total - number of solutions = {total_solutions:,}')
+        logging.info(f'Number of solutions in all tasks = {competition_solutions:,}')
 
-        return rows
+        return rows, competition_solutions
 
 
     @classmethod
     def parse(cls, path: str, processes=None):
-        if path == "download":
-            print('error: download not supported')
+        """
+        parse unpack:
+            Unpack .sqlar file into json files 
+        parse fuse:
+            Combine json files and compile dataset
+        parse {dir}:
+            Directory dir has raw_data.sqlar and solutions.sqlar file pair to compile dataset
+            Example: parse y2023/2023a
+        
+        """
+        if path == "unpack":
+            home = os.path.expanduser("~")
+            raw = 'undertale_shared/datasets/raw/google-code-jam'
+            path = os.path.join(home, raw)
+    
+            # find directories with both files
+            dir_list = []
+            for dirpath, dirnames, filenames in os.walk(path):
+                if "raw_data.sqlar" in filenames and "solutions.sqlar" in filenames:
+                    dir_list.append(dirpath)
+            logging.info(f"{len(dir_list)} directories have both file pairs")
+
+            staging = f"{path}/staging"
+            if not os.path.exists(staging):
+                os.makedirs(staging)
+    
+            total_number = 0
+            for idx, dir in enumerate(dir_list):
+                logging.info(f"processing dir #{idx:04} : {dir}")
+                try:
+                    competition, solutions, index = cls.loaddata(dir)
+                    tasks = cls.sqlar2tasks(competition, solutions, index)
+                    rows, number_solutions = cls.tasks2rows(tasks)
+                except Exception as e:
+                    logging.exception(f"in unpack;idx={idx} Execption: {e}")
+    
+                total_number += number_solutions
+                fname = f"{staging}/rows-{idx:04}.json"
+                with open(fname, "w") as f:
+                        json.dump(rows, f)
+    
+            logging.info(f"finished unpacking .sqlar files")
+            logging.info(f"Total number of solutions: {total_number}")
             sys.exit()
-        else:
+
+        elif path == "fuse":
+
+            home = os.path.expanduser("~")
+            raw = 'undertale_shared/datasets/raw/google-code-jam'
+            staging = os.path.join(home, raw, 'staging')
+            logging.info(f"collecting .json files in dir: {staging}")
+
+            rows = []
+            for fname in os.listdir(staging):
+                if (fname.endswith(".json")):
+                        full_path = os.path.join(staging, fname)
+                        with open(full_path, 'r', encoding='utf-8') as f:
+                            data = json.load(f)
+                            rows.extend(data)
+            logging.info(f"items in dataset: {len(rows)}")
+
+            dataset = datasets.Dataset.from_list(rows)
+            logging.info(f"compile json files to dataset")
+            
+        else: # path has both competition and solutions files
+            home = os.path.expanduser("~")
+            raw = 'undertale_shared/datasets/raw/google-code-jam'
+            path = os.path.join(home, raw, path)
+            
             competition, solutions, index = cls.loaddata(path)
             tasks = cls.sqlar2tasks(competition, solutions, index)
             logging.info(f"tasks variable avaiable")
