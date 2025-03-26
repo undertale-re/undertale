@@ -74,7 +74,7 @@ class HumanEvalXCompiled(HumanEvalX):
     path = "humaneval-x-compiled"
 
     transforms = [
-        compile.Compile(),
+        compile.CompileCpp(),
         compile.CompileErrorsFilter(),
     ]
 
@@ -84,7 +84,7 @@ class HumanEvalXCompiledDisassembled(HumanEvalX):
     schema = schema.SummarizedFunction
 
     transforms = [
-        compile.Compile(),
+        compile.CompileCpp(),
         compile.CompileErrorsFilter(),
         capstone.CapstoneDisassemble(),
     ]
