@@ -1,11 +1,13 @@
 import os
 
+from undertale.datasets.transforms.segment.lief import SegmentLief
+
 from datatrove.executor import SlurmPipelineExecutor
 from datatrove.io import DataFolderLike
 from datatrove.data import DocumentsPipeline
 from datatrove.pipeline.base import PipelineStep
 from datatrove.pipeline.filters import LambdaFilter
-from datatrove.pipeline.readers import JsonlReader
+from datatrove.pipeline.readers import JsonlReader, ParquetReader
 from datatrove.pipeline.writers import JsonlWriter, ParquetWriter
 
 
@@ -450,7 +452,7 @@ class ExtractBinaryDataset(PipelineStep):
                             for rel_path in doc.metadata["binaries"]:
                                 package = rel_path.split(os.path.sep)[0]
                                 file_name = os.path.basename(rel_path)
-                                binary = tar_file.extractfile(rel_path).read()
+                                binary = tar_file.extractfile(os.path.normpath(rel_path)).read()
                                 yield Document(
                                     id=rel_path,
                                     text=rel_path,
@@ -470,7 +472,7 @@ class ExtractBinaryDataset(PipelineStep):
                                 )
                                 self.stat_update("success")
                     except Exception as e:
-                        logger.warn(
+                        logger.warning(
                             "failed to decompress binary: ({}) {}", str(e), doc.text
                         )
                         self.stat_update("failure")
@@ -487,6 +489,7 @@ working_dir = os.path.join(tmp_dir, "working-build")
 github_cache_dir = "/home/gridsan/CH17997/github_cache"
 github_token = "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"
 dataset_dir = "/home/gridsan/groups/undertale_shared/datasets/nixpkgs"
+funcs_dir = "/home/gridsan/groups/undertale_shared/datasets/nixpkgs-functions"
 dataset_working_dir = os.path.join(tmp_dir, "working-dataset")
 proxies = {
     "http": "http://llproxy-rr.llgrid.ll.mit.edu:8080",
@@ -589,14 +592,13 @@ build_packages = SlurmPipelineExecutor(
     tasks=len(flakes) * 32,
     time="02:00:00",
     job_name="build_nixpkgs",
-    # mem_per_cpu_gb=1,
-    # cpus_per_task=4,
-    # max_array_launch_parallel = True,
+    mem_per_cpu_gb=1,
+    cpus_per_task=4,
     partition="download",
 )
 
 extract_dataset = SlurmPipelineExecutor(
-    # depends = build_packages,
+    depends = build_packages,
     pipeline=[
         JsonlReader(data_folder=builds_dir),
         ExtractBinaryDataset(),
@@ -607,7 +609,7 @@ extract_dataset = SlurmPipelineExecutor(
         ),
     ],
     logging_dir=f"{log_dir}/export",
-    tasks=len(flakes)*32,
+    tasks=len(flakes)*2400,
     time="02:00:00",
     job_name="extract_nixpkgs",
     mem_per_cpu_gb=4,
@@ -616,5 +618,34 @@ extract_dataset = SlurmPipelineExecutor(
     sbatch_args={"distribution": "cyclic:cyclic"},
 )
 
+segment_functions = SlurmPipelineExecutor(
+    # depends = extract_dataset,
+    pipeline=[
+        ParquetReader(
+            data_folder=dataset_dir,
+            adapter=lambda self, data, path, id_in_file: {
+                'id':data['filename'],
+                'text':data['binary'],
+                'metadata': data
+            }
+        ),
+        SegmentLief(),
+        ParquetWriter(
+            output_folder=funcs_dir,
+            adapter=lambda self, doc: doc.metadata,
+            max_file_size=100 * 1024 * 1024,
+        ),
+    ],
+    venv_path="/home/gridsan/CH17997/.venv",
+    logging_dir=f"{log_dir}/segment",
+    tasks=len(flakes)*100,
+    max_array_size=310,
+    time="02:00:00",
+    job_name="segment_nixpkgs",
+    mem_per_cpu_gb=4,
+    cpus_per_task=2,
+    partition="xeon-p8",
+    sbatch_args={"distribution": "cyclic:cyclic"},
+)
 if __name__ == "__main__":
-    extract_dataset.run()
+    segment_functions.run()

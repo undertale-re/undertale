@@ -28,6 +28,11 @@ setup(
         "networkx",
         "bs4",
         "requests",
+        "filelock",
+        "unix_ar",
+        "cpp_demangle",
+        "itanium-demangler",
+        "rust-demangler"
     ],
     extras_require={
         "development": [
