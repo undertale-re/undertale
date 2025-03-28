@@ -1,14 +1,14 @@
 import os
 
-from undertale.datasets.transforms.segment.lief import SegmentLief
-
+from datatrove.data import DocumentsPipeline
 from datatrove.executor import SlurmPipelineExecutor
 from datatrove.io import DataFolderLike
-from datatrove.data import DocumentsPipeline
 from datatrove.pipeline.base import PipelineStep
 from datatrove.pipeline.filters import LambdaFilter
 from datatrove.pipeline.readers import JsonlReader, ParquetReader
 from datatrove.pipeline.writers import JsonlWriter, ParquetWriter
+
+from undertale.datasets.transforms.segment.lief import SegmentLief
 
 
 class FindNixpkgs(PipelineStep):
@@ -43,15 +43,24 @@ class FindNixpkgs(PipelineStep):
         isC = drv:
           lib.isDerivation drv && (
             (
-              builtins.elem pkgs.gcc ((drv.buildInputs or []) ++ (drv.nativeBuildInputs or []) ++ (drv.depsBuildBuild or []))
+              builtins.elem pkgs.gcc ((drv.buildInputs or [])
+                  ++ (drv.nativeBuildInputs or [])
+                  ++ (drv.depsBuildBuild or []))
             ) || (
-              builtins.elem pkgs.stdenv.cc ((drv.buildInputs or []) ++ (drv.nativeBuildInputs or []) ++ (drv.depsBuildBuild or []))
+              builtins.elem pkgs.stdenv.cc ((drv.buildInputs or [])
+                  ++ (drv.nativeBuildInputs or [])
+                  ++ (drv.depsBuildBuild or []))
             )
           );
 
-        topLevelNames = lib.lists.filter (x: !(builtins.elem x blacklist)) (builtins.attrNames pkgs);
+        topLevelNames = lib.lists.filter
+            (x: !(builtins.elem x blacklist))
+            (builtins.attrNames pkgs);
 
-        mapFunc = name: value: {{name = "${{name}}"; urls = let src=value.src or {{}}; urls=src.urls or []; in urls; }};
+        mapFunc = name: value: {{
+            name = "${{name}}";
+            urls = let src=value.src or {{}};
+            urls=src.urls or []; in urls; }};
 
         validNames =
           builtins.map (name:
@@ -113,7 +122,9 @@ class FindNixpkgs(PipelineStep):
                         os.unlink(nixfile.name)
                     if result.returncode != 0:
                         logger.error(
-                            "failed return code: {result.returncode}\n{result.stdout}\n{result.stderr}",
+                            """failed return code: {result.returncode}
+                                {result.stdout}
+                                {result.stderr}""",
                             result=result,
                         )
                         packages = []
@@ -122,7 +133,10 @@ class FindNixpkgs(PipelineStep):
                         # logger.debug("stderr:\n{}",result.stderr)
                 except json.decoder.JSONDecodeError as err:
                     logger.error(
-                        "error parsing nix findpkgs results: {err}\n{result.returncode}\n{result.stdout}\n{result.stderr}",
+                        """error parsing nix findpkgs results: {err}
+                            {result.returncode}
+                            {result.stdout}
+                            {result.stderr}""",
                         result=result,
                         err=err,
                     )
@@ -452,7 +466,9 @@ class ExtractBinaryDataset(PipelineStep):
                             for rel_path in doc.metadata["binaries"]:
                                 package = rel_path.split(os.path.sep)[0]
                                 file_name = os.path.basename(rel_path)
-                                binary = tar_file.extractfile(os.path.normpath(rel_path)).read()
+                                binary = tar_file.extractfile(
+                                    os.path.normpath(rel_path)
+                                ).read()
                                 yield Document(
                                     id=rel_path,
                                     text=rel_path,
@@ -585,7 +601,7 @@ build_packages = SlurmPipelineExecutor(
         ),
         JsonlWriter(
             output_folder=builds_dir,
-            max_file_size = 50 * 1024,
+            max_file_size=50 * 1024,
         ),
     ],
     logging_dir=f"{log_dir}/build",
@@ -598,7 +614,7 @@ build_packages = SlurmPipelineExecutor(
 )
 
 extract_dataset = SlurmPipelineExecutor(
-    depends = build_packages,
+    depends=build_packages,
     pipeline=[
         JsonlReader(data_folder=builds_dir),
         ExtractBinaryDataset(),
@@ -609,7 +625,7 @@ extract_dataset = SlurmPipelineExecutor(
         ),
     ],
     logging_dir=f"{log_dir}/export",
-    tasks=len(flakes)*2400,
+    tasks=len(flakes) * 2400,
     time="02:00:00",
     job_name="extract_nixpkgs",
     mem_per_cpu_gb=4,
@@ -624,10 +640,10 @@ segment_functions = SlurmPipelineExecutor(
         ParquetReader(
             data_folder=dataset_dir,
             adapter=lambda self, data, path, id_in_file: {
-                'id':data['filename'],
-                'text':data['binary'],
-                'metadata': data
-            }
+                "id": data["filename"],
+                "text": data["binary"],
+                "metadata": data,
+            },
         ),
         SegmentLief(),
         ParquetWriter(
@@ -638,7 +654,7 @@ segment_functions = SlurmPipelineExecutor(
     ],
     venv_path="/home/gridsan/CH17997/.venv",
     logging_dir=f"{log_dir}/segment",
-    tasks=len(flakes)*100,
+    tasks=len(flakes) * 100,
     max_array_size=310,
     time="02:00:00",
     job_name="segment_nixpkgs",
