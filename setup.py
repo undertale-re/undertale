@@ -32,7 +32,7 @@ setup(
         "unix_ar",
         "cpp_demangle",
         "itanium-demangler",
-        "rust-demangler"
+        "rust-demangler",
     ],
     extras_require={
         "development": [
