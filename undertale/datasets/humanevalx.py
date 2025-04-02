@@ -27,6 +27,7 @@ class HumanEvalX(Dataset):
             ),
             CppCompiler(),
             RadareDisassembler(),
+            GhidraDisassembler(),
         ]
         steps.extend(writer)
 

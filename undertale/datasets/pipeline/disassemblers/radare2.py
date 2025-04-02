@@ -1,9 +1,13 @@
+import json
+import os
+import tempfile
+
+import r2pipe
 from datatrove.data import DocumentsPipeline
 from datatrove.pipeline.base import PipelineStep
-import r2pipe
+
 
 class RadareDisassembler(PipelineStep):
-
     def disas_buf(self, r, buf):
         # r.cmd("s 0")
         # resize the "file" radare is working on to fit the fn
@@ -21,14 +25,13 @@ class RadareDisassembler(PipelineStep):
             return pdf_dict
         except:
             return {}
-    
 
-    def run(self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
+    def run(
+        self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
     ) -> DocumentsPipeline:
-
         if not data:
             return
-        
+
         for document in data:
             with self.track_time():
                 code = document.text
@@ -54,5 +57,3 @@ class RadareDisassembler(PipelineStep):
 
                 yield document
                 self.stat_update("disassembled")
-
-                
