@@ -4,7 +4,7 @@ import datasets
 
 from . import dataset, schema
 from .transforms import compile
-from .transforms.disassemble import capstone, ghidra
+from .transforms.disassemble import capstone, ghidra, rizin
 
 logger = logging.getLogger(__name__)
 
@@ -100,11 +100,18 @@ class HumanEvalXCompiledGhidraDisassembled(HumanEvalX):
     ]
 
 
+class HumanEvalXCompiledRZDisassembled(HumanEvalXCompiled):
+    path = "humaneval-x-compiled-rz-disassembled"
+
+    transforms = [rizin.RizinDisassemble()]
+
+
 if __name__ == "__main__":
     dataset.main(
         [
             HumanEvalXCompiledDisassembled,
             HumanEvalXCompiledGhidraDisassembled,
+            HumanEvalXCompiledRZDisassembled,
             HumanEvalXCompiled,
             HumanEvalX,
         ]
