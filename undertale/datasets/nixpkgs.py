@@ -1,4 +1,6 @@
 import os
+import tempfile
+from pathlib import Path
 
 from datatrove.data import DocumentsPipeline
 from datatrove.executor import SlurmPipelineExecutor
@@ -8,6 +10,7 @@ from datatrove.pipeline.filters import LambdaFilter
 from datatrove.pipeline.readers import JsonlReader, ParquetReader
 from datatrove.pipeline.writers import JsonlWriter, ParquetWriter
 
+from undertale.datasets.base import DEFAULT_DATASETS_DIRECTORY, Dataset, main
 from undertale.datasets.transforms.segment.lief import SegmentLief
 
 
@@ -116,9 +119,13 @@ class FindNixpkgs(PipelineStep):
                             args.append(" ".join(original_args))
                         else:
                             args = original_args
+                        logger.info(
+                            "Launching nix args:{}\nfile:{}", str(args), nixfile.name
+                        )
                         result = subprocess.run(
                             args=args, capture_output=True, text=True
                         )
+                        logger.info("finished nix", str(args))
                         os.unlink(nixfile.name)
                     if result.returncode != 0:
                         logger.error(
@@ -181,11 +188,14 @@ class EnrichGithubPackages(PipelineStep):
         self.proxies = proxies
         self.cache = {}
         self.cache_folder = None
+        self.github_token = github_token
+        logger.info("loading github cache dir: {}", github_cache_dir)
         if github_cache_dir:
             self.cache_folder = get_datafolder(github_cache_dir)
             for f in self.cache_folder.list_files(glob_pattern="*.json"):
                 try:
                     self.cache.update(json.load(self.cache_folder.open(f, "r")))
+                    logger.info("loading github cache: {}", f)
                 except Exception as e:
                     logger.warning("error loading github cache: {}", str(e))
 
@@ -214,7 +224,9 @@ class EnrichGithubPackages(PipelineStep):
                         else:
                             try:
                                 logger.info("github cache miss: {}", api_url)
-                                headers = {"Authorization": f"token {github_token}"}
+                                headers = {
+                                    "Authorization": f"token {self.github_token}"
+                                }
                                 time.sleep(0.8)
                                 response = requests.get(
                                     api_url, headers=headers, proxies=self.proxies
@@ -270,6 +282,7 @@ class BuildNixpkgs(PipelineStep):
 
         super().__init__()
         self.wrapper_args = wrapper_args
+        self.working_dir = working_dir
         self.working_folder = get_datafolder(working_dir) if working_dir else None
         self.binaries_folder = get_datafolder(binaries_dir)
         self.build_timeout = build_timeout
@@ -287,17 +300,14 @@ class BuildNixpkgs(PipelineStep):
     ) -> DocumentsPipeline:
         import subprocess
         import tarfile
-        import tempfile
 
-        from datatrove.io import DataFolder
+        from datatrove.io import DataFolder, get_datafolder
         from datatrove.utils.logging import logger
 
         if not self.working_folder:
-            self.working_folder = DataFolder(
-                tempfile.TemporaryDirectory(
-                    prefix="build-nixpkgs-", delete=False, ignore_cleanup_errors=True
-                )
-            )
+            logger.warning("working folder unspecified")
+            self.working_folder = get_datafolder(self.working_dir)
+
         self.working_folder.makedirs("flake", exist_ok=True)
         flake_folder = DataFolder(self.working_folder.resolve_paths("flake"))
         flake_nix = flake_folder.open("flake.nix", mode="w")
@@ -355,7 +365,8 @@ class BuildNixpkgs(PipelineStep):
                             args.append(" ".join(original_args))
                         else:
                             args = original_args
-                        # logger.debug("running: {}", args)
+                        logger.debug("running: {}", args)
+                        logger.debug("running in cwd: {}", flake_folder.path)
                         result = subprocess.run(
                             args=args,
                             cwd=flake_folder.path,
@@ -495,173 +506,263 @@ class ExtractBinaryDataset(PipelineStep):
                         continue
 
 
-tmp_dir = "/state/partition1/user/ch17997/tmp"
-base_dir = "/home/gridsan/CH17997/test"
-log_dir = os.path.join(base_dir, "logging")
-binaries_dir = os.path.join(base_dir, "binaries")
-packages_dir = os.path.join(base_dir, "packages")
-builds_dir = os.path.join(base_dir, "builds")
-working_dir = os.path.join(tmp_dir, "working-build")
-github_cache_dir = "/home/gridsan/CH17997/github_cache"
-github_token = "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"
-dataset_dir = "/home/gridsan/groups/undertale_shared/datasets/nixpkgs"
-funcs_dir = "/home/gridsan/groups/undertale_shared/datasets/nixpkgs-functions"
-dataset_working_dir = os.path.join(tmp_dir, "working-dataset")
-proxies = {
-    "http": "http://llproxy-rr.llgrid.ll.mit.edu:8080",
-    "https": "http://llproxy-rr.llgrid.ll.mit.edu:8080",
-    "ftp": "http://llproxy-rr.llgrid.ll.mit.edu:8080",
-}
+class NixPkgs(Dataset):
+    name = "nixpkgs"
 
-flakes = [
-    # "github:NixOS/nixpkgs/nixos-19.03",
-    # "github:NixOS/nixpkgs/nixos-19.09",
-    # "github:NixOS/nixpkgs/nixos-20.03",
-    # "github:NixOS/nixpkgs/nixos-20.09",
-    # "github:NixOS/nixpkgs/nixos-21.05",
-    # "github:NixOS/nixpkgs/nixos-21.11",
-    # "github:NixOS/nixpkgs/nixos-22.05",
-    # "github:NixOS/nixpkgs/nixos-22.11",
-    # "github:NixOS/nixpkgs/nixos-23.05",
-    "github:NixOS/nixpkgs/nixos-23.11",
-    "github:NixOS/nixpkgs/nixos-24.05",
-    "github:NixOS/nixpkgs/nixos-24.11",
-]
+    # source URLs to pull package sets from
+    flakes = [
+        # "github:NixOS/nixpkgs/nixos-19.03",
+        # "github:NixOS/nixpkgs/nixos-19.09",
+        # "github:NixOS/nixpkgs/nixos-20.03",
+        # "github:NixOS/nixpkgs/nixos-20.09",
+        # "github:NixOS/nixpkgs/nixos-21.05",
+        # "github:NixOS/nixpkgs/nixos-21.11",
+        # "github:NixOS/nixpkgs/nixos-22.05",
+        # "github:NixOS/nixpkgs/nixos-22.11",
+        # "github:NixOS/nixpkgs/nixos-23.05",
+        "github:NixOS/nixpkgs/nixos-23.11",
+        "github:NixOS/nixpkgs/nixos-24.05",
+        "github:NixOS/nixpkgs/nixos-24.11",
+    ]
 
-broken_pkgs = [
-    "cplex",
-    "dyalog",
-    "input-fonts",
-    "joypixels",
-    "libreoffice-bin",
-    "oilrush",
-    "raycast",
-    "segger-jlink",
-    "segger-jlink-headless",
-    "xxe-pe",
-    "yabai",
-]
+    # list of package names that will fail to eval (skip)
+    broken_pkgs = [  #
+        "cplex",
+        "dyalog",
+        "input-fonts",
+        "joypixels",
+        "libreoffice-bin",
+        "oilrush",
+        "raycast",
+        "segger-jlink",
+        "segger-jlink-headless",
+        "xxe-pe",
+        "yabai",
+    ]
 
-find_packages = SlurmPipelineExecutor(
-    pipeline=[
-        FindNixpkgs(
-            flakes=flakes,
-            broken_pkgs=broken_pkgs,
-            wrapper_args=["/home/gridsan/CH17997/bin/llnix", "-n", "--"],
-            build_options=["debug"],
-        ),
-        # forbidden packages
-        LambdaFilter(
-            lambda doc: doc.text
-            not in [
-                "mimikatz",
-                "pypykatz",
-                "nmap",
-                "xmrig",
-                "xmrig-mo",
-                "xmrig-proxy",
-                "mlv-app",
-                "stepmani",
-                "glider",
-                "tor",
-                "torbrowser",
+    # list of package names forbidden for downloading/building
+    forbidden_pkgs = [
+        "mimikatz",
+        "pypykatz",
+        "nmap",
+        "xmrig",
+        "xmrig-mo",
+        "xmrig-proxy",
+        "mlv-app",
+        "stepmani",
+        "glider",
+        "tor",
+        "torbrowser",
+    ]
+
+    # things you likely may want to override
+    base_dir = os.path.join(
+        Path.home(), "nixpkgs-dataset"
+    )  # base directory for datatrove state
+    github_token = None  # github token string likely needed to access github APIs
+    proxies = {}  # set for your environments network proxies if necessary
+    tmp_dir = tempfile.mkdtemp(
+        prefix="nixpkgs-dataset-"
+    )  # path to store tmp files (on computing nodes)
+    nix_wrapper_args = (
+        None  # list[str] of arguments to wrap nix commands around if neccessary
+    )
+
+    undertale_dir = (
+        os.environ.get("UNDERTALE_DATASETS_DIRECTORY") or DEFAULT_DATASETS_DIRECTORY
+    )
+    dataset_dir = os.path.abspath(
+        os.path.join(undertale_dir, name)
+    )  # where final datasets are stored (pulls from ENV variable)
+
+    # derrived subdirectories
+    logging_dir = os.path.join(
+        base_dir, "logging"
+    )  # used for datatrove logging and state
+    binaries_dir = os.path.join(
+        base_dir, "binaries"
+    )  # where compiled binary artifacts are stored
+    packages_dir = os.path.join(
+        base_dir, "packages"
+    )  # where jsonl files of each package are stored
+    builds_dir = os.path.join(
+        base_dir, "builds"
+    )  # where jsonl files of build compilation results are stored
+    github_cache_dir = os.path.join(
+        Path.home(), "github_cache"
+    )  # where jsonl files of cached github results are stored
+    working_dir = os.path.join(
+        tmp_dir, "working-build"
+    )  # tmp dir subdirectory for nix build activities
+
+    # slurm-specific configs
+    slurm_default_time = "02:00:00"
+    slurm_partition_online = None
+    slurm_partition_offline = None
+
+    def get_executor(self, steps, input):
+        # stage0: generate curated package listing from all flakes
+        self.slurm_find_packages = SlurmPipelineExecutor(
+            pipeline=[
+                # get initial list of packages from list
+                FindNixpkgs(
+                    flakes=self.flakes,
+                    broken_pkgs=self.broken_pkgs,
+                    wrapper_args=self.nix_wrapper_args,
+                    build_options=["debug"],
+                ),
+                # remove forbidden packages
+                LambdaFilter(lambda doc: doc.text not in self.forbidden_pkgs),
+                # enrich language metadata (and screen all but) packages from github
+                EnrichGithubPackages(
+                    github_token=self.github_token,
+                    github_cache_dir=self.github_cache_dir,
+                    proxies=self.proxies,
+                    wrapper_args=self.nix_wrapper_args,
+                ),
+                # filter out all languages that aren't readily compilable
+                LambdaFilter(
+                    lambda doc: (doc.metadata["language"] in ["C", "C++", "Rust", "Go"])
+                ),
+                # store packages
+                JsonlWriter(
+                    output_folder=self.packages_dir,
+                    max_file_size=2000,  # limit created to force parallelization of batches in later stages
+                ),
+            ],
+            logging_dir=os.path.join(self.logging_dir, "find"),
+            tasks=1,  # single-threaded eval
+            time="12:00:00",
+            job_name="nixpkgs_find",
+            partition=self.slurm_partition_online,
+        )
+
+        # stage1: build packages in parallel
+        self.slurm_build_packages = SlurmPipelineExecutor(
+            depends=self.slurm_find_packages,
+            pipeline=[
+                JsonlReader(data_folder=self.packages_dir),
+                BuildNixpkgs(
+                    binaries_dir=self.binaries_dir,
+                    working_dir=self.working_dir,
+                    wrapper_args=self.nix_wrapper_args,
+                    build_timeout=2 * 60 * 60,
+                ),
+                JsonlWriter(
+                    output_folder=self.builds_dir,
+                    max_file_size=50 * 1024,  # limit created to force parallelization
+                ),
+            ],
+            logging_dir=os.path.join(self.logging_dir, "build"),
+            time="12:00:00",
+            tasks=16,
+            job_name="nixpkgs_build",
+            mem_per_cpu_gb=4,
+            cpus_per_task=1,
+            partition=self.slurm_partition_online,
+        )
+
+        # stage2: assemble builds into dataset export format
+        self.slurm_export_dataset = SlurmPipelineExecutor(
+            depends=self.slurm_build_packages,
+            pipeline=[
+                JsonlReader(data_folder=self.builds_dir),
+                ExtractBinaryDataset(),
+                # ParquetWriter(
+                # output_folder=self.dataset_dir,
+                # adapter=lambda self, doc: doc.metadata,
+                # max_file_size=100 * 1024 * 1024,
+                # ),
+            ],
+            logging_dir=os.path.join(self.logging_dir, "extract"),
+            time="12:00:00",
+            tasks=len(self.flakes) * 64,
+            job_name="nixpkgs_extract",
+            mem_per_cpu_gb=8,
+            cpus_per_task=1,
+            partition=self.slurm_partition_offline,
+            sbatch_args={"distribution": "cyclic:cyclic"},
+        )
+
+        if input == "binaries":
+            return self.slurm_export_dataset
+
+        self.slurm_segment_functions = SlurmPipelineExecutor(
+            depends=self.slurm_export_dataset,
+            pipeline=[
+                ParquetReader(
+                    data_folder=self.dataset_dir,
+                    adapter=lambda self, data, path, id_in_file: {
+                        "id": data["filename"],
+                        "text": data["binary"],
+                        "metadata": data,
+                    },
+                ),
+                SegmentLief(),
+                # ParquetWriter(
+                #     output_folder=funcs_dir,
+                #     adapter=lambda self, doc: doc.metadata,
+                #     max_file_size=100 * 1024 * 1024,
+                # ),
+            ],
+            venv_path=os.path.join(Path.home(), ".venv"),
+            logging_dir=os.path.join(self.logging_dir, "segment"),
+            tasks=len(self.flakes) * 64,
+            time="12:00:00",
+            job_name="nixpkgs_segment_lief",
+            mem_per_cpu_gb=4,
+            cpus_per_task=2,
+            partition=self.slurm_partition_offline,
+            sbatch_args={"distribution": "cyclic:cyclic"},
+        )
+        if input == "lief":
+            return self.slurm_segment_functions
+        return None
+
+    def get_pipeline(self, input, writer, parallelism):
+        from datatrove.utils.logging import logger
+
+        # currently ignoring input
+        if parallelism > 1:
+            self.tmp_dir = "/state/partition1/user/ch17997/tmp"
+            self.working_dir = os.path.join(
+                self.tmp_dir, "working-build"
+            )  # tmp dir subdirectory for nix build activities
+            self.base_dir = os.path.join(Path.home(), "nixpkgs-dataset")
+            self.github_token = "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"
+            self.proxies = {
+                "http": "http://llproxy-rr.llgrid.ll.mit.edu:8080",
+                "https": "http://llproxy-rr.llgrid.ll.mit.edu:8080",
+                "ftp": "http://llproxy-rr.llgrid.ll.mit.edu:8080",
+            }
+            self.nix_wrapper_args = [
+                os.path.join(Path.home(), "bin/llnix"),
+                "-n",
+                "--",
             ]
-        ),
-        EnrichGithubPackages(
-            github_token=github_token,
-            github_cache_dir=github_cache_dir,
-            proxies=proxies,
-            wrapper_args=["/home/gridsan/CH17997/bin/llnix", "-n", "--"],
-        ),
-        LambdaFilter(
-            lambda doc: (doc.metadata["language"] in ["C", "C++", "Rust", "Go"])
-        ),
-        # SamplerFilter(0.002),
-        JsonlWriter(
-            output_folder=packages_dir,
-            max_file_size=2000,
-        ),
-    ],
-    logging_dir=os.path.join(base_dir, "logging", "find"),
-    tasks=1,
-    time="02:00:00",
-    job_name="find_nixpkgs",
-    partition="download",
-)
+            self.slurm_partition_online = "download"
+            self.slurm_partition_offline = "xeon-p8"
+        else:
+            logger.error("unsupported paralellism level - currently slurm only")
+            return None
+        if input == "binaries":
+            executor = self.get_executor(0, input)
+            executor.pipeline.append(writer)
+            return executor
+        if input == "lief":
+            executor = self.get_executor(0, input)
+            executor.depends.pipeline.append(
+                ParquetWriter(
+                    output_folder=self.dataset_dir,
+                    adapter=lambda self, doc: doc.metadata,
+                    max_file_size=100 * 1024 * 1024,
+                )
+            )
+            executor.pipeline.append(writer)
+            return executor
+        logger.error("unkown input: not lief or binaries")
+        return None
 
-build_packages = SlurmPipelineExecutor(
-    depends=find_packages,
-    pipeline=[
-        JsonlReader(data_folder=packages_dir),
-        BuildNixpkgs(
-            binaries_dir=binaries_dir,
-            working_dir=working_dir,
-            wrapper_args=["/home/gridsan/CH17997/bin/llnix", "-n", "--"],
-            build_timeout=2 * 60 * 60,
-        ),
-        JsonlWriter(
-            output_folder=builds_dir,
-            max_file_size=50 * 1024,
-        ),
-    ],
-    logging_dir=f"{log_dir}/build",
-    tasks=len(flakes) * 32,
-    time="02:00:00",
-    job_name="build_nixpkgs",
-    mem_per_cpu_gb=1,
-    cpus_per_task=4,
-    partition="download",
-)
 
-extract_dataset = SlurmPipelineExecutor(
-    depends=build_packages,
-    pipeline=[
-        JsonlReader(data_folder=builds_dir),
-        ExtractBinaryDataset(),
-        ParquetWriter(
-            output_folder=dataset_dir,
-            adapter=lambda self, doc: doc.metadata,
-            max_file_size=100 * 1024 * 1024,
-        ),
-    ],
-    logging_dir=f"{log_dir}/export",
-    tasks=len(flakes) * 2400,
-    time="02:00:00",
-    job_name="extract_nixpkgs",
-    mem_per_cpu_gb=4,
-    cpus_per_task=2,
-    partition="xeon-p8",
-    sbatch_args={"distribution": "cyclic:cyclic"},
-)
-
-segment_functions = SlurmPipelineExecutor(
-    # depends = extract_dataset,
-    pipeline=[
-        ParquetReader(
-            data_folder=dataset_dir,
-            adapter=lambda self, data, path, id_in_file: {
-                "id": data["filename"],
-                "text": data["binary"],
-                "metadata": data,
-            },
-        ),
-        SegmentLief(),
-        ParquetWriter(
-            output_folder=funcs_dir,
-            adapter=lambda self, doc: doc.metadata,
-            max_file_size=100 * 1024 * 1024,
-        ),
-    ],
-    venv_path="/home/gridsan/CH17997/.venv",
-    logging_dir=f"{log_dir}/segment",
-    tasks=len(flakes) * 100,
-    max_array_size=310,
-    time="02:00:00",
-    job_name="segment_nixpkgs",
-    mem_per_cpu_gb=4,
-    cpus_per_task=2,
-    partition="xeon-p8",
-    sbatch_args={"distribution": "cyclic:cyclic"},
-)
 if __name__ == "__main__":
-    segment_functions.run()
+    main(NixPkgs)
