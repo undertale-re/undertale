@@ -8,18 +8,30 @@ from datatrove.pipeline.base import PipelineStep
 
 
 class RadareDisassembler(PipelineStep):
-    def disas_buf(self, r, buf):
-        # r.cmd("s 0")
+
+    type = "🔧 - DISASSEMBLER"
+    name = "R - Radare"
+
+    def __init__(self):
+        super().__init__()
+        self.r = r2pipe.open(f"malloc://{2**16}")
+
+    def disas_buf(self, buf):
+
+        #import pdb
+        #pdb.set_trace()
+                
+        self.r.cmd("s 0")
         # resize the "file" radare is working on to fit the fn
-        r.cmd(f"r {len(buf)}")
+        self.r.cmd(f"r {len(buf)}")
         # write the fn bytes into radare's "file"
-        r.cmd("wx " + (" ".join([f"{i:02x}" for i in buf])))
+        self.r.cmd("wx " + (" ".join([f"{i:02x}" for i in buf])))
         # light analysis which gets fns (presumably it also
         # does more than just linear disassembly since it
         # says it finds functions
-        r.cmd("aa")
+        self.r.cmd("aa")
         # pdf is "print disassembly of function" j means json
-        pdf = r.cmd("pdfj")
+        pdf = self.r.cmd("pdfj")
         try:
             pdf_dict = json.loads(pdf)
             return pdf_dict
@@ -36,16 +48,15 @@ class RadareDisassembler(PipelineStep):
             with self.track_time():
                 code = document.text
 
-                working = tempfile.TemporaryDirectory()
+                #working = tempfile.TemporaryDirectory()
 
-                binary = os.path.join(working.name, "binary")
+                #binary = os.path.join(working.name, "binary")
 
-                with open(binary, "wb") as f:
-                    f.write(code)
+                #with open(binary, "wb") as f:
+                #    f.write(code)
 
-                r = r2pipe.open(binary)
-
-                d = self.disas_buf(r, code)
+                #r = r2pipe.open(binary)
+                d = self.disas_buf(code)
 
                 disassembly = []
                 if "ops" in d.keys():

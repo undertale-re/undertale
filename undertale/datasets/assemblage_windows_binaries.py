@@ -46,6 +46,7 @@ import logging
 #import time
 #import typing
 
+from typing import Callable
 #import datasets
 
 #from . import dataset
@@ -69,14 +70,8 @@ def tick():
 
 class AssemblageWindowsReader(BaseReader):
 
-    def __init__(
-        self,
-        dataset: str,
-        dataset_options: dict | None = None
-    ):
-        super().__init__()
-        print(dataset_options)
-        #self.raw_data_dir = dataset_options['raw_data_dir']
+    name = "A - Assemblage"
+    def __init__(self):
         self.raw_data_dir = "/data/tleek/undertale_raw_data/assemblage"
         
     def run(self, data, rank: int = 0, world_size: int = 1):
@@ -210,7 +205,7 @@ class AssemblageWindowsReader(BaseReader):
             yield Document(
                 id = f"fid={f_id}", 
                 text = all_code, #b64encode(all_code).decode("utf-8"),
-                metadata={
+                metadata = {
                     "binary": all_code,
                     "architecture": platform,
                     "function_name": fun_name,
@@ -228,10 +223,12 @@ class AssemblageWindowsPublicDataset(Dataset):
     name = "assemblage-windows-public-dataset"
 
     def get_pipeline(self, input, writer, parallelism):
+
+        awr = AssemblageWindowsReader()
         
         steps = [
-            AssemblageWindowsReader(None),
-            RadareDisassembler()
+            AssemblageWindowsReader(),
+            RadareDisassembler(),
         ]
         steps.extend(writer)
 
