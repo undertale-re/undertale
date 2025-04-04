@@ -2,22 +2,15 @@ import logging
 import os
 import shutil
 import tempfile
-from tqdm import tqdm
-from typing import Callable, Literal
 
-import datasets
-from datasets import Dataset as HFDataset
 import requests
 from bs4 import BeautifulSoup
-
-
-from datatrove.pipeline.readers.base import BaseReader
+from datasets import Dataset as HFDataset
+from datatrove.data import Document, DocumentsPipeline
+from datatrove.executor import LocalPipelineExecutor
 from datatrove.pipeline.base import PipelineStep
+from datatrove.pipeline.readers.base import BaseReader
 from datatrove.pipeline.writers.parquet import ParquetWriter
-from datatrove.data import DocumentsPipeline, Document
-from datatrove.executor import SlurmPipelineExecutor, LocalPipelineExecutor
-
-from .base import Dataset, main
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +65,9 @@ def unpack_deb(orig_file, dest):
                 return "", orig_filename
     return "", orig_filename
 
+
 BASE_URL = "http://cybersecmirrors.llan.ll.mit.edu/mirrors/ubuntu/pool/universe/"
+
 
 def generate_url_list(list_loc: str, base_url: str):
     with open(list_loc, "w+") as f:
@@ -98,6 +93,7 @@ def generate_url_list(list_loc: str, base_url: str):
                 all_download_links.append(download_link)
                 with open(list_loc, "a") as f:
                     f.write(download_link + "\n")
+
 
 def create_dataset(url_path: str, downloaded_data_path: str):
     if not os.path.isdir(downloaded_data_path):
@@ -152,30 +148,28 @@ def create_dataset(url_path: str, downloaded_data_path: str):
                 # data.append(document)
     return data
 
-def adapt_apt_from_dict(
-    data: dict
-) -> dict:
+
+def adapt_apt_from_dict(data: dict) -> dict:
     return {
         "id": data["filename"],
         "text": f"{data['code']}",
-        "metadata": {"metadata": data["metadata"],
-                     "package": data["package"]},
+        "metadata": {"metadata": data["metadata"], "package": data["package"]},
     }
+
 
 class LoadAPTPackages(BaseReader):
     name = "(Down)load Packages"
     type = "⚙️ - PROCESS"
+
     def __init__(
         self,
         build_options: list[str] = ["debug"],
-        broken_pkgs: list[str] = [],
         wrapper_args: list[str] | None = None,
-        base_url: str = BASE_URL
+        base_url: str = BASE_URL,
     ):
         super().__init__()
         self.wrapper_args = wrapper_args
         self.build_options = build_options
-        pkgs_string = " ".join(f'"{x}"' for x in broken_pkgs)
         self.base_url = base_url
         self.adapter = adapt_apt_from_dict
 
@@ -198,19 +192,17 @@ class LoadAPTPackages(BaseReader):
             document = Document(**adapted_row)
             yield document
 
+
 class NoOpAPT(PipelineStep):
     name = "Do nothing"
     type = "⚙️ - PROCESS"
 
-    def __init__(
-        self
-    ):
+    def __init__(self):
         super().__init__()
 
     def run(
         self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
     ) -> DocumentsPipeline:
-        
         for i, pkg in enumerate(data):
             if pkg:
                 yield pkg
@@ -220,7 +212,7 @@ download_apt = LocalPipelineExecutor(
     pipeline=[
         LoadAPTPackages(),
         NoOpAPT(),
-        ParquetWriter("/scratch/pa27879/apt_scratch/one_step_apt_data_ds")
+        ParquetWriter("/scratch/pa27879/apt_scratch/one_step_apt_data_ds"),
     ],
 )
 
