@@ -223,8 +223,6 @@ class AssemblageWindowsPublicDataset(Dataset):
     name = "assemblage-windows-public-dataset"
 
     def get_pipeline(self, input, writer, parallelism):
-
-        awr = AssemblageWindowsReader()
         
         steps = [
             AssemblageWindowsReader(),
@@ -236,8 +234,8 @@ class AssemblageWindowsPublicDataset(Dataset):
 
 if __name__ == "__main__":
 
-    import pdb
-    pdb.set_trace()
+    #import pdb
+    #pdb.set_trace()
     main(AssemblageWindowsPublicDataset)
 
 
