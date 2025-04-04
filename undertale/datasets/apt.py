@@ -3,15 +3,18 @@ import os
 import shutil
 import tempfile
 from tqdm import tqdm
-from typing import Callable
+from typing import Callable, Literal
 
 import datasets
 from datasets import Dataset as HFDataset
 import requests
 from bs4 import BeautifulSoup
 
-from datatrove.pipeline.readers.huggingface import HuggingFaceDatasetReader
-from datatrove.data import DocumentsPipeline
+from datatrove.pipeline.readers.base import BaseReader
+from datatrove.pipeline.base import PipelineStep
+from datatrove.pipeline.writers.parquet import ParquetWriter
+from datatrove.data import DocumentsPipeline, Document
+from datatrove.executor import SlurmPipelineExecutor, LocalPipelineExecutor
 
 from .base import Dataset, main
 
@@ -68,7 +71,7 @@ def unpack_deb(orig_file, dest):
                 return "", orig_filename
     return "", orig_filename
 
-base_url = "http://cybersecmirrors.llan.ll.mit.edu/mirrors/ubuntu/pool/universe/"
+BASE_URL = "http://cybersecmirrors.llan.ll.mit.edu/mirrors/ubuntu/pool/universe/"
 
 def generate_url_list(list_loc: str, base_url: str):
     with open(list_loc, "w+") as f:
@@ -103,6 +106,7 @@ def create_dataset(url_path: str, downloaded_data_path: str):
         download = False
     # downloading the raw packages
     data = {"code": [], "filename": [], "metadata": [], "package": []}
+    # data = []
     with open(url_path) as f:
         all_download_links = [
             link.strip() for link in f.readlines()[1:] if link[-5:-1] == ".deb"
@@ -129,7 +133,7 @@ def create_dataset(url_path: str, downloaded_data_path: str):
 
     files = os.listdir(unpackaged_path)
 
-    for i, pname in enumerate(files):
+    for i, pname in enumerate(files[:100]):
         project = os.path.join(unpackaged_path, pname)
         with open(os.path.join(project, "metadata.txt")) as f:
             metadata = f.read()
@@ -138,101 +142,86 @@ def create_dataset(url_path: str, downloaded_data_path: str):
         for fname in os.listdir(project):
             floc = os.path.join(project, fname)
             if check_executable(floc):
+                # document = {}
                 with open(floc, "rb") as f:
                     data["code"].append(f.read())
                 data["filename"].append(fname)
                 data["metadata"].append(metadata)
                 data["package"].append(project)
+                # data.append(document)
+    return data
 
-    ds = datasets.Dataset.from_dict(data)
-    return ds
+def adapt_apt_from_dict(
+    data: dict
+) -> dict:
+    return {
+        "id": data["filename"],
+        "text": f"{data['code']}",
+        "metadata": {"metadata": data["metadata"],
+                     "package": data["package"]},
+    }
 
-class APTDatasetReader(HuggingFaceDatasetReader):
-    name = "APT reader"
-
+class LoadAPTPackages(BaseReader):
+    name = "(Down)load Packages"
+    type = "⚙️ - PROCESS"
     def __init__(
         self,
-        base_url: str,
-        streaming: bool = False,
-        limit: int = -1,
-        skip: int = 0,
-        batch_size: int = 1000,
-        doc_progress: bool = False,
-        adapter: Callable = None,
-        text_key: str = "text",
-        id_key: str = "id",
-        default_metadata: dict = None,
-        shuffle_files: bool = False,
+        build_options: list[str] = ["debug"],
+        broken_pkgs: list[str] = [],
+        wrapper_args: list[str] | None = None,
+        base_url: str = BASE_URL
     ):
-        super().__init__(limit, skip, adapter, text_key, id_key, default_metadata)
+        super().__init__()
+        self.wrapper_args = wrapper_args
+        self.build_options = build_options
+        pkgs_string = " ".join(f'"{x}"' for x in broken_pkgs)
         self.base_url = base_url
-        self.batch_size = batch_size
-        self.doc_progress = doc_progress
-        self.streaming = streaming
-        self.shuffle_files = shuffle_files
-    
-    def run(self, data: DocumentsPipeline = None,
-            rank: int = 0,
-            world_size: int = 1,
-            url_list_loc: str = "/scratch/pa27879/apt_scratch/apt_url_list.txt",
-            downloaded_data_dir: str = "/scratch/pa27879/apt_scratch/apt_downloaded",
-            dataset_loc = "/scratch/pa27879/apt_scratch/raw_apt_data") -> DocumentsPipeline:
-        if not os.path.isdir(dataset_loc):
+        self.adapter = adapt_apt_from_dict
+
+    def run(self, data=None, rank=0, world_size=0):
+        url_list_loc = "/scratch/pa27879/apt_scratch/apt_url_list.txt"
+        downloaded_data_dir = "/scratch/pa27879/apt_scratch/apt_downloaded"
+        dataset_loc = "/scratch/pa27879/apt_scratch/raw_apt_data_ds"
+
+        if not os.path.isfile(dataset_loc):
             if not os.path.isfile(url_list_loc):
                 generate_url_list(url_list_loc, self.base_url)
             ds = create_dataset(url_list_loc, downloaded_data_dir)
+            ds = HFDataset.from_dict(ds)
             ds.save_to_disk(dataset_loc)
         else:
             ds = HFDataset.load_from_disk(dataset_loc)
 
-        if self.shuffle_files:
-            if not self.streaming:
-                ds = ds.shuffle(seed=42)
-            else:
-                ds = ds.shuffle(seed=42, buffer_size=1000)
-        shard = self._get_dataset_shard(ds, rank, world_size)
-        if not shard:
-            return
-        with tqdm(total=self.limit if self.limit != -1 else None, disable=not self.doc_progress) as pbar:
-            li = 0
-            for batch in shard.iter(self.batch_size):
-                if self.limit != -1 and li >= self.limit:
-                    break
-                documents = []
-                with self.track_time("batch"):
-                    for line in (dict(zip(batch, t)) for t in zip(*batch.values())):
-                        if self.limit != -1 and li >= self.limit:
-                            break
-                        document = self.get_document_from_dict(line, self.dataset, f"{rank:05d}/{li}")
-                        if not document:
-                            continue
-                        documents.append(document)
-                        self.update_doc_stats(document)
-                        self.stat_update("documents")
-                        li += 1
-                        pbar.update()
-                yield from documents
+        for row in ds.iter(batch_size=1):
+            adapted_row = self.adapter(row)
+            document = Document(**adapted_row)
+            yield document
+
+class NoOpAPT(PipelineStep):
+    name = "Do nothing"
+    type = "⚙️ - PROCESS"
+
+    def __init__(
+        self
+    ):
+        super().__init__()
+
+    def run(
+        self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
+    ) -> DocumentsPipeline:
+        
+        for i, pkg in enumerate(data):
+            if pkg:
+                yield pkg
 
 
-class APT(Dataset):
-    description = "A collection of binaries for Debian based linux distributions downloaded by the APT tool "
-    name = "apt_dataset"
-
-    readers = {
-        "APTReader": lambda input: [
-            APTDatasetReader(
-                base_url
-            )
-        ],
-    }
-    default_reader = "APTReader"
-
-    pipelines = {
-        "apt": [
-        ],
-    }
-    default_pipeline = "apt"
-
+download_apt = LocalPipelineExecutor(
+    pipeline=[
+        LoadAPTPackages(),
+        NoOpAPT(),
+        ParquetWriter("/scratch/pa27879/apt_scratch/one_step_apt_data_ds")
+    ],
+)
 
 if __name__ == "__main__":
-    main(APT)
+    download_apt.run()
