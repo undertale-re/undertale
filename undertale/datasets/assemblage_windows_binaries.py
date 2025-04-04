@@ -27,12 +27,18 @@ Disk space requirements.
 
 """
 from base64 import b64encode
+import os
+import pefile
+import sqlite3 as sqlite
+import time
 
-from datatrove.pipeline.readers import HuggingFaceDatasetReader
+from datatrove.pipeline.readers.base import BaseReader
+from datatrove.data import Document
+
 
 from .base import Dataset, main
 from .pipeline.compilers import CppCompiler
-from .pipeline.disassemblers import GhidraDisassembler
+from .pipeline.disassemblers import RadareDisassembler
 
 import logging
 #import os
@@ -41,7 +47,6 @@ import logging
 #import typing
 
 #import datasets
-#import pefile
 
 #from . import dataset
 
@@ -58,8 +63,8 @@ def tick():
     t = time.time()
     delta = t - last_time
     f_delta = t - first_time
-    last_time = t
-    return (delta, f_delta)
+    last_time = t    
+    logger.info(f"tick={delta} el={f_delta}")
 
 
 class AssemblageWindowsReader(BaseReader):
@@ -70,9 +75,11 @@ class AssemblageWindowsReader(BaseReader):
         dataset_options: dict | None = None
     ):
         super().__init__()
-        self.raw_data_dir = dataset_options['raw_data_dir']
+        print(dataset_options)
+        #self.raw_data_dir = dataset_options['raw_data_dir']
+        self.raw_data_dir = "/data/tleek/undertale_raw_data/assemblage"
         
-    def run(self, data: DocumentsPipeline = None, rank: int = 0, world_size: int = 1) -> DocumentsPipeline:
+    def run(self, data, rank: int = 0, world_size: int = 1):
         
         logger.warning("DANGER this dataset may contain malware so be careful with it")
 
@@ -82,10 +89,10 @@ class AssemblageWindowsReader(BaseReader):
         sqlfile = f"{self.raw_data_dir}/winpe.sqlite"
         bins_dir = f"{self.raw_data_dir}/winpe"
 
-        import pdb
-        pdb.set_trace()
-        os.system(f"/usr/bin/unzip -o -q -d {self.raw_data_dir} {self.raw_data_dir}/{sql_zip}")
-        os.system(f"/usr/bin/unzip -o -q -d {self.raw_data_dir} {self.raw_data_dir}/{bins_zip}")
+        if (not os.path.exists(sqlfile)) or (os.path.getsize(sqlfile) == 0):
+            os.system(f"/usr/bin/unzip -o -q -d {self.raw_data_dir} {self.raw_data_dir}/{sql_zip}")
+        if not os.path.exists(bins_dir):
+            os.system(f"/usr/bin/unzip -o -q -d {self.raw_data_dir} {self.raw_data_dir}/{bins_zip}")
 
         logger.info("Unzipping complete")
         tick()
@@ -128,6 +135,9 @@ class AssemblageWindowsReader(BaseReader):
                         f"Progress... {i} functions so far, {float(num_with_source)/i:.4f} have source, {float(num_failed_rvas)/i:.7f} with bad rvas"
                     )
 
+                    if i > 500000:
+                        break
+ 
                 if (current_binary_id is None) or (current_binary_id != b_id):
                     current_binary_id = b_id
                     current_binary = pefile.PE(os.path.join(bins_dir, b_path))
@@ -159,16 +169,15 @@ class AssemblageWindowsReader(BaseReader):
 
         logger.info("Done with sql shenanigans")
         tick()
-
-
             
         i = 0
+        l = len(functions)
         for f_id, arr in functions.items():
             i +=1
             if (i % 10000) == 0:
-                logger.info(f"{i} items processed")
+                logger.info(f"{i} of {l} items processed")
                 tick()
- 
+
             all_source = ""
             arr.sort(key=lambda tup: tup[0][0])                            
             (min_a, max_a) = (0xffffffffffffffff, 0)
@@ -197,12 +206,10 @@ class AssemblageWindowsReader(BaseReader):
             # is used by the transform PairwiseContrastive
             equiv_class = f"{bin_github_url}-{bin_repo_last_update}-{bin_filename}-{fun_name}"
 
-
             # this is the binary code for a single function
-
             yield Document(
                 id = f"fid={f_id}", 
-                text = b64encode(all_code).decode("utf-8")
+                text = all_code, #b64encode(all_code).decode("utf-8"),
                 metadata={
                     "binary": all_code,
                     "architecture": platform,
@@ -223,14 +230,17 @@ class AssemblageWindowsPublicDataset(Dataset):
     def get_pipeline(self, input, writer, parallelism):
         
         steps = [
-            AssemblageWindowsReader(input),
-            CapstoneDisassembler()
+            AssemblageWindowsReader(None),
+            RadareDisassembler()
         ]
         steps.extend(writer)
 
         return self.get_executor(steps, tasks=parallelism)
 
 if __name__ == "__main__":
-    main(AssemblageWindowsDataset)
+
+    import pdb
+    pdb.set_trace()
+    main(AssemblageWindowsPublicDataset)
 
 
