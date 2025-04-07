@@ -26,7 +26,7 @@ class HumanEvalX(Dataset):
                 adapter=adapt_humanevalx_from_huggingface,
             ),
             CppCompiler(),
-            RadareDisassembler(),
+            #RadareDisassembler(),
             GhidraDisassembler(),
         ]
         steps.extend(writer)

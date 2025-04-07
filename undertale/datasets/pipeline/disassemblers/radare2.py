@@ -1,11 +1,13 @@
 import json
 import os
 import tempfile
+import logging
 
 import r2pipe
 from datatrove.data import DocumentsPipeline
 from datatrove.pipeline.base import PipelineStep
 
+logger = logging.getLogger(__name__)
 
 class RadareDisassembler(PipelineStep):
 
@@ -14,13 +16,9 @@ class RadareDisassembler(PipelineStep):
 
     def __init__(self):
         super().__init__()
-        self.r = r2pipe.open(f"malloc://{2**16}")
 
     def disas_buf(self, buf):
 
-        #import pdb
-        #pdb.set_trace()
-                
         self.r.cmd("s 0")
         # resize the "file" radare is working on to fit the fn
         self.r.cmd(f"r {len(buf)}")
@@ -44,18 +42,27 @@ class RadareDisassembler(PipelineStep):
         if not data:
             return
 
+        logger.info(f"beginning r2 disassembly ")
+
+
+        code_max = 65536
+        self.r = r2pipe.open(f"malloc://{code_max}", flags=['-2'])
+
+        ii = 0
+        num_too_big = 0
         for document in data:
-            with self.track_time():
+
+            with self.track_time():            
+    
+                ii +=1
+
                 code = document.text
+                #logger.info(f"ii={ii} -- {len(code)} bytes -- {num_too_big} skipped bc too big")
 
-                #working = tempfile.TemporaryDirectory()
+                if len(code) > code_max:
+                    num_too_big += 1
+                    continue
 
-                #binary = os.path.join(working.name, "binary")
-
-                #with open(binary, "wb") as f:
-                #    f.write(code)
-
-                #r = r2pipe.open(binary)
                 d = self.disas_buf(code)
 
                 disassembly = []
@@ -64,7 +71,10 @@ class RadareDisassembler(PipelineStep):
                         disassembly.append(d["ops"][i]["disasm"])
 
                 disassembly = "\n".join(disassembly)
+
                 document.metadata["disassembly"] = disassembly
 
                 yield document
                 self.stat_update("disassembled")
+
+        logger.info(f"FYI: {num_too_big} of {ii} skipped bc too big")

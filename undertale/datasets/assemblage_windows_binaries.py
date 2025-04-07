@@ -38,7 +38,8 @@ from datatrove.data import Document
 
 from .base import Dataset, main
 from .pipeline.compilers import CppCompiler
-from .pipeline.disassemblers import RadareDisassembler
+from .pipeline.disassemblers import RadareDisassembler, GhidraDisassembler
+
 
 import logging
 #import os
@@ -70,6 +71,7 @@ def tick():
 
 class AssemblageWindowsReader(BaseReader):
 
+    type = "📖 - READER"
     name = "A - Assemblage"
     def __init__(self):
         self.raw_data_dir = "/data/tleek/undertale_raw_data/assemblage"
@@ -130,8 +132,8 @@ class AssemblageWindowsReader(BaseReader):
                         f"Progress... {i} functions so far, {float(num_with_source)/i:.4f} have source, {float(num_failed_rvas)/i:.7f} with bad rvas"
                     )
 
-                    if i > 500000:
-                        break
+                if i > 1000000:
+                    break
  
                 if (current_binary_id is None) or (current_binary_id != b_id):
                     current_binary_id = b_id
@@ -223,13 +225,18 @@ class AssemblageWindowsPublicDataset(Dataset):
     name = "assemblage-windows-public-dataset"
 
     def get_pipeline(self, input, writer, parallelism):
-        
+
         steps = [
             AssemblageWindowsReader(),
             RadareDisassembler(),
         ]
         steps.extend(writer)
 
+        import copy
+
+        # Note: fails here with `TypeError: cannot pickle '_thread.lock' object`
+        sc = copy.deepcopy(steps)
+        
         return self.get_executor(steps, tasks=parallelism)
 
 if __name__ == "__main__":
