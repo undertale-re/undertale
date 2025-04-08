@@ -3,8 +3,6 @@ import os
 import tempfile
 
 import pyhidra
-import psutil
-import math
 
 from ..transform import Map
 
