@@ -15,8 +15,7 @@ from .. import utils
 logger = logging.getLogger(__name__)
 
 
-# DEFAULT_DATASETS_DIRECTORY = "~/undertale_shared/datasets/"
-DEFAULT_DATASETS_DIRECTORY = "/scratch/pa27879/"
+DEFAULT_DATASETS_DIRECTORY = "~/undertale_shared/datasets/"
 """The default directory for dataset caching.
 
 On LLSC this will map into the shared project directory.

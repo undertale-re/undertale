@@ -12,6 +12,8 @@ from datatrove.pipeline.base import PipelineStep
 from datatrove.pipeline.readers.base import BaseReader
 from datatrove.pipeline.writers.parquet import ParquetWriter
 
+from undertale.datasets.pipeline.disassemblers.ghidra import GhidraDisassembler
+
 logger = logging.getLogger(__name__)
 
 HEADERS = [b"\x7fELF", b"MZ\x90\x00"]  # ELF (Linux) or MZ (Windows)
@@ -152,7 +154,7 @@ def create_dataset(url_path: str, downloaded_data_path: str):
 def adapt_apt_from_dict(data: dict) -> dict:
     return {
         "id": data["filename"],
-        "text": f"{data['code']}",
+        "text": data["code"][0],
         "metadata": {"metadata": data["metadata"], "package": data["package"]},
     }
 
@@ -211,10 +213,13 @@ class NoOpAPT(PipelineStep):
 download_apt = LocalPipelineExecutor(
     pipeline=[
         LoadAPTPackages(),
-        NoOpAPT(),
-        ParquetWriter("/scratch/pa27879/apt_scratch/one_step_apt_data_ds"),
+        GhidraDisassembler(),
+        ParquetWriter("/scratch/pa27879/apt_scratch/two_step_apt_data_ds"),
     ],
 )
 
 if __name__ == "__main__":
+    os.environ[
+        "GHIDRA_INSTALL_DIR"
+    ] = "/panfs/g52-panfs/home/pa27879/exp/FY25/DOTE_1553-276/Paul_workspace/temp_undertale/software/ghidra_11.2.1_PUBLIC/"
     download_apt.run()
