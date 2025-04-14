@@ -1,6 +1,4 @@
 import json
-import os
-import tempfile
 import logging
 
 import r2pipe
@@ -9,8 +7,8 @@ from datatrove.pipeline.base import PipelineStep
 
 logger = logging.getLogger(__name__)
 
-class RadareDisassembler(PipelineStep):
 
+class RadareDisassembler(PipelineStep):
     type = "🔧 - DISASSEMBLER"
     name = "R - Radare"
 
@@ -18,7 +16,6 @@ class RadareDisassembler(PipelineStep):
         super().__init__()
 
     def disas_buf(self, buf):
-
         self.r.cmd("s 0")
         # resize the "file" radare is working on to fit the fn
         self.r.cmd(f"r {len(buf)}")
@@ -42,22 +39,19 @@ class RadareDisassembler(PipelineStep):
         if not data:
             return
 
-        logger.info(f"beginning r2 disassembly ")
-
+        logger.info("beginning r2 disassembly")
 
         code_max = 65536
-        self.r = r2pipe.open(f"malloc://{code_max}", flags=['-2'])
+        self.r = r2pipe.open(f"malloc://{code_max}", flags=["-2"])
 
         ii = 0
         num_too_big = 0
         for document in data:
-
-            with self.track_time():            
-    
-                ii +=1
+            with self.track_time():
+                ii += 1
 
                 code = document.text
-                #logger.info(f"ii={ii} -- {len(code)} bytes -- {num_too_big} skipped bc too big")
+                # logger.info(f"ii={ii} -- {len(code)} bytes -- {num_too_big} skipped bc too big")
 
                 if len(code) > code_max:
                     num_too_big += 1

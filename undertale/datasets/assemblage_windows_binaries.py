@@ -26,31 +26,29 @@ Disk space requirements.
 
 
 """
-from base64 import b64encode
+import logging
 import os
-import pefile
 import sqlite3 as sqlite
 import time
+from base64 import b64encode
+from typing import Callable
 
-from datatrove.pipeline.readers.base import BaseReader
+import pefile
 from datatrove.data import Document
-
+from datatrove.pipeline.readers.base import BaseReader
 
 from .base import Dataset, main
 from .pipeline.compilers import CppCompiler
-from .pipeline.disassemblers import RadareDisassembler, GhidraDisassembler
+from .pipeline.disassemblers import GhidraDisassembler, RadareDisassembler
 
+# import os
+# import sqlite3 as sqlite
+# import time
+# import typing
 
-import logging
-#import os
-#import sqlite3 as sqlite
-#import time
-#import typing
+# import datasets
 
-from typing import Callable
-#import datasets
-
-#from . import dataset
+# from . import dataset
 
 logger = logging.getLogger(__name__)
 
@@ -65,19 +63,18 @@ def tick():
     t = time.time()
     delta = t - last_time
     f_delta = t - first_time
-    last_time = t    
+    last_time = t
     logger.info(f"tick={delta} el={f_delta}")
 
 
 class AssemblageWindowsReader(BaseReader):
-
     type = "📖 - READER"
     name = "A - Assemblage"
+
     def __init__(self):
         self.raw_data_dir = "/data/tleek/undertale_raw_data/assemblage"
-        
+
     def run(self, data, rank: int = 0, world_size: int = 1):
-        
         logger.warning("DANGER this dataset may contain malware so be careful with it")
 
         bins_zip = "winpe_licensed.zip"
@@ -87,9 +84,13 @@ class AssemblageWindowsReader(BaseReader):
         bins_dir = f"{self.raw_data_dir}/winpe"
 
         if (not os.path.exists(sqlfile)) or (os.path.getsize(sqlfile) == 0):
-            os.system(f"/usr/bin/unzip -o -q -d {self.raw_data_dir} {self.raw_data_dir}/{sql_zip}")
+            os.system(
+                f"/usr/bin/unzip -o -q -d {self.raw_data_dir} {self.raw_data_dir}/{sql_zip}"
+            )
         if not os.path.exists(bins_dir):
-            os.system(f"/usr/bin/unzip -o -q -d {self.raw_data_dir} {self.raw_data_dir}/{bins_zip}")
+            os.system(
+                f"/usr/bin/unzip -o -q -d {self.raw_data_dir} {self.raw_data_dir}/{bins_zip}"
+            )
 
         logger.info("Unzipping complete")
         tick()
@@ -126,7 +127,7 @@ class AssemblageWindowsReader(BaseReader):
 
                 if not (b_platform == "x64"):
                     continue
-                
+
                 if i > 0 and (i % 100000) == 0:
                     logger.info(
                         f"Progress... {i} functions so far, {float(num_with_source)/i:.4f} have source, {float(num_failed_rvas)/i:.7f} with bad rvas"
@@ -134,7 +135,7 @@ class AssemblageWindowsReader(BaseReader):
 
                 if i > 1000000:
                     break
- 
+
                 if (current_binary_id is None) or (current_binary_id != b_id):
                     current_binary_id = b_id
                     current_binary = pefile.PE(os.path.join(bins_dir, b_path))
@@ -155,7 +156,21 @@ class AssemblageWindowsReader(BaseReader):
                 else:
                     num_with_source += 1
 
-                tup = ((r_start, r_end), raw_data, f_source, b_platform, b_build_mode, b_optimization, b_toolset_version, f_name, b_file_name, b_path, b_repo_last_update, b_github_url, b_id)
+                tup = (
+                    (r_start, r_end),
+                    raw_data,
+                    f_source,
+                    b_platform,
+                    b_build_mode,
+                    b_optimization,
+                    b_toolset_version,
+                    f_name,
+                    b_file_name,
+                    b_path,
+                    b_repo_last_update,
+                    b_github_url,
+                    b_id,
+                )
                 if f_id not in functions:
                     functions[f_id] = []
                 # this could be just one of several binary chunks that
@@ -166,66 +181,101 @@ class AssemblageWindowsReader(BaseReader):
 
         logger.info("Done with sql shenanigans")
         tick()
-            
+
         i = 0
         l = len(functions)
         for f_id, arr in functions.items():
-            i +=1
+            i += 1
             if (i % 10000) == 0:
                 logger.info(f"{i} of {l} items processed")
                 tick()
 
             all_source = ""
-            arr.sort(key=lambda tup: tup[0][0])                            
-            (min_a, max_a) = (0xffffffffffffffff, 0)
-            for (rng, code, source, platform, build_mode, optimization, compiler, fun_name, bin_filename, bin_path, bin_repo_last_update, bin_github_url, b_id) in arr:
+            arr.sort(key=lambda tup: tup[0][0])
+            (min_a, max_a) = (0xFFFFFFFFFFFFFFFF, 0)
+            for (
+                rng,
+                code,
+                source,
+                platform,
+                build_mode,
+                optimization,
+                compiler,
+                fun_name,
+                bin_filename,
+                bin_path,
+                bin_repo_last_update,
+                bin_github_url,
+                b_id,
+            ) in arr:
                 min_a = min(rng[0], min_a)
                 max_a = max(rng[1], max_a)
-            all_code = bytearray(b'\x090' * (max_a - min_a + 1))
+            all_code = bytearray(b"\x090" * (max_a - min_a + 1))
             last_platform = None
             all_source = ""
-            for (rng, code, source, platform, build_mode, optimization, compiler, fun_name, bin_filename, bin_path, bin_repo_last_update, bin_github_url, b_id) in arr:
+            for (
+                rng,
+                code,
+                source,
+                platform,
+                build_mode,
+                optimization,
+                compiler,
+                fun_name,
+                bin_filename,
+                bin_path,
+                bin_repo_last_update,
+                bin_github_url,
+                b_id,
+            ) in arr:
                 if not (last_platform is None):
-                    assert(platform == last_platform)
-                    assert(build_mode == last_build_mode)
-                    assert(optimization == last_optimization)
-                    assert(compiler == last_compiler)
-                    assert(fun_name == last_fun_name)
-                all_code[rng[0]-min_a:rng[1]-min_a+1] = code                    
+                    assert platform == last_platform
+                    assert build_mode == last_build_mode
+                    assert optimization == last_optimization
+                    assert compiler == last_compiler
+                    assert fun_name == last_fun_name
+                all_code[rng[0] - min_a : rng[1] - min_a + 1] = code
                 if source is not None:
                     all_source += source
-                (last_rng, last_platform, last_build_mode, last_optimization, last_compiler, last_fun_name) = (rng, platform, build_mode, optimization, compiler, fun_name)
-            if  all_source == "":
+                (
+                    last_rng,
+                    last_platform,
+                    last_build_mode,
+                    last_optimization,
+                    last_compiler,
+                    last_fun_name,
+                ) = (rng, platform, build_mode, optimization, compiler, fun_name)
+            if all_source == "":
                 all_source = None
 
-            # if two functions have same value for this then they differ only by 
+            # if two functions have same value for this then they differ only by
             # compiler and optimization, which means they are equivalent; this
             # is used by the transform PairwiseContrastive
-            equiv_class = f"{bin_github_url}-{bin_repo_last_update}-{bin_filename}-{fun_name}"
+            equiv_class = (
+                f"{bin_github_url}-{bin_repo_last_update}-{bin_filename}-{fun_name}"
+            )
 
             # this is the binary code for a single function
             yield Document(
-                id = f"fid={f_id}", 
-                text = all_code, #b64encode(all_code).decode("utf-8"),
-                metadata = {
+                id=f"fid={f_id}",
+                text=all_code,  # b64encode(all_code).decode("utf-8"),
+                metadata={
                     "binary": all_code,
                     "architecture": platform,
                     "function_name": fun_name,
-                    "equiv_class": equiv_class, 
+                    "equiv_class": equiv_class,
                     "optimization": optimization,
-                    "compiler": compiler
-                }
+                    "compiler": compiler,
+                },
             )
 
         tick()
 
-        
 
 class AssemblageWindowsPublicDataset(Dataset):
     name = "assemblage-windows-public-dataset"
 
     def get_pipeline(self, input, writer, parallelism):
-
         steps = [
             AssemblageWindowsReader(),
             RadareDisassembler(),
@@ -236,13 +286,11 @@ class AssemblageWindowsPublicDataset(Dataset):
 
         # Note: fails here with `TypeError: cannot pickle '_thread.lock' object`
         sc = copy.deepcopy(steps)
-        
+
         return self.get_executor(steps, tasks=parallelism)
 
+
 if __name__ == "__main__":
-
-    #import pdb
-    #pdb.set_trace()
+    # import pdb
+    # pdb.set_trace()
     main(AssemblageWindowsPublicDataset)
-
-
