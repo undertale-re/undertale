@@ -61,11 +61,18 @@ class Dataset(metaclass=ABCMeta):
     Arguments:
         writer: The name of the dataset writer to use.
         executor: The name of the dataset executor to use.
+        logging_directory: A path to the directory to use for logging.
     """
 
-    def __init__(self, writer: str = default_writer, executor: str = default_executor):
+    def __init__(
+        self,
+        writer: str = default_writer,
+        executor: str = default_executor,
+        logging_directory: Optional[str] = None,
+    ):
         self.writer = writer
         self.executor = executor
+        self.logging_directory = logging_directory or f"{self.name}-logs"
 
     @property
     @abstractmethod
@@ -82,7 +89,9 @@ class Dataset(metaclass=ABCMeta):
             pipeline: A list of pipeline steps.
         """
 
-        return executors[self.executor](pipeline, **kwargs)
+        return executors[self.executor](
+            pipeline, logging_dir=self.logging_directory, **kwargs
+        )
 
     @abstractmethod
     def get_pipeline(
@@ -238,6 +247,10 @@ def main(dataset_class: Dataset) -> None:
         choices=writers,
         default=default_writer,
         help="output writer (format)",
+    )
+
+    parse_parser.add_argument(
+        "-l", "--logging-directory", help="override logging directory path"
     )
 
     parse_parser.add_argument(
