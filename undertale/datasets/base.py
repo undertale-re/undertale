@@ -15,7 +15,7 @@ from datatrove.pipeline.base import PipelineStep
 from datatrove.pipeline.writers import ParquetWriter
 
 from .. import logging as undertale_logging
-from . import schema
+from .schema import Schema
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +83,7 @@ class Dataset(metaclass=ABCMeta):
         This should be lowercase, kebab-case.
         """
 
-    schema: Optional[schema.Schema] = None
+    schema: Optional[Schema] = None
     """The schema class that this dataset implements.
 
     This should be the literal class from the `schema` module.
