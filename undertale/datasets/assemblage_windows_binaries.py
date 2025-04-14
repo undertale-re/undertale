@@ -1,5 +1,4 @@
 """
-
 This is a big dataset. In order to create it, you will have to arrange
 for enough disk space.  Also, note that the code for parsing was
 developed and run on a machine with 512GB RAM.  Takes about 1.5 hours
@@ -23,32 +22,19 @@ Disk space requirements.
    ~/undertale_shared.  The dataset generated there, in the form of
    arrow files, will be about 102GB.  So make sure there is enough
    space there.
-
-
 """
+
 import logging
 import os
 import sqlite3 as sqlite
 import time
-from base64 import b64encode
-from typing import Callable
 
 import pefile
 from datatrove.data import Document
 from datatrove.pipeline.readers.base import BaseReader
 
 from .base import Dataset, main
-from .pipeline.compilers import CppCompiler
-from .pipeline.disassemblers import GhidraDisassembler, RadareDisassembler
-
-# import os
-# import sqlite3 as sqlite
-# import time
-# import typing
-
-# import datasets
-
-# from . import dataset
+from .pipeline.disassemblers import RadareDisassembler
 
 logger = logging.getLogger(__name__)
 
@@ -183,11 +169,14 @@ class AssemblageWindowsReader(BaseReader):
         tick()
 
         i = 0
-        l = len(functions)
+        last_build_mode = None
+        last_optimization = None
+        last_compiler = None
+        last_fun_name = None
         for f_id, arr in functions.items():
             i += 1
             if (i % 10000) == 0:
-                logger.info(f"{i} of {l} items processed")
+                logger.info(f"{i} of {len(functions)} items processed")
                 tick()
 
             all_source = ""
@@ -238,7 +227,7 @@ class AssemblageWindowsReader(BaseReader):
                 if source is not None:
                     all_source += source
                 (
-                    last_rng,
+                    _,
                     last_platform,
                     last_build_mode,
                     last_optimization,
@@ -282,10 +271,9 @@ class AssemblageWindowsPublicDataset(Dataset):
         ]
         steps.extend(writer)
 
-        import copy
-
         # Note: fails here with `TypeError: cannot pickle '_thread.lock' object`
-        sc = copy.deepcopy(steps)
+        # import copy
+        # sc = copy.deepcopy(steps)
 
         return self.get_executor(steps, tasks=parallelism)
 
