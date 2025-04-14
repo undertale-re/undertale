@@ -24,6 +24,7 @@ setup(
         "openai",
         "capstone",
         "pyhidra",
+        "r2pipe",
         "pefile",
         "networkx",
         "bs4",
