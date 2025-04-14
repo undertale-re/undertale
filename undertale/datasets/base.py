@@ -15,6 +15,7 @@ from datatrove.pipeline.base import PipelineStep
 from datatrove.pipeline.writers import ParquetWriter
 
 from .. import logging as undertale_logging
+from . import schema
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +82,12 @@ class Dataset(metaclass=ABCMeta):
 
         This should be lowercase, kebab-case.
         """
+
+    schema: Optional[schema.Schema] = None
+    """The schema class that this dataset implements.
+
+    This should be the literal class from the `schema` module.
+    """
 
     def get_executor(self, pipeline: List[PipelineStep], **kwargs) -> PipelineExecutor:
         """Returns an executor for the current pipeline.
