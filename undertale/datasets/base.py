@@ -1,4 +1,5 @@
 import argparse
+import code
 import datetime
 import logging
 import os
@@ -213,11 +214,17 @@ def main(dataset_class: Dataset) -> None:
     undertale_logging.setup_logging()
 
     parser = argparse.ArgumentParser(
-        description="process this dataset",
+        description=f"parsing utilities for {dataset_class.__name__}",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
-    parser.add_argument(
+    subparsers = parser.add_subparsers(
+        dest="command", required=True, help="dataset operation to perform"
+    )
+
+    parse_parser = subparsers.add_parser("parse", help="parse the dataset")
+
+    parse_parser.add_argument(
         "-e",
         "--executor",
         choices=executors,
@@ -225,7 +232,7 @@ def main(dataset_class: Dataset) -> None:
         help="executor on which to run the given pipeline",
     )
 
-    parser.add_argument(
+    parse_parser.add_argument(
         "-w",
         "--writer",
         choices=writers,
@@ -233,7 +240,7 @@ def main(dataset_class: Dataset) -> None:
         help="output writer (format)",
     )
 
-    parser.add_argument(
+    parse_parser.add_argument(
         "-p",
         "--parallelism",
         type=int,
@@ -241,15 +248,40 @@ def main(dataset_class: Dataset) -> None:
         help="degree of parallelism (dataset implementation dependent)",
     )
 
-    parser.add_argument("input", help="input location")
+    parse_parser.add_argument("input", help="input location")
 
-    parser.add_argument("-o", "--output", help="output location")
+    parse_parser.add_argument("-o", "--output", help="override output location")
+
+    shell_parser = subparsers.add_parser(
+        "shell",
+        help="load the dataset and open a pyhton shell for exploration",
+    )
+
+    shell_parser.add_argument("-i", "--input", help="override input location")
 
     arguments = parser.parse_args()
 
-    dataset = dataset_class(writer=arguments.writer, executor=arguments.executor)
-    dataset.build(
-        input=arguments.input,
-        output=arguments.output,
-        parallelism=arguments.parallelism,
-    )
+    if arguments.command == "parse":
+        dataset = dataset_class(writer=arguments.writer, executor=arguments.executor)
+        dataset.build(
+            input=arguments.input,
+            output=arguments.output,
+            parallelism=arguments.parallelism,
+        )
+    elif arguments.command == "shell":
+        dataset = dataset_class(
+            writer=writers[default_writer], executor=executors[default_executor]
+        )
+        path = arguments.input or dataset.path
+
+        logger.info(f"loading {dataset_class.__name__} from {path!r}")
+
+        try:
+            dataset = datasets.load_dataset(path)
+        except Exception as e:
+            logger.critical(e)
+            exit(1)
+
+        logger.info(f"{dataset_class.__name__} is available in the `dataset` variable")
+
+        code.interact(local={"dataset": dataset})
