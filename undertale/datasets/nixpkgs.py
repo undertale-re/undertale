@@ -11,7 +11,7 @@ from datatrove.pipeline.readers import JsonlReader, ParquetReader
 from datatrove.pipeline.writers import JsonlWriter, ParquetWriter
 
 from undertale.datasets.base import DEFAULT_DATASETS_DIRECTORY, Dataset, main
-from undertale.datasets.transforms.segment.lief import SegmentLief
+from undertale.datasets.pipeline.segment import LIEFFunctionSegmenter
 
 
 class FindNixpkgs(PipelineStep):
@@ -698,7 +698,7 @@ class NixPkgs(Dataset):
                         "metadata": data,
                     },
                 ),
-                SegmentLief(),
+                LIEFFunctionSegmenter(),
                 # ParquetWriter(
                 #     output_folder=funcs_dir,
                 #     adapter=lambda self, doc: doc.metadata,

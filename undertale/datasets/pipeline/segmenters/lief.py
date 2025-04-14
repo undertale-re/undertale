@@ -9,9 +9,10 @@ from datatrove.data import DocumentsPipeline
 from datatrove.pipeline.base import PipelineStep
 
 
-class SegmentLief(PipelineStep):
-    name = "🪓 Segment with LIEF"
-    type = "⚙️ - PROCESS"
+class LIEFFunctionSegmenter(PipelineStep):
+    type = "✂️ - SEGMENTER"
+    name = "🪓 LIEF"
+
     _requires_dependencies = [
         "cpp_demangle",
         "rust_demangler",
@@ -19,9 +20,6 @@ class SegmentLief(PipelineStep):
         "itanium_demangler",
         "lief",
     ]
-
-    def __init__(self):
-        super().__init__()
 
     def demangle(self, func_name):
         from datatrove.utils.logging import logger
