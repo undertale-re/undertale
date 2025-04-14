@@ -9,6 +9,10 @@ from ..transform import Map
 logger = logging.getLogger(__name__)
 
 
+class GhidraSegmentError(Exception):
+    """Raised when an issue occured during this transform."""
+
+
 class GhidraFunctionSegment(Map):
     """Segment whole binaries into individual functions using Ghidra.
 
@@ -30,8 +34,34 @@ class GhidraFunctionSegment(Map):
 
             with open(binary, "wb") as f:
                 f.write(sample)
+            
+            architecture = sample.get("architecture")
 
-            with pyhidra.open_program(binary) as api:
+            if not architecture:
+                raise GhidraSegmentError(
+                    "dataset does not specify an architecture — please provide one"
+                )
+
+            if architecture == "x64":
+                language = "x86:LE:64:default"
+            elif architecture == "x86":
+                language = "x86:LE:32:default"
+            elif architecture == "arm64":
+                language = "AARCH64:LE:64:v8A"
+            else:
+                raise GhidraSegmentError(
+                    f"invalid architecture '{architecture}' for sample at row {index}; options are x64, x86, arm64"
+                )
+
+            # Sets Java max heap size to available system RAM
+            if not pyhidra.launcher.jpype.isJVMStarted():
+                mem = psutil.virtual_memory()
+                available_gb = mem.available / (1024**3)
+                jvm_args = [f"-Xmx{math.floor(available_gb)}g"]
+                launcher = pyhidra.launcher.PyhidraLauncher()
+                launcher.add_vmargs(*jvm_args)
+
+            with pyhidra.open_program(binary, language=language) as api:
                 program = api.getCurrentProgram()
                 listing = program.getListing()
 
@@ -58,7 +88,7 @@ class GhidraFunctionSegment(Map):
                         function[key] = batch[key][idx]
 
                     sample_functions.append(function)
-            if len(sample_functions) > 0:
+            if len(sample_functions) > 0: 
                 batch_functions.extend(sample_functions)
             else:
                 logger.warning(

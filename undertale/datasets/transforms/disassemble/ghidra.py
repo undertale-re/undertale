@@ -1,9 +1,11 @@
 import logging
+import math
 import os
 import pickle
 import tempfile
 
 import networkx
+import psutil
 import pyhidra
 
 from .. import transform
@@ -22,13 +24,9 @@ class GhidraDisassemble(transform.Map):
         entry: A function to determine the entry address. By default, this
             assumes the base address of whatever is passed to Ghidra. Several
             options are defined as constants on this class.
-        language: The Ghidra LanguageID string if necessary. If this is `None`
-            then Ghidra will attempt to auto-discover the language. This works
-            perfectly fine for specific executable file formats like ELF or PE,
-            but for shellcode (or raw function bytes) a language will need to
-            be provided.
     """
 
+    batched = True
     indices = True
 
     @staticmethod
@@ -41,9 +39,8 @@ class GhidraDisassemble(transform.Map):
 
     ENTRY_DEFAULT = ENTRY_IMAGE_BASE
 
-    def __init__(self, entry=None, language=None):
+    def __init__(self, entry=None):
         self.entry = entry or self.ENTRY_DEFAULT
-        self.language = language
 
     def build_control_flow_graph(self, api, entry):
         """Build the Inter-Procedural Control Flow Graph.
@@ -131,7 +128,8 @@ class GhidraDisassemble(transform.Map):
 
         return graph, functions
 
-    def __call__(self, sample, index):
+    def __call__(self, batch, index):
+        sample = {key: value[0] for key, value in batch.items()}
         code = sample["code"]
 
         working = tempfile.TemporaryDirectory()
@@ -142,55 +140,69 @@ class GhidraDisassemble(transform.Map):
             f.write(code)
 
         architecture = sample.get("architecture")
-        compiler = sample.get("compiler")
 
-        if self.language and architecture:
+        if not architecture:
             raise GhidraDisassembleError(
-                "dataset provides an architecture, and the transform specifies a languageID - please choose only one"
-            )
-        elif not self.language and not architecture:
-            raise GhidraDisassembleError(
-                "dataset does not specify an architecture — please provide a languageID for the transform"
+                "dataset does not specify an architecture — please provide one"
             )
 
-        if architecture:
-            if architecture == "x64":
-                self.language = "x86:LE:64:default"
-            elif architecture == "x86":
-                self.language = "x86:LE:32:default"
-            elif architecture == "arm64":
-                self.language = "AARCH64:LE:64:v8A"
-            else:
-                raise GhidraDisassembleError(
-                    f"invalid architecture '{architecture}' for sample at row {index}; options are x64, x86, arm64"
-                )
+        if architecture == "x64":
+            language = "x86:LE:64:default"
+        elif architecture == "x86":
+            language = "x86:LE:32:default"
+        elif architecture == "arm64":
+            language = "AARCH64:LE:64:v8A"
+        else:
+            raise GhidraDisassembleError(
+                f"invalid architecture '{architecture}' for sample at row {index}; options are x64, x86, arm64"
+            )
 
-            if compiler and compiler.startswith("msvc"):
-                self.language += ":windows"
+        # Sets Java max heap size to available system RAM
+        if not pyhidra.launcher.jpype.isJVMStarted():
+            mem = psutil.virtual_memory()
+            available_gb = mem.available / (1024**3)
+            jvm_args = [f"-Xmx{math.floor(available_gb)}g"]
+            launcher = pyhidra.launcher.PyhidraLauncher()
+            launcher.add_vmargs(*jvm_args)
 
-        with pyhidra.open_program(binary, language=self.language, analyze=False) as api:
-            program = api.getCurrentProgram()
-            entry = self.entry(api)
+        try:
+            with pyhidra.open_program(binary, language=language, analyze=False) as api:
+                program = api.getCurrentProgram()
+                entry = self.entry(api)
 
-            api.addEntryPoint(entry)
-            api.analyzeAll(program)
+                api.addEntryPoint(entry)
+                api.analyzeAll(program)
 
-            graph, functions = self.build_control_flow_graph(api, entry)
+                graph, functions = self.build_control_flow_graph(api, entry)
 
-        # Sort blocks by address and store straightline disassembly.
-        #
-        # This just matches what the Capstone disassembler transform does for
-        # now.
-        disassembly = []
-        for _, block in sorted(graph.nodes, key=lambda n: n[0]):
-            disassembly.append(block)
-        disassembly = "\n".join(disassembly)
+                # Sort blocks by address and store straightline disassembly.
+                #
+                # This just matches what the Capstone disassembler transform does for
+                # now.
+                disassembly = []
+                for _, block in sorted(graph.nodes, key=lambda n: n[0]):
+                    disassembly.append(block)
+                disassembly = "\n".join(disassembly)
 
-        # Sort functions by address and store all of their decompilation.
-        decompilation = "\n".join([functions[a] for a in sorted(functions)])
+                # Sort functions by address and store all of their decompilation.
+                decompilation = "\n".join([functions[a] for a in sorted(functions)])
 
-        return {
-            "disassembly": disassembly,
-            "decompilation": decompilation,
-            "control-flow-graph": pickle.dumps(graph),
-        }
+                batch["disassembly"] = [disassembly]
+                batch["decompilation"] = [decompilation]
+                batch["control-flow-graph"] = [pickle.dumps(graph)]
+
+                return batch
+        except Exception as e:
+            logger.error(
+                f"failed to process sample at row {index} with error: {e} - removed from dataset"
+            )
+
+            delete_batch = {}
+            for key in list(batch.keys()) + [
+                "disassembly",
+                "decompilation",
+                "control-flow-graph",
+            ]:
+                delete_batch[key] = []
+
+            return delete_batch

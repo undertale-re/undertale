@@ -28,6 +28,7 @@ setup(
         "networkx",
         "bs4",
         "requests",
+        "psutil",
     ],
     extras_require={
         "development": [
