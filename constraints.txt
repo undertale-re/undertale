@@ -107,6 +107,8 @@ jiter==0.6.1
     # via openai
 jpype1==1.5.0
     # via pyhidra
+lief==0.16.4
+    # via undertale (setup.py)
 loguru==0.7.3
     # via datatrove
 mccabe==0.7.0

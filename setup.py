@@ -30,6 +30,7 @@ setup(
         "bs4",
         "requests",
         "filelock",
+        "lief",
         "unix_ar",
         "cpp_demangle",
         "itanium-demangler",
