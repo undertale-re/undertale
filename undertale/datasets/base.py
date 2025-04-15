@@ -5,7 +5,7 @@ import logging
 import os
 import shutil
 from abc import ABCMeta, abstractmethod
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import datasets
 from datatrove.data import Document
@@ -62,6 +62,8 @@ class Dataset(metaclass=ABCMeta):
     Arguments:
         writer: The name of the dataset writer to use.
         executor: The name of the dataset executor to use.
+        executor_overrides: A dictionary of values with which to override the
+            default executor's kwargs.
         logging_directory: A path to the directory to use for logging.
     """
 
@@ -69,10 +71,12 @@ class Dataset(metaclass=ABCMeta):
         self,
         writer: str = default_writer,
         executor: str = default_executor,
+        executor_overrides: Optional[Dict] = None,
         logging_directory: Optional[str] = None,
     ):
         self.writer = writer
         self.executor = executor
+        self.executor_overrides = executor_overrides or {}
         self.logging_directory = logging_directory or f"{self.name}-logs"
 
     @property
@@ -97,7 +101,9 @@ class Dataset(metaclass=ABCMeta):
         """
 
         return executors[self.executor](
-            pipeline, logging_dir=self.logging_directory, **kwargs
+            pipeline,
+            logging_dir=self.logging_directory,
+            **{**kwargs, **self.executor_overrides},
         )
 
     @abstractmethod
@@ -249,6 +255,14 @@ def main(dataset_class: Dataset) -> None:
     )
 
     parse_parser.add_argument(
+        "--slurm-partition", help="partition where jobs should be submitted"
+    )
+    parse_parser.add_argument("--slurm-job-name", help="job name")
+    parse_parser.add_argument(
+        "--slurm-conda-environment", help="conda environment to activate in slurm"
+    )
+
+    parse_parser.add_argument(
         "-w",
         "--writer",
         choices=writers,
@@ -282,7 +296,20 @@ def main(dataset_class: Dataset) -> None:
     arguments = parser.parse_args()
 
     if arguments.command == "parse":
-        dataset = dataset_class(writer=arguments.writer, executor=arguments.executor)
+        overrides = {}
+
+        if arguments.executor == "slurm":
+            overrides["partition"] = arguments.slurm_partition
+            overrides["job_name"] = arguments.slurm_job_name
+            overrides["condaenv"] = arguments.slurm_conda_environment
+
+        overrides = {k: v for k, v in overrides.items() if v is not None}
+
+        dataset = dataset_class(
+            writer=arguments.writer,
+            executor=arguments.executor,
+            executor_overrides=overrides,
+        )
         dataset.build(
             input=arguments.input,
             output=arguments.output,
