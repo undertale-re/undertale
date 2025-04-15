@@ -186,7 +186,6 @@ class GoogleCodeJam(dataset.Dataset):
             sys.exit()
 
         elif path == "fuse":
-
             home = os.path.expanduser("~")
             raw = "undertale_shared/datasets/raw/google-code-jam"
             staging = os.path.join(home, raw, "staging")
