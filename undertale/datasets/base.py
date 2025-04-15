@@ -104,10 +104,10 @@ class Dataset(metaclass=ABCMeta):
     def get_pipeline(
         self, input: str, writer: List[PipelineStep], parallelism: int = 1
     ) -> PipelineExecutor:
-        """Build and reutrn the dataset processing pipeline.
+        """Build and return the dataset processing pipeline.
 
-        This should make use of the `executor` method to wrape the configured
-        executor.
+        This should make use of the `get_executor` method to wrap the
+        configured executor.
 
         Arguments:
             input: Some input data from the user (path, name, etc.).
