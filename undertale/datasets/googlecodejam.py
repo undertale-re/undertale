@@ -1,3 +1,4 @@
+import gc
 import json
 import logging
 import os
@@ -136,6 +137,7 @@ class GoogleCodeJam(dataset.Dataset):
 
         return rows, competition_solutions
 
+
     @classmethod
     def parse(cls, path: str, processes=None):
         """
@@ -189,18 +191,24 @@ class GoogleCodeJam(dataset.Dataset):
             raw = "undertale_shared/datasets/raw/google-code-jam"
             staging = os.path.join(home, raw, "staging")
             logging.info(f"collecting .json files in dir: {staging}")
+            print (f"info>> collecting .json files in dir: {staging}")
 
             rows = []
             for fname in os.listdir(staging):
                 if fname.endswith(".json"):
                     full_path = os.path.join(staging, fname)
+                    print(f"info>> collecting rows from: {fname}")
                     with open(full_path, "r", encoding="utf-8") as f:
                         data = json.load(f)
                         rows.extend(data)
             logging.info(f"items in dataset: {len(rows)}")
+            print(f"info>> items in dataset: {len(rows)}")
 
-            dataset = datasets.Dataset.from_list(rows)
             logging.info("compile json files to dataset")
+            print("info>> compile json files to dataset")
+            dataset = datasets.Dataset.from_list(rows)
+            rows = []
+            gc.collect()
 
         else:  # path has both competition and solutions files
             home = os.path.expanduser("~")
