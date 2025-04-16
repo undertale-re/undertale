@@ -7,6 +7,10 @@ class RadareDisassembler(PipelineStep):
     type = "🔧 - DISASSEMBLER"
     name = "R - Radare"
 
+    _requires_dependencies = [
+        "r2pipe",
+    ]
+
     def __init__(self):
         super().__init__()
 
