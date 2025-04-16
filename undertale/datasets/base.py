@@ -123,7 +123,6 @@ class Dataset(metaclass=ABCMeta):
 
         writer = writers[self.writer](output)
         executor = self.get_pipeline(input, writer, parallelism)
-
         executor.run()
 
     @property
