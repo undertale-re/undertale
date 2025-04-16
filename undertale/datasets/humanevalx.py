@@ -18,19 +18,24 @@ def adapt_humanevalx_from_huggingface(
 class HumanEvalX(Dataset):
     name = "humaneval-x"
 
-    def get_pipeline(self, input, writer, parallelism):
-        steps = [
-            HuggingFaceDatasetReader(
-                "THUDM/humaneval-x",
-                {"name": "cpp", "split": "test"},
-                adapter=adapt_humanevalx_from_huggingface,
-            ),
-            CppCompiler(),
-            GhidraDisassembler(),
-        ]
-        steps.extend(writer)
+    def build(self, input, output=None, settings=None):
+        config = self.get_configuration(settings)
 
-        return self.get_executor(steps, tasks=parallelism)
+        executor = self.get_executor_local(
+            [
+                HuggingFaceDatasetReader(
+                    "THUDM/humaneval-x",
+                    {"name": "cpp", "split": "test"},
+                    adapter=adapt_humanevalx_from_huggingface,
+                ),
+                CppCompiler(),
+                GhidraDisassembler(),
+                self.get_writer(output),
+            ],
+            tasks=config.parallelism,
+        )
+
+        executor.run()
 
 
 if __name__ == "__main__":

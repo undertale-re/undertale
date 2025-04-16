@@ -1,16 +1,17 @@
 import argparse
 import code
+import configparser
 import datetime
 import logging
 import os
 import shutil
 from abc import ABCMeta, abstractmethod
-from typing import List, Optional
+from dataclasses import dataclass
+from typing import Dict, List, Optional
 
 import datasets
 from datatrove.data import Document
 from datatrove.executor import LocalPipelineExecutor, SlurmPipelineExecutor
-from datatrove.executor.base import PipelineExecutor
 from datatrove.pipeline.base import PipelineStep
 from datatrove.pipeline.writers import ParquetWriter
 
@@ -22,58 +23,44 @@ logger = logging.getLogger(__name__)
 Pipeline = List[PipelineStep]
 
 
-DEFAULT_DATASETS_DIRECTORY = "~/undertale_shared/datasets/"
-"""The default directory for dataset caching."""
-
-
 class DatasetAlreadyExistsError(Exception):
     """Raised when attempting to commit a dataset that already exists."""
 
 
-def adapt_to_flatten(self, document: Document) -> dict:
-    sample = {}
+@dataclass
+class BuildConfiguration:
+    """Common configuration settings for building datasets.
 
-    sample["id"] = document.id
-    sample["code"] = document.text
+    Arguments:
+        parallelism: The degree of parallelism - interpreting this is up to the
+            dataset author, but broadly it should correspond to the maximum
+            number of parallel tasks to execute at any point in the full
+            pipeline.
+    """
 
-    for k, v in document.metadata.items():
-        sample[k] = v
+    parallelism: int = 1
 
-    return sample
+    @classmethod
+    def from_dict(cls, settings: Dict):
+        return cls(**settings)
 
+    @classmethod
+    def from_filepath(cls, path: str):
+        config = configparser.ConfigParser()
 
-writers = {
-    "parquet": lambda output: [ParquetWriter(output, adapter=adapt_to_flatten)],
-}
+        with open(path, "r") as f:
+            config.read_file(f)
 
-default_writer = "parquet"
+        settings = {
+            "parallelism": int(config.get("undertale", "parallelism", fallback=None))
+        }
+        settings = {k: v for k, v in settings.items() if v}
 
-executors = {
-    "local": LocalPipelineExecutor,
-    "slurm": SlurmPipelineExecutor,
-}
-
-default_executor = "local"
+        return cls(**settings)
 
 
 class Dataset(metaclass=ABCMeta):
-    """The base class for all Undertale datasets.
-
-    Arguments:
-        writer: The name of the dataset writer to use.
-        executor: The name of the dataset executor to use.
-        logging_directory: A path to the directory to use for logging.
-    """
-
-    def __init__(
-        self,
-        writer: str = default_writer,
-        executor: str = default_executor,
-        logging_directory: Optional[str] = None,
-    ):
-        self.writer = writer
-        self.executor = executor
-        self.logging_directory = logging_directory or f"{self.name}-logs"
+    """The base class for all Undertale datasets."""
 
     @property
     @abstractmethod
@@ -89,60 +76,132 @@ class Dataset(metaclass=ABCMeta):
     This should be the literal class from the `schema` module.
     """
 
-    def get_executor(self, pipeline: List[PipelineStep], **kwargs) -> PipelineExecutor:
-        """Returns an executor for the current pipeline.
+    DEFAULT_DATASETS_DIRECTORY = "~/undertale_shared/datasets/"
+    """The default directory for dataset caching."""
 
-        Arguments:
-            pipeline: A list of pipeline steps.
-        """
-
-        return executors[self.executor](
-            pipeline, logging_dir=self.logging_directory, **kwargs
-        )
-
-    @abstractmethod
-    def get_pipeline(
-        self, input: str, writer: List[PipelineStep], parallelism: int = 1
-    ) -> PipelineExecutor:
-        """Build and return the dataset processing pipeline.
-
-        This should make use of the `get_executor` method to wrap the
-        configured executor.
-
-        Arguments:
-            input: Some input data from the user (path, name, etc.).
-            writer: A series of output writer steps to add to the pipeline.
-            parallelism: The degree of parallelism; dataset authors can choose
-                to implement this however they want.
-        """
-
-    def build(
-        self, input: str, output: Optional[str] = None, parallelism: int = 1
-    ) -> None:
-        output = output or self.path
-
-        writer = writers[self.writer](output)
-        executor = self.get_pipeline(input, writer, parallelism)
-
-        executor.run()
-
-    @property
-    def path(self) -> str:
+    def get_path(self) -> str:
         """The path within the cache directory where this is located."""
 
         datasets = os.environ.get("UNDERTALE_DATASETS_DIRECTORY")
 
         if datasets is None:
             logger.warning(
-                f"UNDERTALE_DATASETS_DIRECTORY environment variable is not set - assuming {DEFAULT_DATASETS_DIRECTORY!r}"
+                f"UNDERTALE_DATASETS_DIRECTORY environment variable is not set - assuming {self.DEFAULT_DATASETS_DIRECTORY!r}"
             )
 
-            datasets = DEFAULT_DATASETS_DIRECTORY
+            datasets = self.DEFAULT_DATASETS_DIRECTORY
 
         path = os.path.join(datasets, self.name)
         path = os.path.abspath(os.path.expanduser(path))
 
         return path
+
+    def get_writer(self, output: Optional[str] = None) -> ParquetWriter:
+        """A helper to get a writer step for the given output path.
+
+        Arguments:
+            output: Output location.
+
+        Returns:
+            A writer step that can be added to a pipeline.
+        """
+
+        output = output or self.get_path()
+
+        def adapt_to_flatten(self, document: Document) -> dict:
+            sample = {}
+
+            sample["id"] = document.id
+            sample["code"] = document.text
+
+            for k, v in document.metadata.items():
+                sample[k] = v
+
+            return sample
+
+        return ParquetWriter(output, adapter=adapt_to_flatten)
+
+    def get_logging_directory(self) -> str:
+        """Get the configured logging directory."""
+
+        return f"{self.name}-logs"
+
+    def get_executor_local(
+        self, pipeline: List[PipelineStep], **kwargs
+    ) -> LocalPipelineExecutor:
+        """A helper to get a `LocalPipelineExecutor`.
+
+        Arguments:
+            pipeline: A list of `PipelineSteps`.
+            **kwargs: Passed through to the `LocalPipelineExecutor`.
+
+        Returns:
+            A `LocalPipelineExecutor` for the given pipeline, with the given
+            configuration parameters and defaults.
+        """
+
+        return LocalPipelineExecutor(
+            pipeline, logging_dir=self.get_logging_directory(), **kwargs
+        )
+
+    def get_executor_slurm(
+        self, pipeline: List[PipelineStep], **kwargs
+    ) -> SlurmPipelineExecutor:
+        """A helper to get a `SlurmPipelineExecutor`.
+
+        Arguments:
+            pipeline: A list of `PipelineSteps`.
+            **kwargs: Passed through to the `SlurmPipelineExecutor`.
+
+        Returns:
+            A `SlurmPipelineExecutor` for the given pipeline, with the given
+            configuration parameters and defaults.
+        """
+
+        return SlurmPipelineExecutor(
+            pipeline, logging_dir=self.get_logging_directory(), **kwargs
+        )
+
+    def get_configuration_path(self) -> str:
+        return f"{self.name}.ini"
+
+    def get_configuration(self, settings: Optional[Dict] = None):
+        """A helper to get a `BuildConfiguration`.
+
+        Arguments:
+            settings: Configuration settings.
+
+        Returns:
+            A `BuildConfiguration` build from the given settings.
+        """
+
+        if settings is not None:
+            return BuildConfiguration.from_dict(settings)
+
+        try:
+            path = self.get_configuration_path()
+            logger.warning(f"build configuration not provided - assuming {path!r}")
+            return BuildConfiguration.from_filepath(path)
+        except Exception as e:
+            logger.warning(
+                f"{path!r}: invalid configuration file - using defaults ({e})"
+            )
+
+        return BuildConfiguration()
+
+    @abstractmethod
+    def build(
+        self, input: str, output: Optional[str] = None, settings: Optional[Dict] = None
+    ) -> None:
+        """Build this dataset.
+
+        Implementations should make use of the helpers above for consistency.
+
+        Arguments:
+            input: Input location or data.
+            output: Output location.
+            settings: Configuration settings.
+        """
 
     @staticmethod
     def load(path: str) -> datasets.Dataset:
@@ -178,7 +237,7 @@ class Dataset(metaclass=ABCMeta):
             A dataset object loaded from the datasets directory.
         """
 
-        return self.load(self.path)
+        return self.load(self.get_path())
 
     def commit(self, dataset: datasets.Dataset, force=False) -> None:
         """Commit this dataset to the datasets directory.
@@ -196,7 +255,7 @@ class Dataset(metaclass=ABCMeta):
                 `force` is `False`.
         """
 
-        path = self.path
+        path = self.get_path()
 
         if os.path.exists(path):
             if force:
@@ -204,7 +263,7 @@ class Dataset(metaclass=ABCMeta):
 
                 shutil.rmtree(path)
             else:
-                message = f"failed to save {self.__class__.__name__} - {self.path!r} already exists in the dataset directory"
+                message = f"failed to save {self.__class__.__name__} - {self.get_path()!r} already exists in the dataset directory"
 
                 logger.error(message)
 
@@ -239,59 +298,31 @@ def main(dataset_class: Dataset) -> None:
     )
 
     parse_parser = subparsers.add_parser("parse", help="parse the dataset")
-
-    parse_parser.add_argument(
-        "-e",
-        "--executor",
-        choices=executors,
-        default=default_executor,
-        help="executor on which to run the given pipeline",
-    )
-
-    parse_parser.add_argument(
-        "-w",
-        "--writer",
-        choices=writers,
-        default=default_writer,
-        help="output writer (format)",
-    )
-
-    parse_parser.add_argument(
-        "-l", "--logging-directory", help="override logging directory path"
-    )
-
-    parse_parser.add_argument(
-        "-p",
-        "--parallelism",
-        type=int,
-        default=1,
-        help="degree of parallelism (dataset implementation dependent)",
-    )
-
     parse_parser.add_argument("input", help="input location")
-
     parse_parser.add_argument("-o", "--output", help="override output location")
+    parse_parser.add_argument(
+        "-s",
+        "--settings",
+        help="configuration file path",
+    )
 
     shell_parser = subparsers.add_parser(
         "shell",
         help="load the dataset and open a pyhton shell for exploration",
     )
-
     shell_parser.add_argument("-i", "--input", help="override input location")
 
     arguments = parser.parse_args()
 
     if arguments.command == "parse":
-        dataset = dataset_class(writer=arguments.writer, executor=arguments.executor)
-        dataset.build(
-            input=arguments.input,
-            output=arguments.output,
-            parallelism=arguments.parallelism,
-        )
+        settings = None
+        if arguments.settings:
+            settings = BuildConfiguration.from_filepath(arguments.settings).__dict__
+
+        dataset = dataset_class()
+        dataset.build(input=arguments.input, output=arguments.output, settings=settings)
     elif arguments.command == "shell":
-        dataset = dataset_class(
-            writer=writers[default_writer], executor=executors[default_executor]
-        )
+        dataset = dataset_class()
         path = arguments.input or dataset.path
 
         logger.info(f"loading {dataset_class.__name__} from {path!r}")
