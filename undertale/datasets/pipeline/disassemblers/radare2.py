@@ -25,7 +25,7 @@ class RadareDisassembler(PipelineStep):
         from datatrove.data import DocumentsPipeline
         from datatrove.pipeline.base import PipelineStep
 
-        def disas_buf(self, buf):
+        def disas_buf(buf):
             self.r.cmd("s 0")
             # resize the "file" radare is working on to fit the fn
             self.r.cmd(f"r {len(buf)}")
@@ -63,7 +63,7 @@ class RadareDisassembler(PipelineStep):
                     num_too_big += 1
                     continue
 
-                d = self.disas_buf(code)
+                d = disas_buf(code)
 
                 disassembly = []
                 if "ops" in d.keys():

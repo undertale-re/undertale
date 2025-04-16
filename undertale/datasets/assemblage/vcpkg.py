@@ -241,7 +241,7 @@ class AssemblageVcpkg(Dataset):
             return executor
         elif input == "r2":
             executor = self.get_my_executor(input)
-            executor.depends.pipeline.append(
+            executor.pipeline.append(
                 ParquetWriter(
                     output_folder=f"{DEFAULT_DATASETS_DIRECTORY}assemblage-vcpkg-dt-disassembled",
                     adapter=lambda self, doc: doc.metadata,
@@ -286,10 +286,10 @@ class AssemblageVcpkg(Dataset):
             ],
             venv_path=os.path.join(f"{Path.home()}/.conda/envs", "ut"),
             logging_dir="~/undertale/logs",
-            time="12:00:00",
+            time="48:00:00",
             cpus_per_task=2,
-            mem_per_cpu_gb=4,
-            tasks=64,
+            mem_per_cpu_gb=40,
+            tasks=100,
             job_name="vcpkg_disassemble_r2",
             partition="xeon-p8",
             sbatch_args={"distribution": "cyclic:cyclic", "chdir": f"/home/gridsan/{os.environ.get('USER')}"},
