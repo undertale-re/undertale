@@ -15,7 +15,7 @@ from datatrove.pipeline.base import PipelineStep
 
 from ..base import DEFAULT_DATASETS_DIRECTORY, Dataset, main
 from ..pipeline.disassemblers import RadareDisassembler
-
+from ..pipeline.disassemblers import RizinDisassembler
 
 class AssemblageVcpkgReader(PipelineStep):
     type = "📖 - READER"
@@ -249,6 +249,16 @@ class AssemblageVcpkg(Dataset):
                 )
             )
             return executor
+        elif input == "rz":
+            executor = self.get_my_executor(input)
+            executor.pipeline.append(
+                ParquetWriter(
+                    output_folder=f"{DEFAULT_DATASETS_DIRECTORY}assemblage-vcpkg-dt-disassembled-rz",
+                    adapter=lambda self, doc: doc.metadata,
+                    max_file_size=50 * 1024 * 1024,
+                )
+            )
+            return executor
 
         return None
 
@@ -295,10 +305,36 @@ class AssemblageVcpkg(Dataset):
             sbatch_args={"distribution": "cyclic:cyclic", "chdir": f"/home/gridsan/{os.environ.get('USER')}"},
         )
 
+        # Rizin disassemble
+        slurm_disassemble_rz = SlurmPipelineExecutor(
+            depends=slurm_parse,
+            pipeline=[ParquetReader(
+                    data_folder=f"{DEFAULT_DATASETS_DIRECTORY}assemblage-vcpkg-dt",
+                    adapter=lambda self, data, path, id_in_file: {
+                        "id": id_in_file,
+                        "text": data["binary"],
+                        "metadata": data,
+                    },
+                ),
+                RizinDisassembler(),
+            ],
+            venv_path=os.path.join(f"{Path.home()}/.conda/envs", "ut"),
+            logging_dir="~/undertale/logs",
+            time="48:00:00",
+            cpus_per_task=2,
+            mem_per_cpu_gb=40,
+            tasks=100,
+            job_name="vcpkg_disassemble_rz",
+            partition="xeon-p8",
+            sbatch_args={"distribution": "cyclic:cyclic", "chdir": f"/home/gridsan/{os.environ.get('USER')}"},
+        )
+
         if input == "binaries":
             return slurm_parse
         elif input == "r2":
             return slurm_disassemble
+        elif input == "rz":
+            return slurm_disassemble_rz
         return None
 
 
