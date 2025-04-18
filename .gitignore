@@ -1,5 +1,9 @@
 *.swp
 *.pyc
+*.json
+*.log
+*.parquet
+*.safetensors
 
 *.egg-info/
 dist/

@@ -3,11 +3,16 @@ import os
 import shutil
 import tempfile
 
-import datasets
 import requests
 from bs4 import BeautifulSoup
+from datasets import Dataset as HFDataset
+from datatrove.data import Document, DocumentsPipeline
+from datatrove.executor import LocalPipelineExecutor
+from datatrove.pipeline.base import PipelineStep
+from datatrove.pipeline.readers.base import BaseReader
+from datatrove.pipeline.writers.parquet import ParquetWriter
 
-from . import dataset
+from undertale.datasets.pipeline.disassemblers.ghidra import GhidraDisassembler
 
 logger = logging.getLogger(__name__)
 
@@ -63,89 +68,158 @@ def unpack_deb(orig_file, dest):
     return "", orig_filename
 
 
-class APT(dataset.Dataset):
-    description = "A collection of binaries for Debian based linux distributions downloaded by the APT tool "
-    path = "apt-dataset"
-    base_url = "http://cybersecmirrors.llan.ll.mit.edu/mirrors/ubuntu/pool/universe/"
+BASE_URL = "http://cybersecmirrors.llan.ll.mit.edu/mirrors/ubuntu/pool/universe/"
 
-    @classmethod
-    def generate_url_list(cls, list_loc: str):
-        with open(list_loc, "w+") as f:
-            f.write("\n")
-        all_download_links = []
-        response = requests.get(cls.base_url)
-        soup = BeautifulSoup(response.content, features="html.parser")
-        links = [link["href"] for link in soup.find_all("a") if len(link["href"]) == 2]
-        for letter in links:
-            print(f"Now processing packages starting with: {letter}")
-            letter_url = cls.base_url + letter
-            response = requests.get(letter_url)
-            letter_soup = BeautifulSoup(response.content, features="html.parser")
-            letter_links = [link["href"] for link in letter_soup.find_all("a")]
-            check = 6
-            for letter_link in letter_links[check:]:
-                final_url = letter_url + letter_link
-                response = requests.get(final_url)
-                final_soup = BeautifulSoup(response.content, features="html.parser")
-                final_links = [link["href"] for link in final_soup.find_all("a")]
-                if len(final_links) > check:
-                    download_link = final_url + final_links[check]
-                    all_download_links.append(download_link)
-                    with open(list_loc, "a") as f:
-                        f.write(download_link + "\n")
 
-    @classmethod
-    def create_dataset(
-        cls,
-        url_path: str,
-        path: str,
-        raw_data_path: str,
-        unpackaged_path: str,
-        download=True,
-    ):
-        if not os.path.isdir(unpackaged_path):
-            os.mkdir(unpackaged_path)
-        # downloading the raw packages
-        data = {"binary": [], "filename": [], "metadata": [], "package": []}
-        with open(url_path) as f:
-            all_download_links = [
-                link.strip() for link in f.readlines()[1:] if link[-5:-1] == ".deb"
-            ]
-        if download:
-            for download_link in all_download_links:
-                print(f"now downloading {download_link}")
-                floc = os.path.join(raw_data_path, download_link.split("/")[-1])
-                response = requests.get(download_link)
-                with open(floc, "wb+") as f:
-                    f.write(response.content)
-                # unpackaging and finding binary executables
-                metadata, pname = unpack_deb(floc, unpackaged_path)
-                project = os.path.join(unpackaged_path, pname)
-                if metadata != "":
-                    with open(os.path.join(project, "metadata.txt"), "w+") as f:
-                        f.write(metadata)
-                    with open(os.path.join(project, "project_name.txt"), "w+") as f:
-                        f.write(pname)
+def generate_url_list(list_loc: str, base_url: str):
+    with open(list_loc, "w+") as f:
+        f.write("\n")
+    all_download_links = []
+    response = requests.get(base_url)
+    soup = BeautifulSoup(response.content, features="html.parser")
+    links = [link["href"] for link in soup.find_all("a") if len(link["href"]) == 2]
+    for letter in links:
+        print(f"Now processing packages starting with: {letter}")
+        letter_url = base_url + letter
+        response = requests.get(letter_url)
+        letter_soup = BeautifulSoup(response.content, features="html.parser")
+        letter_links = [link["href"] for link in letter_soup.find_all("a")]
+        check = 6
+        for letter_link in letter_links[check:]:
+            final_url = letter_url + letter_link
+            response = requests.get(final_url)
+            final_soup = BeautifulSoup(response.content, features="html.parser")
+            final_links = [link["href"] for link in final_soup.find_all("a")]
+            if len(final_links) > check:
+                download_link = final_url + final_links[check]
+                all_download_links.append(download_link)
+                with open(list_loc, "a") as f:
+                    f.write(download_link + "\n")
 
-        files = os.listdir(unpackaged_path)
 
-        for i, pname in enumerate(files):
+def create_dataset(url_path: str, downloaded_data_path: str):
+    if not os.path.isdir(downloaded_data_path):
+        os.mkdir(downloaded_data_path)
+        download = True
+    else:
+        download = False
+    # downloading the raw packages
+    data = {"code": [], "filename": [], "metadata": [], "package": []}
+    # data = []
+    with open(url_path) as f:
+        all_download_links = [
+            link.strip() for link in f.readlines()[1:] if link[-5:-1] == ".deb"
+        ]
+    unpackaged_path = os.path.join(downloaded_data_path, "unpackaged")
+    raw_data_path = os.path.join(downloaded_data_path, "raw")
+    if download:
+        os.mkdir(unpackaged_path)
+        os.mkdir(raw_data_path)
+        for download_link in all_download_links:
+            print(f"now downloading {download_link}")
+            floc = os.path.join(raw_data_path, download_link.split("/")[-1])
+            response = requests.get(download_link)
+            with open(floc, "wb+") as f:
+                f.write(response.content)
+            # unpackaging and finding binary executables
+            metadata, pname = unpack_deb(floc, unpackaged_path)
             project = os.path.join(unpackaged_path, pname)
-            with open(os.path.join(project, "metadata.txt")) as f:
-                metadata = f.read()
-            with open(os.path.join(project, "project_name.txt")) as f:
-                pname = f.read()
-            for fname in os.listdir(project):
-                floc = os.path.join(project, fname)
-                if check_executable(floc):
-                    with open(floc, "rb") as f:
-                        data["binary"].append(f.read())
-                    data["filename"].append(fname)
-                    data["metadata"].append(metadata)
-                    data["package"].append(project)
-        ds = datasets.Dataset.from_dict(data)
-        ds.save_to_disk(path)
+            if metadata != "":
+                with open(os.path.join(project, "metadata.txt"), "w+") as f:
+                    f.write(metadata)
+                with open(os.path.join(project, "project_name.txt"), "w+") as f:
+                    f.write(pname)
 
+    files = os.listdir(unpackaged_path)
+
+    for i, pname in enumerate(files[:100]):
+        project = os.path.join(unpackaged_path, pname)
+        with open(os.path.join(project, "metadata.txt")) as f:
+            metadata = f.read()
+        with open(os.path.join(project, "project_name.txt")) as f:
+            pname = f.read()
+        for fname in os.listdir(project):
+            floc = os.path.join(project, fname)
+            if check_executable(floc):
+                # document = {}
+                with open(floc, "rb") as f:
+                    data["code"].append(f.read())
+                data["filename"].append(fname)
+                data["metadata"].append(metadata)
+                data["package"].append(project)
+                # data.append(document)
+    return data
+
+
+def adapt_apt_from_dict(data: dict) -> dict:
+    return {
+        "id": data["filename"],
+        "text": data["code"][0],
+        "metadata": {"metadata": data["metadata"], "package": data["package"]},
+    }
+
+
+class LoadAPTPackages(BaseReader):
+    name = "(Down)load Packages"
+    type = "⚙️ - PROCESS"
+
+    def __init__(
+        self,
+        build_options: list[str] = ["debug"],
+        wrapper_args: list[str] | None = None,
+        base_url: str = BASE_URL,
+    ):
+        super().__init__()
+        self.wrapper_args = wrapper_args
+        self.build_options = build_options
+        self.base_url = base_url
+        self.adapter = adapt_apt_from_dict
+
+    def run(self, data=None, rank=0, world_size=0):
+        url_list_loc = "/scratch/pa27879/apt_scratch/apt_url_list.txt"
+        downloaded_data_dir = "/scratch/pa27879/apt_scratch/apt_downloaded"
+        dataset_loc = "/scratch/pa27879/apt_scratch/raw_apt_data_ds"
+
+        if not os.path.isfile(dataset_loc):
+            if not os.path.isfile(url_list_loc):
+                generate_url_list(url_list_loc, self.base_url)
+            ds = create_dataset(url_list_loc, downloaded_data_dir)
+            ds = HFDataset.from_dict(ds)
+            ds.save_to_disk(dataset_loc)
+        else:
+            ds = HFDataset.load_from_disk(dataset_loc)
+
+        for row in ds.iter(batch_size=1):
+            adapted_row = self.adapter(row)
+            document = Document(**adapted_row)
+            yield document
+
+
+class NoOpAPT(PipelineStep):
+    name = "Do nothing"
+    type = "⚙️ - PROCESS"
+
+    def __init__(self):
+        super().__init__()
+
+    def run(
+        self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
+    ) -> DocumentsPipeline:
+        for i, pkg in enumerate(data):
+            if pkg:
+                yield pkg
+
+
+download_apt = LocalPipelineExecutor(
+    pipeline=[
+        LoadAPTPackages(),
+        GhidraDisassembler(),
+        ParquetWriter("/scratch/pa27879/apt_scratch/two_step_apt_data_ds"),
+    ],
+)
 
 if __name__ == "__main__":
-    dataset.main(APT)
+    os.environ["GHIDRA_INSTALL_DIR"] = (
+        "/panfs/g52-panfs/home/pa27879/exp/FY25/DOTE_1553-276/Paul_workspace/temp_undertale/software/ghidra_11.2.1_PUBLIC/"
+    )
+    download_apt.run()

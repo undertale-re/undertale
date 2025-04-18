@@ -1,103 +1,36 @@
-import logging
+from datatrove.pipeline.readers import HuggingFaceDatasetReader
 
-import datasets
-
-from . import dataset, schema
-from .transforms import compile
-from .transforms.disassemble import capstone, ghidra, rizin
-
-logger = logging.getLogger(__name__)
+from .base import Dataset, main
+from .pipeline.compilers import CppCompiler
+from .pipeline.disassemblers import GhidraDisassembler
 
 
-class HumanEvalX(dataset.Dataset):
-    url = "https://huggingface.co/datasets/THUDM/humaneval-x"
-    description = "natural language descriptions of programming problems and source code implmentations, compiled"
-    path = "humaneval-x"
-
-    @classmethod
-    def download(cls, processes=None):
-        """Download this dataset from the HuggingFace Hub.
-
-        Also do a little pre-processing.
-        """
-
-        def parse(sample):
-            annotation = sample["prompt"]
-
-            if annotation[:2] != "/*":
-                return {"id": sample["task_id"], "summary": "SKIP", "source": ""}
-
-            annotation = annotation.split(">>>")[0]
-            annotation = annotation[2:].strip()
-            annotation = annotation.replace("\n", "")
-
-            source = f"{sample['declaration']}{sample['canonical_solution']}"
-
-            return {
-                "id": sample["task_id"],
-                "summary": annotation,
-                "source": source,
-            }
-
-        dataset = datasets.load_dataset("THUDM/humaneval-x", "cpp")["test"]
-        dataset = dataset.map(
-            parse,
-            remove_columns=[
-                "task_id",
-                "prompt",
-                "declaration",
-                "canonical_solution",
-                "test",
-                "example_test",
-            ],
-            num_proc=processes,
-        )
-        dataset = dataset.filter(lambda d: d["summary"] != "SKIP", num_proc=processes)
-
-        return dataset
-
-    @classmethod
-    def parse(cls, path: str, processes=None):
-        if path == "download":
-            logger.info(f"downloading {cls.__name__} from the HuggingFace Hub")
-
-            dataset = cls.download(processes=processes)
-        else:
-            dataset = datasets.load_from_disk(path)
-
-        dataset.__class__ = cls
-
-        return dataset
+def adapt_humanevalx_from_huggingface(
+    self, data: dict, path: str, id_in_file: int | str
+) -> dict:
+    return {
+        "id": data["task_id"],
+        "text": f"{data['declaration']}{data['canonical_solution']}",
+        "metadata": {"summary": data["prompt"]},
+    }
 
 
-class HumanEvalXCompiled(HumanEvalX):
-    path = "humaneval-x-compiled"
+class HumanEvalX(Dataset):
+    name = "humaneval-x"
 
-    transforms = [
-        compile.Compile(),
-        compile.CompileErrorsFilter(),
-    ]
+    def get_pipeline(self, input, writer, parallelism):
+        steps = [
+            HuggingFaceDatasetReader(
+                "THUDM/humaneval-x",
+                {"name": "cpp", "split": "test"},
+                adapter=adapt_humanevalx_from_huggingface,
+            ),
+            CppCompiler(),
+            GhidraDisassembler(),
+        ]
+        steps.extend(writer)
 
-
-class HumanEvalXCompiledDisassembled(HumanEvalX):
-    path = "humaneval-x-compiled-disassembled"
-    schema = schema.SummarizedFunction
-
-    transforms = [
-        compile.Compile(),
-        compile.CompileErrorsFilter(),
-        capstone.CapstoneDisassemble(),
-    ]
-
-
-class HumanEvalXCompiledGhidraDisassembled(HumanEvalX):
-    path = "humaneval-x-compiled-ghidra-disassembled"
-
-    transforms = [
-        compile.Compile(),
-        compile.CompileErrorsFilter(),
-        ghidra.GhidraDisassemble(),
-    ]
+        return self.get_executor(steps, tasks=parallelism)
 
 
 class HumanEvalXCompiledRZDisassembled(HumanEvalXCompiled):
@@ -107,12 +40,4 @@ class HumanEvalXCompiledRZDisassembled(HumanEvalXCompiled):
 
 
 if __name__ == "__main__":
-    dataset.main(
-        [
-            HumanEvalXCompiledDisassembled,
-            HumanEvalXCompiledGhidraDisassembled,
-            HumanEvalXCompiledRZDisassembled,
-            HumanEvalXCompiled,
-            HumanEvalX,
-        ]
-    )
+    main(HumanEvalX)
