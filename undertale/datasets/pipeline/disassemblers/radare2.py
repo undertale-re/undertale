@@ -1,4 +1,3 @@
-import r2pipe
 from datatrove.data import DocumentsPipeline
 from datatrove.pipeline.base import PipelineStep
 
@@ -19,11 +18,9 @@ class RadareDisassembler(PipelineStep):
     ) -> DocumentsPipeline:
 
         import json
-        from datatrove.utils.logging import logger
 
         import r2pipe
-        from datatrove.data import DocumentsPipeline
-        from datatrove.pipeline.base import PipelineStep
+        from datatrove.utils.logging import logger
 
         def disas_buf(buf):
             self.r.cmd("s 0")
@@ -42,6 +39,7 @@ class RadareDisassembler(PipelineStep):
                 return pdf_dict
             except:
                 return {}
+
         if not data:
             return
 

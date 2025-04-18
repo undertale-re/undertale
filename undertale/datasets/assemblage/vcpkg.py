@@ -1,50 +1,42 @@
 import os
-import sqlite3
 import time
-
-# import typing
 from pathlib import Path
 
-import pefile
-from datatrove.data import Document, DocumentsPipeline
+from datatrove.data import DocumentsPipeline
 from datatrove.executor import SlurmPipelineExecutor
-from datatrove.pipeline.readers import ParquetReader
-from datatrove.pipeline.readers.base import BaseReader
-from datatrove.pipeline.writers import ParquetWriter
 from datatrove.pipeline.base import PipelineStep
+from datatrove.pipeline.readers import ParquetReader
+from datatrove.pipeline.writers import ParquetWriter
 
 from ..base import DEFAULT_DATASETS_DIRECTORY, Dataset, main
-from ..pipeline.disassemblers import RadareDisassembler
-from ..pipeline.disassemblers import RizinDisassembler
+from ..pipeline.disassemblers import RadareDisassembler, RizinDisassembler
+
 
 class AssemblageVcpkgReader(PipelineStep):
     type = "📖 - READER"
     name = "A - AssemblageVcpkg"
 
-    _requires_dependencies = [
-        "sqlite3",
-        "pefile",
-        "shutil",
-        "random"
-    ]
+    _requires_dependencies = ["sqlite3", "pefile", "shutil", "random"]
 
     def __init__(self):
         super().__init__()
         from datatrove.utils.logging import logger
+
         self.raw_data_dir = f"{Path.home()}/undertale_shared/datasets/raw/assemblage"
         self.last_time = time.time()
         self.first_time = self.last_time
         logger.debug("In constructor")
 
     def run(self, data, rank: int = 0, world_size: int = 1) -> DocumentsPipeline:
-        from datatrove.utils.logging import logger
-        from datatrove.data import Document, DocumentsPipeline
         import os
-        import pefile
-        import sqlite3
-        import shutil
-        import time
         import random
+        import shutil
+        import sqlite3
+        import time
+
+        import pefile
+        from datatrove.data import Document
+        from datatrove.utils.logging import logger
 
         def tick():
             t = time.time()
@@ -59,7 +51,9 @@ class AssemblageVcpkgReader(PipelineStep):
         dst = f"/state/partition1/user/{USER}"
         os.makedirs(dst, exist_ok=True)
         random_file_no = random.randint(1, 1000)
-        shutil.copy(f"{self.raw_data_dir}/vcpkg.sqlite", f"{dst}/vcpkg-{random_file_no}.sqlite")
+        shutil.copy(
+            f"{self.raw_data_dir}/vcpkg.sqlite", f"{dst}/vcpkg-{random_file_no}.sqlite"
+        )
 
         sqlfile = f"{dst}/vcpkg.sqlite"
         bins_dir = f"{self.raw_data_dir}/vcpkg"
@@ -75,7 +69,7 @@ class AssemblageVcpkgReader(PipelineStep):
 
             for row in cur.execute(
                 f"SELECT f.id, b.id, b.file_name, b.pushed_at, b.github_url, b.platform, b.build_mode, b.optimization, b.toolset_version, b.path, f.name, r.start, r.end FROM functions f INNER JOIN binaries b ON f.binary_id = b.id INNER JOIN rvas r ON f.id = r.function_id WHERE f.id%{world_size}=={rank} ORDER BY b.id;"
-            ): # Filter out nth of space based on rank number
+            ):  # Filter out nth of space based on rank number
                 (
                     f_id,
                     b_id,
@@ -204,9 +198,7 @@ class AssemblageVcpkgReader(PipelineStep):
                     last_fun_name,
                 ) = (rng, platform, build_mode, optimization, compiler, fun_name)
 
-            equiv_class = (
-                f"{bin_github_url}-{bin_pushed_at}-{bin_filename}-{fun_name}"
-            )
+            equiv_class = f"{bin_github_url}-{bin_pushed_at}-{bin_filename}-{fun_name}"
 
             yield Document(
                 id=f"fid={f_id}",
@@ -229,9 +221,11 @@ class AssemblageVcpkg(Dataset):
 
     def get_pipeline(self, input, writer, parallelism):
         from datatrove.utils.logging import logger
+
         if input == "binaries":
             executor = self.get_my_executor(input)
-            executor.pipeline.append(ParquetWriter(
+            executor.pipeline.append(
+                ParquetWriter(
                     output_folder=f"{DEFAULT_DATASETS_DIRECTORY}assemblage-vcpkg-dt",
                     adapter=lambda self, doc: doc.metadata,
                     max_file_size=50 * 1024 * 1024,
@@ -265,6 +259,7 @@ class AssemblageVcpkg(Dataset):
     def get_my_executor(self, input):
         # Stage 0: Parse function bytes and metadata
         from datatrove.utils.logging import logger
+
         logger.info("Hello world get_my_executor")
         slurm_parse = SlurmPipelineExecutor(
             pipeline=[
@@ -278,13 +273,17 @@ class AssemblageVcpkg(Dataset):
             tasks=100,
             job_name="parse_vcpkg",
             partition="xeon-p8",
-            sbatch_args={"distribution": "cyclic:cyclic", "chdir": f"/home/gridsan/{os.environ.get('USER')}"},
+            sbatch_args={
+                "distribution": "cyclic:cyclic",
+                "chdir": f"/home/gridsan/{os.environ.get('USER')}",
+            },
         )
 
         # Stage 1: Disassemble binaries in parallel
         slurm_disassemble = SlurmPipelineExecutor(
             depends=slurm_parse,
-            pipeline=[ParquetReader(
+            pipeline=[
+                ParquetReader(
                     data_folder=f"{DEFAULT_DATASETS_DIRECTORY}assemblage-vcpkg-dt",
                     adapter=lambda self, data, path, id_in_file: {
                         "id": id_in_file,
@@ -302,13 +301,17 @@ class AssemblageVcpkg(Dataset):
             tasks=100,
             job_name="vcpkg_disassemble_r2",
             partition="xeon-p8",
-            sbatch_args={"distribution": "cyclic:cyclic", "chdir": f"/home/gridsan/{os.environ.get('USER')}"},
+            sbatch_args={
+                "distribution": "cyclic:cyclic",
+                "chdir": f"/home/gridsan/{os.environ.get('USER')}",
+            },
         )
 
         # Rizin disassemble
         slurm_disassemble_rz = SlurmPipelineExecutor(
             depends=slurm_parse,
-            pipeline=[ParquetReader(
+            pipeline=[
+                ParquetReader(
                     data_folder=f"{DEFAULT_DATASETS_DIRECTORY}assemblage-vcpkg-dt",
                     adapter=lambda self, data, path, id_in_file: {
                         "id": id_in_file,
@@ -326,7 +329,10 @@ class AssemblageVcpkg(Dataset):
             tasks=100,
             job_name="vcpkg_disassemble_rz",
             partition="xeon-p8",
-            sbatch_args={"distribution": "cyclic:cyclic", "chdir": f"/home/gridsan/{os.environ.get('USER')}"},
+            sbatch_args={
+                "distribution": "cyclic:cyclic",
+                "chdir": f"/home/gridsan/{os.environ.get('USER')}",
+            },
         )
 
         if input == "binaries":
