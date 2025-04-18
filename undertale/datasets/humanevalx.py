@@ -33,11 +33,5 @@ class HumanEvalX(Dataset):
         return self.get_executor(steps, tasks=parallelism)
 
 
-class HumanEvalXCompiledRZDisassembled(HumanEvalXCompiled):
-    path = "humaneval-x-compiled-rz-disassembled"
-
-    transforms = [rizin.RizinDisassemble()]
-
-
 if __name__ == "__main__":
     main(HumanEvalX)
