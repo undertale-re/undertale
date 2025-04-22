@@ -55,7 +55,7 @@ class AssemblageVcpkgReader(PipelineStep):
             f"{self.raw_data_dir}/vcpkg.sqlite", f"{dst}/vcpkg-{random_file_no}.sqlite"
         )
 
-        sqlfile = f"{dst}/vcpkg.sqlite"
+        sqlfile = f"{dst}/vcpkg-{random_file_no}.sqlite"
         bins_dir = f"{self.raw_data_dir}/vcpkg"
 
         functions = {}
