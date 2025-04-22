@@ -275,7 +275,7 @@ class AssemblageVcpkg(Dataset):
             partition="xeon-p8",
             sbatch_args={
                 "distribution": "cyclic:cyclic",
-                "chdir": f"/home/gridsan/{os.environ.get('USER')}",
+                "chdir": Path.home(),
             },
         )
 
@@ -303,7 +303,7 @@ class AssemblageVcpkg(Dataset):
             partition="xeon-p8",
             sbatch_args={
                 "distribution": "cyclic:cyclic",
-                "chdir": f"/home/gridsan/{os.environ.get('USER')}",
+                "chdir": Path.home(),
             },
         )
 
@@ -331,7 +331,7 @@ class AssemblageVcpkg(Dataset):
             partition="xeon-p8",
             sbatch_args={
                 "distribution": "cyclic:cyclic",
-                "chdir": f"/home/gridsan/{os.environ.get('USER')}",
+                "chdir": Path.home(),
             },
         )
 
