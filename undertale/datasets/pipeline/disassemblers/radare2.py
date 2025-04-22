@@ -1,37 +1,57 @@
 import json
+import os
+import tempfile
 import logging
 
 import r2pipe
 from datatrove.data import DocumentsPipeline
 from datatrove.pipeline.base import PipelineStep
 
+from capstone import *
+
+md = Cs(CS_ARCH_X86, CS_MODE_64)
+
+def cdisas(code):
+    global md
+    n = len(code)
+    d = ""
+    for i in md.disasm(code, 0x0):
+        if i.address > n:
+            break
+        d = d + "0x%x:\t%s\t%s\n" %(i.address, i.mnemonic, i.op_str)
+    return d
+
 logger = logging.getLogger(__name__)
 
-
 class RadareDisassembler(PipelineStep):
+
     type = "🔧 - DISASSEMBLER"
     name = "R - Radare"
 
     def __init__(self):
         super().__init__()
+        self.code_max = 65536
+        self.debug = False
 
     def disas_buf(self, buf):
+        # buf is a function
+        n = len(buf)
         self.r.cmd("s 0")
-        # resize the "file" radare is working on to fit the fn
-        self.r.cmd(f"r {len(buf)}")
         # write the fn bytes into radare's "file"
+        self.r.cmd("s 0")
         self.r.cmd("wx " + (" ".join([f"{i:02x}" for i in buf])))
-        # light analysis which gets fns (presumably it also
-        # does more than just linear disassembly since it
-        # says it finds functions
         self.r.cmd("aa")
-        # pdf is "print disassembly of function" j means json
-        pdf = self.r.cmd("pdfj")
+        # we are choosing to believe the function bounds. That is, all
+        # of the code handed us *is* part of the function
+        jd = self.r.cmd(f"pDj {n}")
+        # trying to maintain all NOPS in the buffer *after* done with
+        # a function, but efficiently
+        self.r.cmd("wx " +  "0x90" * n)
         try:
-            pdf_dict = json.loads(pdf)
-            return pdf_dict
+            d = json.loads(jd)
+            return "\n".join([x["disasm"] for x in d])
         except:
-            return {}
+            return None
 
     def run(
         self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
@@ -39,34 +59,56 @@ class RadareDisassembler(PipelineStep):
         if not data:
             return
 
-        logger.info("beginning r2 disassembly")
+        logger.info(f"beginning r2 disassembly ")
 
-        code_max = 65536
-        self.r = r2pipe.open(f"malloc://{code_max}", flags=["-2"])
+
+        self.code_max = 65536
+        self.r = r2pipe.open(f"malloc://{self.code_max}", flags=['-2'])
+        # we are going to work hard to maintain this buffer with all NOPs
+        # which makes disassembly maybe nicer for gaps.        
+        self.r.cmd("wx " +  "0x90" * self.code_max)
 
         ii = 0
         num_too_big = 0
         for document in data:
-            with self.track_time():
-                ii += 1
+
+            with self.track_time():            
+    
+                ii +=1
 
                 code = document.text
-                # logger.info(f"ii={ii} -- {len(code)} bytes -- {num_too_big} skipped bc too big")
 
-                if len(code) > code_max:
+                if len(code) > self.code_max:
                     num_too_big += 1
                     continue
 
-                d = self.disas_buf(code)
+                disassembly = self.disas_buf(code)
 
-                disassembly = []
-                if "ops" in d.keys():
-                    for i in range(len(d["ops"])):
-                        disassembly.append(d["ops"][i]["disasm"])
-
-                disassembly = "\n".join(disassembly)
-
+                if disassembly is None:
+                    continue
+                
                 document.metadata["disassembly"] = disassembly
+
+                if self.debug:
+                    # compare r2 disassembly with capstone for sanity check
+                    cd = cdisas(code)
+                    dl1 = disassembly.split('\n')
+                    dl2 = cd.split('\n')
+                    l1 = len(dl1)
+                    l2 = len(dl2)
+                    print(f"l1={l1:x} l2={l2:x}")
+                    for i in range(max(l1, l2)):
+                        if i < l1:
+                            print(f"{dl1[i]:40}", end="")
+                        else:
+                            x="..."
+                            print(f"{x:40}", end="")
+                        if i < l2:
+                            print(f"{dl2[i]:40}", end="")
+                        else:
+                            x="..."
+                            print(f"{x:40}", end="")
+                        print(" ")
 
                 yield document
                 self.stat_update("disassembled")
