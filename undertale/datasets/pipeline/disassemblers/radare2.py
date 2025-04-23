@@ -1,26 +1,5 @@
-import json
-import logging
-
-import capstone as cs
-import r2pipe
 from datatrove.data import DocumentsPipeline
 from datatrove.pipeline.base import PipelineStep
-
-md = cs.Cs(cs.CS_ARCH_X86, cs.CS_MODE_64)
-
-
-def cdisas(code):
-    global md
-    n = len(code)
-    d = ""
-    for i in md.disasm(code, 0x0):
-        if i.address > n:
-            break
-        d = d + "0x%x:\t%s\t%s\n" % (i.address, i.mnemonic, i.op_str)
-    return d
-
-
-logger = logging.getLogger(__name__)
 
 
 class RadareDisassembler(PipelineStep):
@@ -32,31 +11,45 @@ class RadareDisassembler(PipelineStep):
         super().__init__()
         self.debug = False
 
-    def disas_buf(self, buf):
-        # buf is a function
-        n = len(buf)
-        # write the fn bytes into radare's "file"
-        self.r.cmd("wx " + (" ".join([f"{i:02x}" for i in buf])))
-        self.r.cmd("s 0")
-        self.r.cmd("aa")
-        # we are choosing to believe the function bounds. That is, all
-        # of the code handed us *is* part of the function. This means
-        # we just linearly disassemble.
-        jd = self.r.cmd(f"pDj {n}")
-        # trying to maintain all NOPS in the buffer *after* done with
-        # a function, but efficiently
-        self.r.cmd("wx " + "0x90" * n)
-        try:
-            d = json.loads(jd)
-            return "\n".join([x["disasm"] for x in d])
-        except:
-            return None
-
     def run(
         self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
     ) -> DocumentsPipeline:
-        if not data:
-            return
+
+        import json
+
+        import capstone as cs
+        import r2pipe
+        from datatrove.utils.logging import logger
+
+        def disas_buf_capstone(code):
+            md = cs.Cs(cs.CS_ARCH_X86, cs.CS_MODE_64)
+            n = len(code)
+            d = ""
+            for i in md.disasm(code, 0x0):
+                if i.address > n:
+                    break
+                d = d + "0x%x:\t%s\t%s\n" % (i.address, i.mnemonic, i.op_str)
+            return d
+
+        def disas_buf(self, buf):
+            # buf is a function
+            n = len(buf)
+            # write the fn bytes into radare's "file"
+            self.r.cmd("wx " + (" ".join([f"{i:02x}" for i in buf])))
+            self.r.cmd("s 0")
+            self.r.cmd("aa")
+            # we are choosing to believe the function bounds. That is, all
+            # of the code handed us *is* part of the function. This means
+            # we just linearly disassemble.
+            jd = self.r.cmd(f"pDj {n}")
+            # trying to maintain all NOPS in the buffer *after* done with
+            # a function, but efficiently
+            self.r.cmd("wx " + "0x90" * n)
+            try:
+                d = json.loads(jd)
+                return "\n".join([x["disasm"] for x in d])
+            except:
+                return None
 
         logger.info("beginning r2 disassembly ")
 
@@ -79,9 +72,10 @@ class RadareDisassembler(PipelineStep):
                 if disassembly is None:
                     continue
                 document.metadata["disassembly"] = disassembly
+                # this is for debugging but maybe keep it pls?
                 if self.debug:
                     # compare r2 disassembly with capstone for sanity check
-                    cd = cdisas(code)
+                    cd = disas_buf_capstone(code)
                     dl1 = disassembly.split("\n")
                     dl2 = cd.split("\n")
                     l1 = len(dl1)
