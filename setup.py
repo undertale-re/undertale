@@ -25,6 +25,7 @@ setup(
         "capstone",
         "pyhidra",
         "r2pipe",
+        "rzpipe",
         "pefile",
         "networkx",
         "bs4",
