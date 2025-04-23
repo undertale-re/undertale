@@ -25,7 +25,6 @@ class AssemblageVcpkgReader(PipelineStep):
         self.raw_data_dir = f"{Path.home()}/undertale_shared/datasets/raw/assemblage"
         self.last_time = time.time()
         self.first_time = self.last_time
-        logger.debug("In constructor")
 
     def run(self, data, rank: int = 0, world_size: int = 1) -> DocumentsPipeline:
         import os
@@ -44,8 +43,6 @@ class AssemblageVcpkgReader(PipelineStep):
             f_delta = t - self.first_time
             self.last_time = t
             return (delta, f_delta)
-
-        logger.info("Hello world")
 
         USER = os.environ.get("USER")
         dst = f"/state/partition1/user/{USER}"
@@ -260,7 +257,6 @@ class AssemblageVcpkg(Dataset):
         # Stage 0: Parse function bytes and metadata
         from datatrove.utils.logging import logger
 
-        logger.info("Hello world get_my_executor")
         slurm_parse = SlurmPipelineExecutor(
             pipeline=[
                 AssemblageVcpkgReader(),
