@@ -30,19 +30,18 @@ class RadareDisassembler(PipelineStep):
 
     def __init__(self):
         super().__init__()
-        self.code_max = 65536
         self.debug = False
 
     def disas_buf(self, buf):
         # buf is a function
         n = len(buf)
-        self.r.cmd("s 0")
         # write the fn bytes into radare's "file"
-        self.r.cmd("s 0")
         self.r.cmd("wx " + (" ".join([f"{i:02x}" for i in buf])))
+        self.r.cmd("s 0")
         self.r.cmd("aa")
         # we are choosing to believe the function bounds. That is, all
-        # of the code handed us *is* part of the function
+        # of the code handed us *is* part of the function. This means
+        # we just linearly disassemble.
         jd = self.r.cmd(f"pDj {n}")
         # trying to maintain all NOPS in the buffer *after* done with
         # a function, but efficiently
@@ -61,34 +60,25 @@ class RadareDisassembler(PipelineStep):
 
         logger.info(f"beginning r2 disassembly ")
 
-
-        self.code_max = 65536
-        self.r = r2pipe.open(f"malloc://{self.code_max}", flags=['-2'])
+        code_max = 65536
+        self.r = r2pipe.open(f"malloc://{code_max}", flags=['-2'])
         # we are going to work hard to maintain this buffer with all NOPs
-        # which makes disassembly maybe nicer for gaps.        
-        self.r.cmd("wx " +  "0x90" * self.code_max)
+        # which makes disassembly maybe nicer when there are gaps.        
+        self.r.cmd("wx " +  "0x90" * code_max)
 
         ii = 0
         num_too_big = 0
         for document in data:
-
-            with self.track_time():            
-    
+            with self.track_time():                
                 ii +=1
-
-                code = document.text
-
-                if len(code) > self.code_max:
+                code = document.text                
+                if len(code) > code_max:
                     num_too_big += 1
                     continue
-
                 disassembly = self.disas_buf(code)
-
                 if disassembly is None:
                     continue
-                
                 document.metadata["disassembly"] = disassembly
-
                 if self.debug:
                     # compare r2 disassembly with capstone for sanity check
                     cd = cdisas(code)
@@ -96,20 +86,19 @@ class RadareDisassembler(PipelineStep):
                     dl2 = cd.split('\n')
                     l1 = len(dl1)
                     l2 = len(dl2)
-                    print(f"l1={l1:x} l2={l2:x}")
+                    logger.info(f"l1={l1:x} l2={l2:x}")
                     for i in range(max(l1, l2)):
                         if i < l1:
-                            print(f"{dl1[i]:40}", end="")
+                            logger.info(f"{dl1[i]:40}", end="")
                         else:
                             x="..."
-                            print(f"{x:40}", end="")
+                            logger.info(f"{x:40}", end="")
                         if i < l2:
-                            print(f"{dl2[i]:40}", end="")
+                            logger.info(f"{dl2[i]:40}", end="")
                         else:
                             x="..."
-                            print(f"{x:40}", end="")
-                        print(" ")
-
+                            logger.info(f"{x:40}", end="")
+                        logger.info(" ")
                 yield document
                 self.stat_update("disassembled")
 
