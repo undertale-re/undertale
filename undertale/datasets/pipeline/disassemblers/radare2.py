@@ -1,15 +1,13 @@
 import json
-import os
-import tempfile
 import logging
 
+import capstone as cs
 import r2pipe
 from datatrove.data import DocumentsPipeline
 from datatrove.pipeline.base import PipelineStep
 
-from capstone import *
+md = cs.Cs(cs.CS_ARCH_X86, cs.CS_MODE_64)
 
-md = Cs(CS_ARCH_X86, CS_MODE_64)
 
 def cdisas(code):
     global md
@@ -18,10 +16,12 @@ def cdisas(code):
     for i in md.disasm(code, 0x0):
         if i.address > n:
             break
-        d = d + "0x%x:\t%s\t%s\n" %(i.address, i.mnemonic, i.op_str)
+        d = d + "0x%x:\t%s\t%s\n" % (i.address, i.mnemonic, i.op_str)
     return d
 
+
 logger = logging.getLogger(__name__)
+
 
 class RadareDisassembler(PipelineStep):
 
@@ -45,7 +45,7 @@ class RadareDisassembler(PipelineStep):
         jd = self.r.cmd(f"pDj {n}")
         # trying to maintain all NOPS in the buffer *after* done with
         # a function, but efficiently
-        self.r.cmd("wx " +  "0x90" * n)
+        self.r.cmd("wx " + "0x90" * n)
         try:
             d = json.loads(jd)
             return "\n".join([x["disasm"] for x in d])
@@ -58,20 +58,20 @@ class RadareDisassembler(PipelineStep):
         if not data:
             return
 
-        logger.info(f"beginning r2 disassembly ")
+        logger.info("beginning r2 disassembly ")
 
         code_max = 65536
-        self.r = r2pipe.open(f"malloc://{code_max}", flags=['-2'])
+        self.r = r2pipe.open(f"malloc://{code_max}", flags=["-2"])
         # we are going to work hard to maintain this buffer with all NOPs
-        # which makes disassembly maybe nicer when there are gaps.        
-        self.r.cmd("wx " +  "0x90" * code_max)
+        # which makes disassembly maybe nicer when there are gaps.
+        self.r.cmd("wx " + "0x90" * code_max)
 
         ii = 0
         num_too_big = 0
         for document in data:
-            with self.track_time():                
-                ii +=1
-                code = document.text                
+            with self.track_time():
+                ii += 1
+                code = document.text
                 if len(code) > code_max:
                     num_too_big += 1
                     continue
@@ -82,8 +82,8 @@ class RadareDisassembler(PipelineStep):
                 if self.debug:
                     # compare r2 disassembly with capstone for sanity check
                     cd = cdisas(code)
-                    dl1 = disassembly.split('\n')
-                    dl2 = cd.split('\n')
+                    dl1 = disassembly.split("\n")
+                    dl2 = cd.split("\n")
                     l1 = len(dl1)
                     l2 = len(dl2)
                     logger.info(f"l1={l1:x} l2={l2:x}")
@@ -91,12 +91,12 @@ class RadareDisassembler(PipelineStep):
                         if i < l1:
                             logger.info(f"{dl1[i]:40}", end="")
                         else:
-                            x="..."
+                            x = "..."
                             logger.info(f"{x:40}", end="")
                         if i < l2:
                             logger.info(f"{dl2[i]:40}", end="")
                         else:
-                            x="..."
+                            x = "..."
                             logger.info(f"{x:40}", end="")
                         logger.info(" ")
                 yield document
