@@ -55,7 +55,6 @@ class RizinDisassembler(PipelineStep):
                 ii += 1
 
                 code = document.text
-                # logger.info(f"ii={ii} -- {len(code)} bytes -- {num_too_big} skipped bc too big")
 
                 if len(code) > code_max:
                     num_too_big += 1
@@ -76,4 +75,5 @@ class RizinDisassembler(PipelineStep):
                 yield document
                 self.stat_update("disassembled")
 
-        logger.info(f"FYI: {num_too_big} of {ii} skipped bc too big")
+        if num_too_big:
+            logger.warning(f"{num_too_big} of {ii} skipped because they were too large")
