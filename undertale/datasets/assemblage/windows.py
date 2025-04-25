@@ -128,7 +128,7 @@ class AssemblageWindowsReader(PipelineStep):
 
                 try:
                     raw_data = current_binary.get_data(
-                        rva=r_start, length=r_end - r_start + 1
+                        rva=r_start, length=r_end - r_start
                     )
                 except:
                     logger.warn(
