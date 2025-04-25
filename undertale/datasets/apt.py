@@ -10,7 +10,7 @@ from datatrove.data import Document, DocumentsPipeline
 from datatrove.executor import LocalPipelineExecutor
 from datatrove.executor import SlurmPipelineExecutor
 from datatrove.pipeline.base import PipelineStep
-# from datatrove.pipeline.readers import ParquetReader
+from datatrove.pipeline.readers import ParquetReader
 from datatrove.pipeline.writers import ParquetWriter
 from datatrove.pipeline.base import PipelineStep
 # from datatrove.pipeline.readers.base import BaseReader
@@ -20,7 +20,7 @@ from undertale.datasets.pipeline.disassemblers.ghidra import GhidraDisassembler
 
 logger = logging.getLogger(__name__)
 
-HEADERS = [b"\x7fELF", b"MZ\x90\x00"]  # ELF (Linux) or MZ (Windows)
+
 
 
 # def check_executable(file_path):
@@ -169,7 +169,7 @@ def adapt_apt_from_dict(data: dict) -> dict:
 
 
 class LoadAPTPackages(PipelineStep):
-    _requires_dependencies = ["os", "shutil", "tempfile", "requests", "bs4", "datasets"]
+    _requires_dependencies = ["os", "shutil", "tempfile", "requests", "bs4", "datasets", "datatrove"]
 
     name = "(Down)load Packages"
     type = "📖 - READER"
@@ -196,8 +196,10 @@ class LoadAPTPackages(PipelineStep):
         import requests
         from bs4 import BeautifulSoup
         from datasets import Dataset as HFDataset
+        from datatrove.data import Document
 
         def check_executable(file_path):
+            HEADERS = [b"\x7fELF", b"MZ\x90\x00"]  # ELF (Linux) or MZ (Windows)
             if os.access(file_path, os.X_OK):
                 try:
                     with open(file_path, "rb") as f:
@@ -306,7 +308,7 @@ class LoadAPTPackages(PipelineStep):
                             f.write(pname)
 
             files = os.listdir(unpackaged_path)
-
+            data = []
             for i, pname in enumerate(files[:100]):
                 project = os.path.join(unpackaged_path, pname)
                 with open(os.path.join(project, "metadata.txt")) as f:
@@ -316,15 +318,15 @@ class LoadAPTPackages(PipelineStep):
                 for fname in os.listdir(project):
                     floc = os.path.join(project, fname)
                     if check_executable(floc):
-                        # document = {}
+                        document = {}
                         with open(floc, "rb") as f:
                             code = f.read()
                         if len(code) < 1e6:    
-                            data["code"].append(code)
-                            data["filename"].append(fname)
-                            data["metadata"].append(metadata)
-                            data["package"].append(project)
-                        # data.append(document)
+                            document["code"] = (code)
+                            document["filename"] = (fname)
+                            document["metadata"] = (metadata)
+                            document["package"] = (project)
+                        data.append(document)
             return data
 
 
@@ -332,19 +334,25 @@ class LoadAPTPackages(PipelineStep):
         downloaded_data_dir = "/scratch/pa27879/apt_scratch/apt_downloaded"
         dataset_loc = "/scratch/pa27879/apt_scratch/raw_apt_data_ds"
 
-        if not os.path.isfile(dataset_loc):
-            if not os.path.isfile(url_list_loc):
-                generate_url_list(url_list_loc, self.base_url)
-            ds = create_dataset(url_list_loc, downloaded_data_dir)
-            ds = HFDataset.from_dict(ds)
-            ds.save_to_disk(dataset_loc)
-        else:
-            ds = HFDataset.load_from_disk(dataset_loc)
+        if not os.path.isfile(url_list_loc):
+            generate_url_list(url_list_loc, self.base_url)
+        ds = create_dataset(url_list_loc, downloaded_data_dir)
+        ds = HFDataset.from_dict(ds)
+        ds.save_to_disk(dataset_loc)
+        # else:
+        #     ds = HFDataset.load_from_disk(dataset_loc)
 
         for row in ds.iter(batch_size=1):
-            adapted_row = self.adapter(row)
-            document = Document(**adapted_row)
-            yield document
+            f_id = row['filename']
+            yield Document(
+                id=f"fid={f_id}",
+                text=row['code'][0],
+                metadata={
+                    "binary": row['code'][0],
+                    "metadata": row["metadata"],
+                    "package": row["package"],
+                },
+            )
 
 
 class NoOpAPT(PipelineStep):
@@ -367,6 +375,13 @@ class APTpkg(Dataset):
 
     def get_pipeline(self, input, writer, parallelism):
         from datatrove.utils.logging import logger
+
+        def adapt_apt_from_dict(data: dict) -> dict:
+            return {
+                "id": data["filename"],
+                "text": data["code"][0],
+                "metadata": {"metadata": data["metadata"], "package": data["package"]},
+            }
 
         if input == "binaries":
             executor = self.get_my_executor(input)
@@ -432,7 +447,7 @@ class APTpkg(Dataset):
         slurm_disassemble = SlurmPipelineExecutor(
             depends=slurm_parse,
             pipeline=[
-                LoadAPTPackages(),
+                ParquetReader(f"{self.DEFAULT_DATASETS_DIRECTORY}apt-pkg"),
                 GhidraDisassembler(),
             ],
             venv_path="/panfs/g52-panfs/exp/venv/pa27879/.conda/envs/undertale",
