@@ -85,7 +85,7 @@ class AssemblageWindowsReader(PipelineStep):
         tick()
         
         functions = {}
-        with sqlite.connect(sqlfile) as db:
+        with sqlite3.connect(sqlfile) as db:
             logger.info("Connected to SQL database") 
             cur = db.cursor()
             i = 0
