@@ -321,12 +321,12 @@ class LoadAPTPackages(PipelineStep):
                         document = {}
                         with open(floc, "rb") as f:
                             code = f.read()
-                        if len(code) < 1e6:    
-                            document["code"] = (code)
-                            document["filename"] = (fname)
-                            document["metadata"] = (metadata)
-                            document["package"] = (project)
-                        data.append(document)
+                        if len(code) < 1e6:
+                            document["code"] = code
+                            document["filename"] = fname
+                            document["metadata"] = metadata
+                            document["package"] = project
+                            data.append(document)
             return data
 
 
@@ -337,18 +337,18 @@ class LoadAPTPackages(PipelineStep):
         if not os.path.isfile(url_list_loc):
             generate_url_list(url_list_loc, self.base_url)
         ds = create_dataset(url_list_loc, downloaded_data_dir)
-        ds = HFDataset.from_dict(ds)
-        ds.save_to_disk(dataset_loc)
+        # ds = HFDataset.from_dict(ds)
+        # ds.save_to_disk(dataset_loc)
         # else:
         #     ds = HFDataset.load_from_disk(dataset_loc)
 
-        for row in ds.iter(batch_size=1):
+        for row in ds:
             f_id = row['filename']
             yield Document(
                 id=f"fid={f_id}",
-                text=row['code'][0],
+                text=row['code'],
                 metadata={
-                    "binary": row['code'][0],
+                    "binary": row['code'],
                     "metadata": row["metadata"],
                     "package": row["package"],
                 },
