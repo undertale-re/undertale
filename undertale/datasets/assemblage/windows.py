@@ -124,14 +124,14 @@ class AssemblageWindowsReader(PipelineStep):
 
                 if (current_binary_id is None) or (current_binary_id != b_id):
                     current_binary_id = b_id
+                    #logger.info(f"opening pefile {bins_dir} {b_path}")
                     current_binary = pefile.PE(os.path.join(bins_dir, b_path))
-
                 try:
                     raw_data = current_binary.get_data(
                         rva=r_start, length=r_end - r_start
                     )
                 except:
-                    logger.warn(
+                    logger.info(
                         f"discarding function {f_id} as rvas for it seem not to make sense with binary: {num_failed_rvas} count"
                     )
                     num_failed_rvas += 1
