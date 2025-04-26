@@ -22,6 +22,7 @@ Disk space requirements.
    ~/undertale_shared.  The dataset generated there, in the form of
    arrow files, will be about 102GB.  So make sure there is enough
    space there.
+
 """
 
 import os
@@ -50,7 +51,6 @@ class AssemblageWindowsReader(PipelineStep):
         self.last_time = time.time()
         self.first_time = self.last_time
 
-
     def run(self, data, rank: int = 0, world_size: int = 1) -> DocumentsPipeline:
         import os
         import random
@@ -69,7 +69,6 @@ class AssemblageWindowsReader(PipelineStep):
             self.last_time = t
             return (delta, f_delta)
 
-
         USER = os.environ.get("USER")
         dst = f"/state/partition1/user/{USER}"
         os.makedirs(dst, exist_ok=True)
@@ -83,10 +82,10 @@ class AssemblageWindowsReader(PipelineStep):
 
         logger.info("Starting sql shenanigans")
         tick()
-        
+
         functions = {}
         with sqlite3.connect(sqlfile) as db:
-            logger.info("Connected to SQL database") 
+            logger.info("Connected to SQL database")
             cur = db.cursor()
             i = 0
             current_binary = None
@@ -124,7 +123,7 @@ class AssemblageWindowsReader(PipelineStep):
 
                 if (current_binary_id is None) or (current_binary_id != b_id):
                     current_binary_id = b_id
-                    #logger.info(f"opening pefile {bins_dir} {b_path}")
+                    # logger.info(f"opening pefile {bins_dir} {b_path}")
                     current_binary = pefile.PE(os.path.join(bins_dir, b_path))
                 try:
                     raw_data = current_binary.get_data(
