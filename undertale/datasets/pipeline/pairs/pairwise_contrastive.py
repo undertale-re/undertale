@@ -66,7 +66,9 @@ class PairwiseContrastive(PipelineStep):
             if len(s) >= 2:
                 ec2[ec] = s
         equivalence_classes = ec2
-                
+
+        self.num_samples = self.num_samples / world_size
+        
         nec = len(equivalence_classes)
         logger.info(f"{nec} equivalence classes in this shard")
         if nec < self.num_samples:
@@ -81,6 +83,7 @@ class PairwiseContrastive(PipelineStep):
         random.shuffle(ecl)
 
         # generate this many pairs of similar and non-similar functions
+        # note num_samples is across all worlds.
         for i in range(self.num_samples):
 
             def yield_pair_doc(d1, d2, sim):
@@ -101,18 +104,21 @@ class PairwiseContrastive(PipelineStep):
                 # generate a negative sample:
                 # choose two different equiv classes
                 # and pick a single doc from each
-                ec1 = equivalence_classes[random.choice(aecl)]
-                ec2 = equivalence_classes[random.choice(aecl)]            
-                d1 = random.choice(ec1)
-                d2 = random.choice(ec2)
+                ec1 = random.choice(aecl)
+                ec2 = random.choice(aecl)
+                logger.info(f"{i} neg ec1={ec1} ec2={ec2}")
+                d1 = random.choice(equivalence_classes[ec1])
+                d2 = random.choice(equivalence_classes[ec2])
                 yield_pair_doc(d1, d2, 0.0)
             else:
+                logger.info("generating positive sample")
                 # generate a positive sample:
                 # first choose an equiv class at random
-                ec = equivalence_classes[ecl.pop()]
-                # pick two variants at random from those in the clas
-                ind = list(range(len(ec)))
+                ec = ecl.pop()
+                ind = list(range(len(equivalence_classes[ec])))
                 random.shuffle(ind)
-                d1 = ec[ind[0]]
-                d2 = ec[ind[1]]               
+                # pick two variants at random from those in the clas
+                d1 = equivalence_classes[ec][ind[0]]
+                d2 = equivalence_classes[ec][ind[1]]               
+                logger.info(f"{i} pos ec={ec} {ind[0]},{ind[1]} d1={d1.id} d2={d2.id}")
                 yield_pair_doc(d1, d2, 1.0)
