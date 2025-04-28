@@ -5,19 +5,20 @@ from datatrove.pipeline.base import PipelineStep
 
 
 class PairwiseContrastive(PipelineStep):
-    def __init__(self, num_samples, negative_multiple):
-        """
 
+    type = "P - PAIRS"
+    name = "C - Constrastive"
+
+    def __init__(self, num_samples:int, negative_multiple:float):
+        """
         Arguments:
             num_samples: number of constrastive pairs to generate
             neg_multiple: generate neg_multiple as many negative examples as positive examples
 
         """
+        super().__init__()
         self.num_samples = num_samples
         self.negative_multiple = negative_multiple
-
-    type = "PAIRWISE-CONTRASTIVE"
-    name = "ALEX-CHRIS"
 
     def run(
         self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
@@ -39,8 +40,15 @@ class PairwiseContrastive(PipelineStep):
 
         """
 
+        import random
+        from datatrove.utils.logging import logger
+
+        if not data:
+            return
+        
         # iterate over all the fns in this shard and collect functions
         # into equivalence classes
+        logger.info("Collecting equivalence classes")
         equivalence_classes = {}
         for document in data:
             with self.track_time():
@@ -50,16 +58,39 @@ class PairwiseContrastive(PipelineStep):
                     equivalence_classes[ec] = []
                 equivalence_classes[ec].append(document)
 
+        ec2 = []    
+        # keep only equiv classes with 2 or more items
+        for ec,s in equivalence_classes.items():
+            if len(s) >= 2:
+                ec2[ec] = s
+        equivalence_classes = ec2
+                
+        nec = len(equivalence_classes)
+        logger.info(f"{nec} equivalence classes in this shard")
+        if nec < self.num_samples:
+            logger.info("*** That's fewer than the number of samples required -- downgrading.")
+            self.num_samples = nec
+            
+        logger.info(f"Generating {self.num_samples} pairs")        
+
+        ecl = list(equivalence_classes.keys())
+        random.shuffle(ecl)
+
         # generate this many pairs of similar and non-similar functions
         for i in range(self.num_samples):
 
             def yield_pair_doc(d1, d2, sim):
                 yield Document(
+                    # this "document" is a pair so concat the ids
                     id=f"{d1.id}:{d2.id}",
                     # this text field will contain the pair of documents,
                     # each of which is a function
-                    text=(d1, d2),
-                    metadata={"similarity": 0.0},
+                    #text=(d1, d2),
+                    metadata={
+                        "similarity": sim,
+                        "variant1": d1,
+                        "variant2": d2 
+                    },
                 )
 
             p = random.random()
@@ -67,19 +98,16 @@ class PairwiseContrastive(PipelineStep):
                 # generate a negative sample:
                 # choose two different equiv classes
                 # and pick a single row from each
-                ec1 = random.choice(equivalence_classes)
-                ec2 = random.choice(equivalence_classes)
-                yield_pair_doc(random.choice(ec1), random.choice(ec2), 0.0)
+                d1 = random.choice(random.choice(equivalence_classes))
+                d2 = random.choice(random.choice(equivalence_classes))
+                yield_pair_doc(d1, d2, 0.0)
             else:
                 # generate a positive sample:
-                # choose an equiv class that contains at least
-                # 2 versions of a function
-                while True:
-                    ec = random.choice(equivalence_classes)
-                    if len(equivalence_classes[ec]) > 1:
-                        break
-                # pick two versions at random from those in the
-                # equiv class
+                # first choose an equiv class at random
+                ec = ecl.pop()
+                # pick two variants at random from those in the clas
                 ind = list(range(len(equivalence_classes[ec])))
                 random.shuffle(ind)
-                yield_pair_doc(ec[ind[0]], ec[ind[1]], 1.0)
+                d1 = equivalenc_class[ec][ind[0]]
+                d2 = equivalenc_class[ec][ind[1]]               
+                yield_pair_doc(d1, d2, 1.0)
