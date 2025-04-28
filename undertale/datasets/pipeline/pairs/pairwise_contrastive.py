@@ -55,12 +55,12 @@ class PairwiseContrastive(PipelineStep):
         for document in data:
             with self.track_time():
                 # this is a function's worth of binary data.
-                ec = document["metadata"]["equiv_class"]
+                ec = document.metadata["equiv_class"]
                 if not (ec in equivalence_classes):
                     equivalence_classes[ec] = []
                 equivalence_classes[ec].append(document)
 
-        ec2 = []    
+        ec2 = {}
         # keep only equiv classes with 2 or more items
         for ec,s in equivalence_classes.items():
             if len(s) >= 2:
@@ -75,6 +75,8 @@ class PairwiseContrastive(PipelineStep):
             
         logger.info(f"Generating {self.num_samples} pairs")        
 
+        aecl = list(equivalence_classes.keys())
+        
         ecl = list(equivalence_classes.keys())
         random.shuffle(ecl)
 
@@ -83,7 +85,7 @@ class PairwiseContrastive(PipelineStep):
 
             def yield_pair_doc(d1, d2, sim):
                 yield Document(
-                    # this "document" is a pair so concat the ids
+                    # this "document" is a pair so concat the ids for individual docs?
                     id=f"{d1.id}:{d2.id}",
                     # this text field can't really contain the pair of functions..
                     text="n/a",
@@ -98,17 +100,19 @@ class PairwiseContrastive(PipelineStep):
             if p < self.negative_multiple / (1.0 + self.negative_multiple):
                 # generate a negative sample:
                 # choose two different equiv classes
-                # and pick a single row from each
-                d1 = random.choice(random.choice(equivalence_classes))
-                d2 = random.choice(random.choice(equivalence_classes))
+                # and pick a single doc from each
+                ec1 = equivalence_classes[random.choice(aecl)]
+                ec2 = equivalence_classes[random.choice(aecl)]            
+                d1 = random.choice(ec1)
+                d2 = random.choice(ec2)
                 yield_pair_doc(d1, d2, 0.0)
             else:
                 # generate a positive sample:
                 # first choose an equiv class at random
-                ec = ecl.pop()
+                ec = equivalence_classes[ecl.pop()]
                 # pick two variants at random from those in the clas
-                ind = list(range(len(equivalence_classes[ec])))
+                ind = list(range(len(ec)))
                 random.shuffle(ind)
-                d1 = equivalenc_class[ec][ind[0]]
-                d2 = equivalenc_class[ec][ind[1]]               
+                d1 = ec[ind[0]]
+                d2 = ec[ind[1]]               
                 yield_pair_doc(d1, d2, 1.0)

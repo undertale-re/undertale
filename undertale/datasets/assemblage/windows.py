@@ -302,6 +302,16 @@ class AssemblageWindows(Dataset):
                 )
             )
             return executor
+        elif input == "contrastive":
+            executor = self.get_my_executor(input)
+            executor.pipeline.append(
+                ParquetWriter(
+                    output_folder=f"{DEFAULT_DATASETS_DIRECTORY}assemblage-windows-disassembled-rz-pairs",
+                    adapter=lambda self, doc: doc.metadata,
+                    max_file_size=50 * 1024 * 1024,
+                )
+            )
+            return executor
 
         return None
 
