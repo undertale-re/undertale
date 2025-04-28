@@ -122,3 +122,5 @@ class PairwiseContrastive(PipelineStep):
                 d2 = equivalence_classes[ec][ind[1]]               
                 logger.info(f"{i} pos ec={ec} {ind[0]},{ind[1]} d1={d1.id} d2={d2.id}")
                 yield_pair_doc(d1, d2, 1.0)
+
+        logger.info("Looks like we generated all the samples we wanted")
