@@ -9,6 +9,8 @@ class PairwiseContrastive(PipelineStep):
     type = "P - PAIRS"
     name = "C - Constrastive"
 
+    _requires_dependencies = []
+    
     def __init__(self, num_samples:int, negative_multiple:float):
         """
         Arguments:
@@ -83,9 +85,8 @@ class PairwiseContrastive(PipelineStep):
                 yield Document(
                     # this "document" is a pair so concat the ids
                     id=f"{d1.id}:{d2.id}",
-                    # this text field will contain the pair of documents,
-                    # each of which is a function
-                    #text=(d1, d2),
+                    # this text field can't really contain the pair of functions..
+                    text="n/a",
                     metadata={
                         "similarity": sim,
                         "variant1": d1,
