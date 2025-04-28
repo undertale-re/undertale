@@ -1,23 +1,15 @@
 import logging
 import os
-import shutil
-import tempfile
 
-import requests
-from bs4 import BeautifulSoup
-from datatrove.data import DocumentsPipeline
-from datatrove.executor import LocalPipelineExecutor
 from datatrove.executor import SlurmPipelineExecutor
 from datatrove.pipeline.base import PipelineStep
 from datatrove.pipeline.readers import ParquetReader
 from datatrove.pipeline.writers import ParquetWriter
-from datatrove.pipeline.base import PipelineStep
-from undertale.datasets.base import DEFAULT_DATASETS_DIRECTORY, Dataset, main
 
+from undertale.datasets.base import DEFAULT_DATASETS_DIRECTORY, Dataset, main
 from undertale.datasets.pipeline.disassemblers.ghidra import GhidraDisassembler
 
 logger = logging.getLogger(__name__)
-
 
 
 BASE_URL = "http://cybersecmirrors.llan.ll.mit.edu/mirrors/ubuntu/pool/universe/"
@@ -32,7 +24,15 @@ def adapt_apt_from_dict(data: dict) -> dict:
 
 
 class LoadAPTPackages(PipelineStep):
-    _requires_dependencies = ["os", "shutil", "tempfile", "requests", "bs4", "datasets", "datatrove"]
+    _requires_dependencies = [
+        "os",
+        "shutil",
+        "tempfile",
+        "requests",
+        "bs4",
+        "datasets",
+        "datatrove",
+    ]
 
     name = "(Down)load Packages"
     type = "📖 - READER"
@@ -43,9 +43,10 @@ class LoadAPTPackages(PipelineStep):
         wrapper_args: list[str] | None = None,
         base_url: str = BASE_URL,
         url_list_loc: str = "./apt_url_list.txt",
-        downloaded_data_dir: str = "./apt_downloaded"
+        downloaded_data_dir: str = "./apt_downloaded",
     ):
         from datatrove.utils.logging import logger
+
         super().__init__()
         self.wrapper_args = wrapper_args
         self.build_options = build_options
@@ -62,7 +63,6 @@ class LoadAPTPackages(PipelineStep):
 
         import requests
         from bs4 import BeautifulSoup
-        from datasets import Dataset as HFDataset
         from datatrove.data import Document
 
         def check_executable(file_path):
@@ -77,7 +77,6 @@ class LoadAPTPackages(PipelineStep):
                 except:
                     pass
             return False
-
 
         def unpack_deb(orig_file, dest):
             with tempfile.TemporaryDirectory() as tmp_loc:
@@ -99,7 +98,9 @@ class LoadAPTPackages(PipelineStep):
                                     shutil.copy(path, f"{dest}/{orig_filename}/{file}")
                                     success = True
                                 except PermissionError:
-                                    print(f"cant copy {path} to {dest}/{orig_filename}/{file}")
+                                    print(
+                                        f"cant copy {path} to {dest}/{orig_filename}/{file}"
+                                    )
                     os.remove(orig_file)
                     if success:
                         metadata_loc = f"{tmp_loc}/DEBIAN/control"
@@ -114,14 +115,15 @@ class LoadAPTPackages(PipelineStep):
                         return "", orig_filename
             return "", orig_filename
 
-
         def generate_url_list(list_loc: str, base_url: str):
             with open(list_loc, "w+") as f:
                 f.write("\n")
             all_download_links = []
             response = requests.get(base_url)
             soup = BeautifulSoup(response.content, features="html.parser")
-            links = [link["href"] for link in soup.find_all("a") if len(link["href"]) == 2]
+            links = [
+                link["href"] for link in soup.find_all("a") if len(link["href"]) == 2
+            ]
             for letter in links:
                 print(f"Now processing packages starting with: {letter}")
                 letter_url = base_url + letter
@@ -140,8 +142,9 @@ class LoadAPTPackages(PipelineStep):
                         with open(list_loc, "a") as f:
                             f.write(download_link + "\n")
 
-
-        def create_dataset(url_path: str, downloaded_data_path: str, max_file_size: int=int(1e6)):
+        def create_dataset(
+            url_path: str, downloaded_data_path: str, max_file_size: int = int(1e6)
+        ):
             if not os.path.isdir(downloaded_data_path):
                 os.mkdir(downloaded_data_path)
                 download = True
@@ -201,14 +204,14 @@ class LoadAPTPackages(PipelineStep):
         ds = create_dataset(self.url_list_loc, self.downloaded_data_dir)
 
         for row in ds:
-            f_id = row['filename']
+            f_id = row["filename"]
             yield Document(
                 id=f"fid={f_id}",
-                text=row['code'],
+                text=row["code"],
                 metadata={
-                    "binary": row['code'],
-                    "text": row['code'],
-                    "metadata": {'value': row["metadata"]},
+                    "binary": row["code"],
+                    "text": row["code"],
+                    "metadata": {"value": row["metadata"]},
                     "package": row["package"],
                 },
             )
@@ -216,17 +219,20 @@ class LoadAPTPackages(PipelineStep):
 
 class APTpkg(Dataset):
     name = "apt-pkg"
-    DEFAULT_DATASETS_DIRECTORY = "/scratch/pa27879/apt_scratch/"
+    DEFAULT_DATASETS_DIRECTORY = DEFAULT_DATASETS_DIRECTORY
 
     def get_pipeline(self, input, writer, parallelism):
         from datatrove.utils.logging import logger
 
-        def adapt_apt_from_dict(data: dict) -> dict:
-            return {
-                "id": data["filename"],
-                "text": data["code"][0],
-                "metadata": {"metadata": {'value': data["metadata"]}, "package": data["package"]},
-            }
+        # def adapt_apt_from_dict(data: dict) -> dict:
+        #     return {
+        #         "id": data["filename"],
+        #         "text": data["code"][0],
+        #         "metadata": {
+        #             "metadata": {"value": data["metadata"]},
+        #             "package": data["package"],
+        #         },
+        #     }
 
         if input == "binaries":
             executor = self.get_my_executor(input)
@@ -252,39 +258,40 @@ class APTpkg(Dataset):
 
         return None
 
-    def get_my_executor(self, input):
+    def get_my_executor(self, input, ghidra_install_dir, venv_path, partition="RTX-24"):
         # Stage 0: Parse function bytes and metadata
         from datatrove.utils.logging import logger
-        os.environ["GHIDRA_INSTALL_DIR"] = (
-            "/panfs/g52-panfs/home/pa27879/exp/FY25/DOTE_1553-276/Paul_workspace/temp_undertale/software/ghidra_11.2.1_PUBLIC/"
-        )
+
+        os.environ["GHIDRA_INSTALL_DIR"] = ghidra_install_dir
 
         logger.info("Hello world get_my_executor")
-        parse = LocalPipelineExecutor(pipeline=[
-                LoadAPTPackages(),
-            ],)
-        disassemble = LocalPipelineExecutor(
-            depends=parse,
-            pipeline=[
-                LoadAPTPackages(),
-                GhidraDisassembler(),
-            ],
-        )
+        # parse = LocalPipelineExecutor(
+        #     pipeline=[
+        #         LoadAPTPackages(),
+        #     ],
+        # )
+        # disassemble = LocalPipelineExecutor(
+        #     depends=parse,
+        #     pipeline=[
+        #         LoadAPTPackages(),
+        #         GhidraDisassembler(),
+        #     ],
+        # )
         slurm_parse = SlurmPipelineExecutor(
             pipeline=[
                 LoadAPTPackages(),
             ],
-            venv_path="/panfs/g52-panfs/exp/venv/pa27879/.conda/envs/undertale",
-            logging_dir="/home/pa27879/undertale/logs",
+            venv_path=venv_path,
+            logging_dir="~/undertale/logs",
             time="48:00:00",
             cpus_per_task=2,
             mem_per_cpu_gb=40,
             tasks=10,
             job_name="parse_aptpkg",
-            partition='RTX-24',
+            partition=partition,
             sbatch_args={
                 "distribution": "cyclic:cyclic",
-                "chdir": f"/home/pa27879/",
+                "chdir": "~/",
             },
         )
 
@@ -296,17 +303,17 @@ class APTpkg(Dataset):
                 # LoadAPTPackages(),
                 GhidraDisassembler(),
             ],
-            venv_path="/panfs/g52-panfs/exp/venv/pa27879/.conda/envs/undertale",
-            logging_dir="/home/pa27879/undertale/logs",
+            venv_path=venv_path,
+            logging_dir="~/undertale/logs",
             time="48:00:00",
             cpus_per_task=2,
             mem_per_cpu_gb=40,
             tasks=10,
             job_name="disassemble_aptpkg",
-            partition='RTX-24',
+            partition=partition,
             sbatch_args={
                 "distribution": "cyclic:cyclic",
-                "chdir": f"/home/pa27879/",
+                "chdir": "~/",
             },
         )
 
@@ -318,8 +325,7 @@ class APTpkg(Dataset):
             return slurm_disassemble
         return None
 
+
 if __name__ == "__main__":
-    os.environ["GHIDRA_INSTALL_DIR"] = (
-        "/panfs/g52-panfs/home/pa27879/exp/FY25/DOTE_1553-276/Paul_workspace/temp_undertale/software/ghidra_11.2.1_PUBLIC/"
-    )
+    os.environ["GHIDRA_INSTALL_DIR"] = ""  # fill in with ghidra install directory
     main(APTpkg)
