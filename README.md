@@ -30,21 +30,22 @@ direct module call.
 To parse and commit a dataset:
 
 ```bash
-python -m undertale.datasets.{dataset-module} parse {path-to-raw}
+python -m undertale.datasets.{dataset-module} parse {input}
 ```
 
 Examples:
 
 ```bash
-# Parse the default HumanEval-X dataset (compiled and disassembled).
-python -m undertale.datasets.humanevalx parse download
+# Parse the HumanEval-X dataset.
+python -m undertale.datasets.humanevalx parse _
 
 # Parse the HumanEval-X dataset with 8 parallel processes.
-python -m undertale.datasets.humanevalx parse download --processes 8
-
-# Parse the compiled (not disassembled) variant of the HumanEval-X dataset with 8 parallel processes.
-python -m undertale.datasets.humanevalx parse download --variant HumanEvalXCompiled --processes 8
+python -m undertale.datasets.humanevalx parse _ --parallelism 8
 ```
+
+> [!NOTE]
+> The HumanEval-X dataset pulls data from the HuggingFace Hub so the `input`
+> parameter is ignored. The examples above use `_` for brevity.
 
 To load a given dataset and open a shell for exploration:
 

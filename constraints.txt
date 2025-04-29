@@ -107,6 +107,8 @@ jiter==0.6.1
     # via openai
 jpype1==1.5.0
     # via pyhidra
+lief==0.16.4
+    # via undertale (setup.py)
 loguru==0.7.3
     # via datatrove
 mccabe==0.7.0
@@ -190,6 +192,8 @@ requests==2.32.3
     #   huggingface-hub
     #   undertale (setup.py)
 rust-demangler==1.0
+    # via undertale (setup.py)
+rzpipe==0.6.2
     # via undertale (setup.py)
 six==1.16.0
     # via python-dateutil
