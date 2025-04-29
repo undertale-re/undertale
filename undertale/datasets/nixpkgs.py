@@ -11,7 +11,7 @@ from datatrove.pipeline.readers import JsonlReader, ParquetReader
 from datatrove.pipeline.writers import JsonlWriter, ParquetWriter
 
 from undertale.datasets.base import DEFAULT_DATASETS_DIRECTORY, Dataset, main
-from undertale.datasets.pipeline.segment import LIEFFunctionSegmenter
+from undertale.datasets.pipeline.segmenters.lief import LIEFFunctionSegmenter
 
 
 class FindNixpkgs(PipelineStep):
@@ -504,6 +504,8 @@ class ExtractBinaryDataset(PipelineStep):
                         )
                         self.stat_update("failure")
                         continue
+        else:
+            logger.info("no data found in {}", self.builds_dir)
 
 
 class NixPkgs(Dataset):
@@ -600,7 +602,9 @@ class NixPkgs(Dataset):
     slurm_partition_online = None
     slurm_partition_offline = None
 
-    def get_executor(self, steps, input):
+    def get_my_executor(self, input):
+        from undertale.datasets.pipeline.disassemblers import GhidraDisassembler
+
         # stage0: generate curated package listing from all flakes
         self.slurm_find_packages = SlurmPipelineExecutor(
             pipeline=[
@@ -668,14 +672,14 @@ class NixPkgs(Dataset):
             pipeline=[
                 JsonlReader(data_folder=self.builds_dir),
                 ExtractBinaryDataset(),
-                # ParquetWriter(
-                # output_folder=self.dataset_dir,
-                # adapter=lambda self, doc: doc.metadata,
-                # max_file_size=100 * 1024 * 1024,
-                # ),
+                ParquetWriter(
+                    output_folder=self.dataset_dir,
+                    adapter=lambda self, doc: doc.metadata,
+                    max_file_size=5 * 1024 * 1024,
+                ),
             ],
             logging_dir=os.path.join(self.logging_dir, "extract"),
-            time="12:00:00",
+            time="48:00:00",
             tasks=len(self.flakes) * 64,
             job_name="nixpkgs_extract",
             mem_per_cpu_gb=8,
@@ -687,8 +691,9 @@ class NixPkgs(Dataset):
         if input == "binaries":
             return self.slurm_export_dataset
 
+        # stage4: segmenting
         self.slurm_segment_functions = SlurmPipelineExecutor(
-            depends=self.slurm_export_dataset,
+            # depends=self.slurm_export_dataset,
             pipeline=[
                 ParquetReader(
                     data_folder=self.dataset_dir,
@@ -699,11 +704,11 @@ class NixPkgs(Dataset):
                     },
                 ),
                 LIEFFunctionSegmenter(),
-                # ParquetWriter(
-                #     output_folder=funcs_dir,
-                #     adapter=lambda self, doc: doc.metadata,
-                #     max_file_size=100 * 1024 * 1024,
-                # ),
+                ParquetWriter(
+                    output_folder=self.dataset_dir + "-functions-lief",
+                    adapter=lambda self, doc: doc.metadata,
+                    max_file_size=100 * 1024 * 1024,
+                ),
             ],
             venv_path=os.path.join(Path.home(), ".venv"),
             logging_dir=os.path.join(self.logging_dir, "segment"),
@@ -717,6 +722,39 @@ class NixPkgs(Dataset):
         )
         if input == "lief":
             return self.slurm_segment_functions
+
+        # stage5: disassembly
+        self.slurm_ghidra = SlurmPipelineExecutor(
+            # depends=self.slurm_export_dataset,
+            pipeline=[
+                ParquetReader(
+                    data_folder=self.dataset_dir + "-functions-lief",
+                    adapter=lambda self, data, path, id_in_file: {
+                        "id": data["filename"] + "#" + data["function_name"],
+                        "text": data["code"],
+                        "metadata": data,
+                    },
+                ),
+                GhidraDisassembler(language="x86:LE:64:default"),
+                ParquetWriter(
+                    output_folder=self.dataset_dir + "-disassembled-ghidra-test",
+                    adapter=lambda self, doc: doc.metadata,
+                    max_file_size=100 * 1024 * 1024,
+                ),
+            ],
+            venv_path=os.path.join(Path.home(), ".venv"),
+            logging_dir=os.path.join(self.logging_dir, "disassemble-ghidra"),
+            tasks=len(self.flakes) * 64,
+            time="12:00:00",
+            job_name="nixpkgs_disassemble_ghidra",
+            mem_per_cpu_gb=4,
+            cpus_per_task=1,
+            partition=self.slurm_partition_offline,
+            sbatch_args={"distribution": "cyclic:cyclic"},
+        )
+
+        if input == "ghidra":
+            return self.slurm_ghidra
         return None
 
     def get_pipeline(self, input, writer, parallelism):
@@ -745,23 +783,9 @@ class NixPkgs(Dataset):
         else:
             logger.error("unsupported paralellism level - currently slurm only")
             return None
-        if input == "binaries":
-            executor = self.get_executor(0, input)
-            executor.pipeline.append(writer)
-            return executor
-        if input == "lief":
-            executor = self.get_executor(0, input)
-            executor.depends.pipeline.append(
-                ParquetWriter(
-                    output_folder=self.dataset_dir,
-                    adapter=lambda self, doc: doc.metadata,
-                    max_file_size=100 * 1024 * 1024,
-                )
-            )
-            executor.pipeline.append(writer)
-            return executor
-        logger.error("unkown input: not lief or binaries")
-        return None
+        logger.info("getting executor:{}", input)
+        executor = self.get_my_executor(input)
+        return executor
 
 
 if __name__ == "__main__":

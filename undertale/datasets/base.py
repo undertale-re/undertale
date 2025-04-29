@@ -5,6 +5,7 @@ import logging
 import os
 import shutil
 from abc import ABCMeta, abstractmethod
+from pathlib import Path
 from typing import List, Optional
 
 import datasets
@@ -22,7 +23,7 @@ logger = logging.getLogger(__name__)
 Pipeline = List[PipelineStep]
 
 
-DEFAULT_DATASETS_DIRECTORY = "~/undertale_shared/datasets/"
+DEFAULT_DATASETS_DIRECTORY = os.path.join(Path.home(), "undertale_shared/datasets/")
 """The default directory for dataset caching."""
 
 
