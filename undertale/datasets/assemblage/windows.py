@@ -38,6 +38,7 @@ from ..base import DEFAULT_DATASETS_DIRECTORY, Dataset, main
 from ..pipeline.disassemblers import RadareDisassembler, RizinDisassembler
 from ..pipeline.pairs import PairwiseContrastive
 
+
 class AssemblageWindowsReader(PipelineStep):
     type = "📖 - READER"
     name = "A - AssemblageWindows"
@@ -49,7 +50,6 @@ class AssemblageWindowsReader(PipelineStep):
         self.raw_data_dir = f"{Path.home()}/undertale_shared/datasets/raw/assemblage"
         self.last_time = time.time()
         self.first_time = self.last_time
-
 
     def run(self, data, rank: int = 0, world_size: int = 1) -> DocumentsPipeline:
         import os
@@ -69,7 +69,6 @@ class AssemblageWindowsReader(PipelineStep):
             self.last_time = t
             return (delta, f_delta)
 
-
         USER = os.environ.get("USER")
         dst = f"/state/partition1/user/{USER}"
         os.makedirs(dst, exist_ok=True)
@@ -83,10 +82,10 @@ class AssemblageWindowsReader(PipelineStep):
 
         logger.info("Starting sql shenanigans")
         tick()
-        
+
         functions = {}
         with sqlite3.connect(sqlfile) as db:
-            logger.info("Connected to SQL database") 
+            logger.info("Connected to SQL database")
             cur = db.cursor()
             i = 0
             current_binary = None
@@ -124,7 +123,7 @@ class AssemblageWindowsReader(PipelineStep):
 
                 if (current_binary_id is None) or (current_binary_id != b_id):
                     current_binary_id = b_id
-                    #logger.info(f"opening pefile {bins_dir} {b_path}")
+                    # logger.info(f"opening pefile {bins_dir} {b_path}")
                     current_binary = pefile.PE(os.path.join(bins_dir, b_path))
                 try:
                     raw_data = current_binary.get_data(
@@ -392,7 +391,6 @@ class AssemblageWindows(Dataset):
             },
         )
 
-
         slurm_contrastive_pairs = SlurmPipelineExecutor(
             depends=slurm_disassemble_rz,
             pipeline=[
@@ -404,7 +402,7 @@ class AssemblageWindows(Dataset):
                         "metadata": data,
                     },
                 ),
-                PairwiseContrastive(1000000,1.0), 
+                PairwiseContrastive(1000000, 1.0),
             ],
             venv_path=os.path.join(f"{Path.home()}/.conda/envs", "ut"),
             logging_dir="~/undertale/logs",
@@ -419,8 +417,7 @@ class AssemblageWindows(Dataset):
                 "chdir": Path.home(),
             },
         )
-                
-        
+
         if input == "binaries":
             return slurm_parse
         elif input == "r2":
