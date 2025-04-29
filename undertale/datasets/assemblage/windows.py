@@ -411,7 +411,7 @@ class AssemblageWindows(Dataset):
             time="48:00:00",
             cpus_per_task=2,
             mem_per_cpu_gb=40,
-            tasks=100,
+            tasks=5,
             job_name="assemblage_windows_contrastive_pairs",
             partition="xeon-p8",
             sbatch_args={

@@ -67,10 +67,10 @@ class PairwiseContrastive(PipelineStep):
                 ec2[ec] = s
         equivalence_classes = ec2
 
-        self.num_samples = self.num_samples / world_size
+        self.num_samples = int(self.num_samples / world_size)
         
         nec = len(equivalence_classes)
-        logger.info(f"{nec} equivalence classes in this shard")
+        logger.info(f"{nec} equivalence classes in this shard. {self.num_samples} required.")
         if nec < self.num_samples:
             logger.info("*** That's fewer than the number of samples required -- downgrading.")
             self.num_samples = nec
@@ -86,18 +86,22 @@ class PairwiseContrastive(PipelineStep):
         # note num_samples is across all worlds.
         for i in range(self.num_samples):
 
-            def yield_pair_doc(d1, d2, sim):
-                yield Document(
+            def make_doc_pair_doc(d1, d2, sim):
+                d =  Document(
                     # this "document" is a pair so concat the ids for individual docs?
                     id=f"{d1.id}:{d2.id}",
                     # this text field can't really contain the pair of functions..
-                    text="n/a",
-                    metadata={
-                        "similarity": sim,
-                        "variant1": d1,
-                        "variant2": d2 
-                    },
+                    text="n/a",                    
+                    metadata={"similarity": sim}
                 )
+                def copy_meta(df,dt,suff):
+                    # copy metadata from df into dt,
+                    # adding suffix to keys
+                    for key,val in df.metadata.items():
+                        dt.metadata[key+suff] = val
+                copy_meta(d1,d,"_d1")
+                copy_meta(d2,d,"_d2")
+                return d
 
             p = random.random()
             if p < self.negative_multiple / (1.0 + self.negative_multiple):
@@ -109,7 +113,7 @@ class PairwiseContrastive(PipelineStep):
                 logger.info(f"{i} neg ec1={ec1} ec2={ec2}")
                 d1 = random.choice(equivalence_classes[ec1])
                 d2 = random.choice(equivalence_classes[ec2])
-                yield_pair_doc(d1, d2, 0.0)
+                yield make_doc_pair_doc(d1, d2, 0.0)
             else:
                 logger.info("generating positive sample")
                 # generate a positive sample:
@@ -121,6 +125,6 @@ class PairwiseContrastive(PipelineStep):
                 d1 = equivalence_classes[ec][ind[0]]
                 d2 = equivalence_classes[ec][ind[1]]               
                 logger.info(f"{i} pos ec={ec} {ind[0]},{ind[1]} d1={d1.id} d2={d2.id}")
-                yield_pair_doc(d1, d2, 1.0)
+                yield make_doc_pair_doc(d1, d2, 1.0)
 
         logger.info("Looks like we generated all the samples we wanted")
