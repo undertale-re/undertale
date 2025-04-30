@@ -112,6 +112,7 @@ def build_control_flow_graph(api, entry, ipcfg=False):
         [decompiled_functions[a] for a in sorted(decompiled_functions)]
     )
 
+    decompiler.dispose()
     return graph, disassembly, decompilation
 
 
