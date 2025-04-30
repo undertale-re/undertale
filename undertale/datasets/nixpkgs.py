@@ -747,7 +747,7 @@ class NixPkgs(Dataset):
             tasks=len(self.flakes) * 64,
             time="12:00:00",
             job_name="nixpkgs_disassemble_ghidra",
-            mem_per_cpu_gb=4,
+            mem_per_cpu_gb=8,
             cpus_per_task=1,
             partition=self.slurm_partition_offline,
             sbatch_args={"distribution": "cyclic:cyclic"},

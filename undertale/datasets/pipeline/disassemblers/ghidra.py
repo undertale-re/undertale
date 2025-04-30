@@ -1,11 +1,8 @@
-import logging
 import os
 from typing import Callable, Optional
 
 from datatrove.data import DocumentsPipeline
 from datatrove.pipeline.base import PipelineStep
-
-logger = logging.getLogger(__name__)
 
 
 def build_control_flow_graph(api, entry, ipcfg=False):
@@ -156,6 +153,8 @@ class GhidraDisassembler(PipelineStep):
     ):
         super().__init__()
 
+        from datatrove.utils.logging import logger
+
         self.language = language
         self.entry = entry or self.ENTRY_IMAGE_BASE
 
@@ -173,38 +172,47 @@ class GhidraDisassembler(PipelineStep):
         import tempfile
 
         import pyhidra
+        from datatrove.utils.logging import logger
 
         if not data:
             return
 
         for document in data:
+            logger.info("proceesing {}", str(document.id))
             with self.track_time():
-                code = document.text
+                try:
+                    code = document.text
 
-                working = tempfile.TemporaryDirectory()
+                    working = tempfile.TemporaryDirectory()
 
-                binary = os.path.join(working.name, "binary")
+                    binary = os.path.join(working.name, "binary")
 
-                with open(binary, "wb") as f:
-                    f.write(code)
+                    with open(binary, "wb") as f:
+                        f.write(code)
 
-                with pyhidra.open_program(
-                    binary, language=self.language, analyze=False
-                ) as api:
-                    program = api.getCurrentProgram()
-                    entry = self.entry(api)
+                    if not pyhidra.launcher.jpype.isJVMStarted():
+                        jvm_args = ["-Xmx8g"]
+                        launcher = pyhidra.launcher.PyhidraLauncher()
+                        launcher.add_vmargs(*jvm_args)
+                    with pyhidra.open_program(
+                        binary, language=self.language, analyze=False
+                    ) as api:
+                        program = api.getCurrentProgram()
+                        entry = self.entry(api)
 
-                    api.addEntryPoint(entry)
-                    api.analyzeAll(program)
+                        api.addEntryPoint(entry)
+                        api.analyzeAll(program)
 
-                    graph, disassembly, decompilation = build_control_flow_graph(
-                        api, entry, ipcfg=True
-                    )
+                        graph, disassembly, decompilation = build_control_flow_graph(
+                            api, entry, ipcfg=True
+                        )
 
-                document.metadata["cfg"] = pickle.dumps(graph)
-                document.metadata["disassembly"] = disassembly
-                document.metadata["decompilation"] = decompilation
+                    document.metadata["cfg"] = pickle.dumps(graph)
+                    document.metadata["disassembly"] = disassembly
+                    document.metadata["decompilation"] = decompilation
 
-                yield document
+                    yield document
 
-                self.stat_update("disassembled")
+                    self.stat_update("disassembled")
+                except Exception as e:
+                    logger.error("failed to process {}:{}", str(document.id), str(e))
