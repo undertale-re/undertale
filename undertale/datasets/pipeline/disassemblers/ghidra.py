@@ -98,24 +98,27 @@ def build_control_flow_graph(api, entry, ipcfg=False):
 
     block = model.getCodeBlockAt(entry, monitor)
 
-    graph, _ = process(block)
+    if block is not None:
+        graph, _ = process(block)
 
-    # Sort blocks by address and store straightline disassembly.
-    #
-    # This just matches what the Capstone disassembler transform does for
-    # now. Note that this will disregard empty space between valid basic
-    # blocks.
-    disassembly = []
-    for _, block in sorted(graph.nodes, key=lambda n: n[0]):
-        disassembly.append(block)
-    disassembly = "\n".join(disassembly)
+        # Sort blocks by address and store straightline disassembly.
+        #
+        # This just matches what the Capstone disassembler transform does for
+        # now. Note that this will disregard empty space between valid basic
+        # blocks.
+        disassembly = []
+        for _, block in sorted(graph.nodes, key=lambda n: n[0]):
+            disassembly.append(block)
+        disassembly = "\n".join(disassembly)
 
-    # Sort functions by address and concatenate decompilation.
-    decompilation = "\n".join(
-        [decompiled_functions[a] for a in sorted(decompiled_functions)]
-    )
+        # Sort functions by address and concatenate decompilation.
+        decompilation = "\n".join(
+            [decompiled_functions[a] for a in sorted(decompiled_functions)]
+        )
 
-    return graph, disassembly, decompilation
+        return graph, disassembly, decompilation
+    else:
+        return networkx.Graph(), "", ""
 
 
 class GhidraDisassembler(PipelineStep):

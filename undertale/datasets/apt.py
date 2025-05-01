@@ -6,7 +6,7 @@ from datatrove.pipeline.base import PipelineStep
 from datatrove.pipeline.readers import ParquetReader
 from datatrove.pipeline.writers import ParquetWriter
 
-from undertale.datasets.base import DEFAULT_DATASETS_DIRECTORY, Dataset, main
+from undertale.datasets.base import Dataset, main
 from undertale.datasets.pipeline.disassemblers.ghidra import GhidraDisassembler
 
 logger = logging.getLogger(__name__)
@@ -42,8 +42,8 @@ class LoadAPTPackages(PipelineStep):
         build_options: list[str] = ["debug"],
         wrapper_args: list[str] | None = None,
         base_url: str = BASE_URL,
-        url_list_loc: str = "./apt_url_list.txt",
-        downloaded_data_dir: str = "./apt_downloaded",
+        url_list_loc: str = "/scratch/pa27879/apt_scratch/apt_url_list.txt",
+        downloaded_data_dir: str = "/scratch/pa27879/apt_scratch/apt_downloaded",
     ):
         from datatrove.utils.logging import logger
 
@@ -219,7 +219,7 @@ class LoadAPTPackages(PipelineStep):
 
 class APTpkg(Dataset):
     name = "apt-pkg"
-    DEFAULT_DATASETS_DIRECTORY = DEFAULT_DATASETS_DIRECTORY
+    DEFAULT_DATASETS_DIRECTORY = "/scratch/pa27879/apt_scratch/"
 
     def get_pipeline(self, input, writer, parallelism):
         from datatrove.utils.logging import logger
@@ -258,11 +258,12 @@ class APTpkg(Dataset):
 
         return None
 
-    def get_my_executor(self, input, ghidra_install_dir, venv_path, partition="RTX-24"):
+    def get_my_executor(self, input, partition="RTX-24"):
         # Stage 0: Parse function bytes and metadata
         from datatrove.utils.logging import logger
 
-        os.environ["GHIDRA_INSTALL_DIR"] = ghidra_install_dir
+        venv_path = "/panfs/g52-panfs/exp/venv/pa27879/.conda/envs/undertale"
+        # os.environ["GHIDRA_INSTALL_DIR"] = ghidra_install_dir
 
         logger.info("Hello world get_my_executor")
         # parse = LocalPipelineExecutor(
@@ -327,5 +328,7 @@ class APTpkg(Dataset):
 
 
 if __name__ == "__main__":
-    os.environ["GHIDRA_INSTALL_DIR"] = ""  # fill in with ghidra install directory
+    os.environ["GHIDRA_INSTALL_DIR"] = (
+        "/panfs/g52-panfs/home/pa27879/exp/FY25/DOTE_1553-276/Paul_workspace/temp_undertale/software/ghidra_11.2.1_PUBLIC/"  # fill in with ghidra install directory
+    )
     main(APTpkg)
