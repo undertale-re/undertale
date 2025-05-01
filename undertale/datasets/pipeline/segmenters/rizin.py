@@ -2,7 +2,7 @@ from datatrove.data import DocumentsPipeline
 from datatrove.pipeline.base import PipelineStep
 
 
-class RizinFunctionSegmenter(PipelineStep):
+class RizinFunctionSegmentAndDisassemble(PipelineStep):
     """Segments the given binaries into individual functions.
 
     Input:
@@ -16,7 +16,7 @@ class RizinFunctionSegmenter(PipelineStep):
         Not sure exactly how to extract this info.
     """
 
-    type = "✂️ - SEGMENTER"
+    type = "✂️ - SEGDISASMENTER"
     name = "Z Rizin"
 
     def run(
@@ -24,8 +24,9 @@ class RizinFunctionSegmenter(PipelineStep):
     ) -> DocumentsPipeline:
 
         import json
-        import tempfile
+        import os
         import rzpipe
+        import tempfile
         from datatrove.data import Document
         from datatrove.utils.logging import logger
         
@@ -37,33 +38,37 @@ class RizinFunctionSegmenter(PipelineStep):
                 code = document.text
                 working = tempfile.TemporaryDirectory()
                 binary = os.path.join(working.name, "binary")
+                logger.info(f"working on binary={binary}")
+                with open(binary, "wb") as f:
+                    f.write(code)                
                 r = rzpipe.open(binary)
                 r.cmd("aaaa")
                 ij = json.loads(r.cmd("ij"))
                 # this should be list of functions in this binary
                 fns = json.loads(r.cmd("aflj"))                
                 for fn in fns:
-                    n = fn["name"]
-                    if n=="main" or n.startswith("fcn"):
+                    fun_name = fn["name"]
+                    logger.info(f"segmented fun={fun_name}")
+                    if fun_name=="main" or fun_name.startswith("fcn"):
                         # this is a function actually in the elf
                         # rather than sym.XX which are lib fns etc.
-                        pdfj = r.cmd(f"pdfj @ {n}")
+                        pdfj = json.loads(r.cmd(f"pdfj @ {fun_name}"))
+                        #import pdb
+                        #pdb.set_trace()
                         disassembly = []
-                        if "ops" in d.keys():
-                            for i in range(len(d["ops"])):
-                                if "disasm" in d["ops"][i].keys():
-                                    disassembly.append(d["ops"][i]["disasm"])
-
-                        disassembly = "\n".join(disassembly)
-
-                        document.metadata["disassembly"] = disassembly
-                        document.metadata["function_name"] = n
-                        
+                        if "ops" in pdfj.keys():
+                            for i in range(len(pdfj["ops"])):
+                                if "disasm" in pdfj["ops"][i].keys():
+                                    disassembly.append(pdfj["ops"][i]["disasm"])
+                        disassembly = "\n".join(disassembly)                        
                         yield Document(
-                            id=f"{document.id}:{n}",
-                            architecture=ij["bin"]["arch"],
+                            id=f"{document.id}:{fun_name}",
                             text=code,                            
-                            metadata=metadata,
+                            metadata={
+                                "disassembly": disassembly,
+                                "function_name": fun_name,
+                                "architecture": ij["bin"]["arch"],
+                            }
                         )
 
                         self.stat_update("functions")

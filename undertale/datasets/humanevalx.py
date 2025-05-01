@@ -2,7 +2,8 @@ from datatrove.pipeline.readers import HuggingFaceDatasetReader
 
 from .base import Dataset, main
 from .pipeline.compilers import CppCompiler
-from .pipeline.disassemblers import GhidraDisassembler
+#from .pipeline.disassemblers import GhidraDisassembler
+from .pipeline.segmenters.rizin import RizinFunctionSegmentAndDisassemble
 
 
 def adapt_humanevalx_from_huggingface(
@@ -26,7 +27,7 @@ class HumanEvalX(Dataset):
                 adapter=adapt_humanevalx_from_huggingface,
             ),
             CppCompiler(),
-            GhidraDisassembler(),
+            RizinFunctionSegmentAndDisassemble(),
         ]
         steps.extend(writer)
 
