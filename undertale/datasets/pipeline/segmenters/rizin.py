@@ -54,8 +54,7 @@ class RizinFunctionSegmentAndDisassemble(PipelineStep):
                         # this is a function actually in the elf
                         # rather than sym.XX which are lib fns etc.
                         pdfj = json.loads(r.cmd(f"pdfj @ {fun_name}"))
-                        # import pdb
-                        # pdb.set_trace()
+
                         disassembly = []
                         if "ops" in pdfj.keys():
                             for i in range(len(pdfj["ops"])):
