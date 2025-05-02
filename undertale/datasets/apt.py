@@ -7,7 +7,11 @@ from datatrove.pipeline.readers import ParquetReader
 from datatrove.pipeline.writers import ParquetWriter
 
 from undertale.datasets.base import Dataset, main
-from undertale.datasets.pipeline.disassemblers.ghidra import GhidraDisassembler
+
+# from undertale.datasets.pipeline.disassemblers.ghidra import GhidraDisassembler
+from undertale.datasets.pipeline.segmenters.rizin import (
+    RizinFunctionSegmentAndDisassemble,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -249,7 +253,7 @@ class APTpkg(Dataset):
             executor = self.get_my_executor(input)
             executor.pipeline.append(
                 ParquetWriter(
-                    output_folder=f"{self.DEFAULT_DATASETS_DIRECTORY}apt-pkg-disassembled",
+                    output_folder=f"{self.DEFAULT_DATASETS_DIRECTORY}apt-pkg-disassembled-rz",
                     adapter=lambda self, doc: doc.metadata,
                     max_file_size=50 * 1024 * 1024,
                 )
@@ -292,7 +296,7 @@ class APTpkg(Dataset):
             partition=partition,
             sbatch_args={
                 "distribution": "cyclic:cyclic",
-                "chdir": "~/",
+                "chdir": "/home/pa27879",
             },
         )
 
@@ -302,7 +306,7 @@ class APTpkg(Dataset):
             pipeline=[
                 ParquetReader(f"{self.DEFAULT_DATASETS_DIRECTORY}apt-pkg"),
                 # LoadAPTPackages(),
-                GhidraDisassembler(),
+                RizinFunctionSegmentAndDisassemble(),
             ],
             venv_path=venv_path,
             logging_dir="~/undertale/logs",
@@ -314,7 +318,7 @@ class APTpkg(Dataset):
             partition=partition,
             sbatch_args={
                 "distribution": "cyclic:cyclic",
-                "chdir": "~/",
+                "chdir": "/home/pa27879",
             },
         )
 
