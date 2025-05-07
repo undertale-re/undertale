@@ -11,6 +11,10 @@ from datatrove.pipeline.readers import JsonlReader, ParquetReader
 from datatrove.pipeline.writers import JsonlWriter, ParquetWriter
 
 from undertale.datasets.base import DEFAULT_DATASETS_DIRECTORY, Dataset, main
+from undertale.datasets.pipeline.resumers.resumers import (
+    ParquetResumeFilter,
+    ParquetResumeWriter,
+)
 from undertale.datasets.pipeline.segmenters.lief import LIEFFunctionSegmenter
 
 
@@ -603,7 +607,10 @@ class NixPkgs(Dataset):
     slurm_partition_offline = None
 
     def get_my_executor(self, input):
-        from undertale.datasets.pipeline.disassemblers import GhidraDisassembler
+        from undertale.datasets.pipeline.disassemblers import (
+            GhidraDisassembler,
+            RizinDisassembler,
+        )
 
         # stage0: generate curated package listing from all flakes
         self.slurm_find_packages = SlurmPipelineExecutor(
@@ -739,13 +746,13 @@ class NixPkgs(Dataset):
                 ParquetWriter(
                     output_folder=self.dataset_dir + "-disassembled-ghidra-test",
                     adapter=lambda self, doc: doc.metadata,
-                    max_file_size=100 * 1024 * 1024,
+                    max_file_size=10 * 1024 * 1024,
                 ),
             ],
             venv_path=os.path.join(Path.home(), ".venv"),
             logging_dir=os.path.join(self.logging_dir, "disassemble-ghidra"),
             tasks=len(self.flakes) * 64,
-            time="12:00:00",
+            time="96:00:00",
             job_name="nixpkgs_disassemble_ghidra",
             mem_per_cpu_gb=8,
             cpus_per_task=1,
@@ -755,6 +762,43 @@ class NixPkgs(Dataset):
 
         if input == "ghidra":
             return self.slurm_ghidra
+
+        self.slurm_rizin = SlurmPipelineExecutor(
+            # depends=self.slurm_export_dataset,
+            pipeline=[
+                ParquetReader(
+                    data_folder=self.dataset_dir + "-functions-lief",
+                    adapter=lambda self, data, path, id_in_file: {
+                        "id": data["filename"] + "#" + data["function_name"],
+                        "text": data["code"],
+                        "metadata": data,
+                    },
+                ),
+                ParquetResumeFilter(
+                    data_folder=self.dataset_dir + "-disassembled-rizin",
+                    columns=["flake", "path", "function_name"],
+                ),
+                RizinDisassembler(),
+                ParquetResumeWriter(
+                    output_folder=self.dataset_dir + "-disassembled-rizin",
+                    adapter=lambda self, doc: doc.metadata,
+                    max_file_size=100 * 1024 * 1024,
+                    batch_size=1,
+                ),
+            ],
+            venv_path=os.path.join(Path.home(), ".venv"),
+            logging_dir=os.path.join(self.logging_dir, "disassemble-rizin"),
+            tasks=300,
+            time="96:00:00",
+            job_name="nixpkgs_disassemble_rizin",
+            mem_per_cpu_gb=8,
+            cpus_per_task=1,
+            partition=self.slurm_partition_offline,
+            sbatch_args={"distribution": "cyclic:cyclic"},
+        )
+
+        if input == "rizin":
+            return self.slurm_rizin
         return None
 
     def get_pipeline(self, input, writer, parallelism):
@@ -767,7 +811,7 @@ class NixPkgs(Dataset):
                 self.tmp_dir, "working-build"
             )  # tmp dir subdirectory for nix build activities
             self.base_dir = os.path.join(Path.home(), "nixpkgs-dataset")
-            self.github_token = "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"
+            self.github_token = os.environ["GITHUB_TOKEN"]
             self.proxies = {
                 "http": "http://llproxy-rr.llgrid.ll.mit.edu:8080",
                 "https": "http://llproxy-rr.llgrid.ll.mit.edu:8080",

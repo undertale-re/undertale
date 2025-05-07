@@ -51,29 +51,36 @@ class RizinDisassembler(PipelineStep):
         ii = 0
         num_too_big = 0
         for document in data:
-            with self.track_time():
-                ii += 1
+            logger.info("processing sample {}", str(document.id))
+            try:
+                with self.track_time():
+                    ii += 1
 
-                code = document.text
+                    code = document.text
 
-                if len(code) > code_max:
-                    num_too_big += 1
-                    continue
+                    if len(code) > code_max:
+                        num_too_big += 1
+                        continue
 
-                d = disas_buf(code)
+                    d = disas_buf(code)
 
-                disassembly = []
-                if "ops" in d.keys():
-                    for i in range(len(d["ops"])):
-                        if "disasm" in d["ops"][i].keys():
-                            disassembly.append(d["ops"][i]["disasm"])
+                    disassembly = []
+                    if "ops" in d.keys():
+                        for i in range(len(d["ops"])):
+                            if "disasm" in d["ops"][i].keys():
+                                disassembly.append(d["ops"][i]["disasm"])
 
-                disassembly = "\n".join(disassembly)
+                    disassembly = "\n".join(disassembly)
 
-                document.metadata["disassembly"] = disassembly
+                    document.metadata["disassembly"] = disassembly
 
-                yield document
-                self.stat_update("disassembled")
+                    yield document
+                    self.stat_update("disassembled")
+            except Exception as e:
+                logger.error(
+                    "error processing document {}: {}", str(document.id), str(e)
+                )
+                self.stat_update("failed")
 
         if num_too_big:
             logger.warning(f"{num_too_big} of {ii} skipped because they were too large")
