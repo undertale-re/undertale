@@ -351,7 +351,7 @@ class AssemblageVcpkg(Dataset):
                         "metadata": data,
                     },
                 ),
-                PairwiseContrastive(1000000,1.0), 
+                PairwiseContrastive(1000000, 1.0),
             ],
             venv_path=os.path.join(f"{Path.home()}/.conda/envs", "ut"),
             logging_dir="~/undertale/logs",

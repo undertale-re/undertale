@@ -1,5 +1,3 @@
-import random
-
 from datatrove.data import Document, DocumentsPipeline
 from datatrove.pipeline.base import PipelineStep
 
@@ -10,8 +8,8 @@ class PairwiseContrastive(PipelineStep):
     name = "C - Constrastive"
 
     _requires_dependencies = []
-    
-    def __init__(self, num_samples:int, negative_multiple:float):
+
+    def __init__(self, num_samples: int, negative_multiple: float):
         """
         Arguments:
             num_samples: number of constrastive pairs to generate
@@ -43,11 +41,12 @@ class PairwiseContrastive(PipelineStep):
         """
 
         import random
+
         from datatrove.utils.logging import logger
 
         if not data:
             return
-        
+
         # iterate over all the fns in this shard and collect functions
         # into equivalence classes
         logger.info("Collecting equivalence classes")
@@ -62,23 +61,27 @@ class PairwiseContrastive(PipelineStep):
 
         ec2 = {}
         # keep only equiv classes with 2 or more items
-        for ec,s in equivalence_classes.items():
+        for ec, s in equivalence_classes.items():
             if len(s) >= 2:
                 ec2[ec] = s
         equivalence_classes = ec2
 
         self.num_samples = int(self.num_samples / world_size)
-        
+
         nec = len(equivalence_classes)
-        logger.info(f"{nec} equivalence classes in this shard. {self.num_samples} required.")
+        logger.info(
+            f"{nec} equivalence classes in this shard. {self.num_samples} required."
+        )
         if nec < self.num_samples:
-            logger.info("*** That's fewer than the number of samples required -- downgrading.")
+            logger.info(
+                "*** That's fewer than the number of samples required -- downgrading."
+            )
             self.num_samples = nec
-            
-        logger.info(f"Generating {self.num_samples} pairs")        
+
+        logger.info(f"Generating {self.num_samples} pairs")
 
         aecl = list(equivalence_classes.keys())
-        
+
         ecl = list(equivalence_classes.keys())
         random.shuffle(ecl)
 
@@ -87,20 +90,22 @@ class PairwiseContrastive(PipelineStep):
         for i in range(self.num_samples):
 
             def make_doc_pair_doc(d1, d2, sim):
-                d =  Document(
+                d = Document(
                     # this "document" is a pair so concat the ids for individual docs?
                     id=f"{d1.id}:{d2.id}",
                     # this text field can't really contain the pair of functions..
-                    text="n/a",                    
-                    metadata={"similarity": sim}
+                    text="n/a",
+                    metadata={"similarity": sim},
                 )
-                def copy_meta(df,dt,suff):
+
+                def copy_meta(df, dt, suff):
                     # copy metadata from df into dt,
                     # adding suffix to keys
-                    for key,val in df.metadata.items():
-                        dt.metadata[key+suff] = val
-                copy_meta(d1,d,"_d1")
-                copy_meta(d2,d,"_d2")
+                    for key, val in df.metadata.items():
+                        dt.metadata[key + suff] = val
+
+                copy_meta(d1, d, "_d1")
+                copy_meta(d2, d, "_d2")
                 return d
 
             p = random.random()
@@ -123,7 +128,7 @@ class PairwiseContrastive(PipelineStep):
                 random.shuffle(ind)
                 # pick two variants at random from those in the clas
                 d1 = equivalence_classes[ec][ind[0]]
-                d2 = equivalence_classes[ec][ind[1]]               
+                d2 = equivalence_classes[ec][ind[1]]
                 logger.info(f"{i} pos ec={ec} {ind[0]},{ind[1]} d1={d1.id} d2={d2.id}")
                 yield make_doc_pair_doc(d1, d2, 1.0)
 
