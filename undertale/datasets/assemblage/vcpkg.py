@@ -10,6 +10,7 @@ from datatrove.pipeline.writers import ParquetWriter
 
 from ..base import DEFAULT_DATASETS_DIRECTORY, Dataset, main
 from ..pipeline.disassemblers import RadareDisassembler, RizinDisassembler
+from ..pipeline.pairs import PairwiseContrastive
 
 
 class AssemblageVcpkgReader(PipelineStep):
@@ -248,6 +249,16 @@ class AssemblageVcpkg(Dataset):
                 )
             )
             return executor
+        elif input == "contrastive":
+            executor = self.get_my_executor(input)
+            executor.pipeline.append(
+                ParquetWriter(
+                    output_folder=f"{DEFAULT_DATASETS_DIRECTORY}assemblage-vcpkg-dt-disassembled-rz-pairs",
+                    adapter=lambda self, doc: doc.metadata,
+                    max_file_size=50 * 1024 * 1024,
+                )
+            )
+            return executor
 
         return None
 
@@ -328,12 +339,42 @@ class AssemblageVcpkg(Dataset):
             },
         )
 
+        # Pairwise contrastive
+        slurm_contrastive_pairs = SlurmPipelineExecutor(
+            depends=slurm_disassemble_rz,
+            pipeline=[
+                ParquetReader(
+                    data_folder=f"{DEFAULT_DATASETS_DIRECTORY}assemblage-vcpkg-dt-disassembled-rz",
+                    adapter=lambda self, data, path, id_in_file: {
+                        "id": id_in_file,
+                        "text": data["binary"],
+                        "metadata": data,
+                    },
+                ),
+                PairwiseContrastive(1000000,1.0), 
+            ],
+            venv_path=os.path.join(f"{Path.home()}/.conda/envs", "ut"),
+            logging_dir="~/undertale/logs",
+            time="48:00:00",
+            cpus_per_task=2,
+            mem_per_cpu_gb=40,
+            tasks=5,
+            job_name="assemblage_vcpkg_contrastive_pairs",
+            partition="xeon-p8",
+            sbatch_args={
+                "distribution": "cyclic:cyclic",
+                "chdir": Path.home(),
+            },
+        )
+
         if input == "binaries":
             return slurm_parse
         elif input == "r2":
             return slurm_disassemble
         elif input == "rz":
             return slurm_disassemble_rz
+        elif input == "contrastive":
+            return slurm_contrastive_pairs
         return None
 
 
