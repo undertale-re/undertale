@@ -46,9 +46,9 @@ if __name__ == "__main__":
         "--start-epoch", type=int, default=0, help="starting epoch number"
     )
     parser.add_argument("-b", "--batch-size", type=int, default=8, help="batch size")
-
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
     arguments = parser.parse_args()
-
+    torch.cuda.set_device(0)
     undertale_logging.setup_logging()
 
     os.makedirs(arguments.output, exist_ok=True)
@@ -65,7 +65,7 @@ if __name__ == "__main__":
     )
 
     model = model.InstructionTraceEncoderTransformerForMaskedLM(configuration)
-
+    model = model.to(device)
     if arguments.checkpoint:
         model = model.from_pretrained(arguments.checkpoint, local_files_only=True)
 
