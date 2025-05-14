@@ -1,80 +1,51 @@
-import logging
+import hashlib
 
-import datasets
+from datatrove.pipeline.readers import HuggingFaceDatasetReader
 
-from . import dataset, schema
-from .transforms import compile
-from .transforms.disassemble import capstone
-
-logger = logging.getLogger(__name__)
+from .base import Dataset, main
+from .pipeline.compilers import CppCompiler
+from .pipeline.disassemblers import GhidraDisassembler
 
 
-class XLCost(dataset.Dataset):
-    url = "https://huggingface.co/datasets/codeparrot/xlcost-text-to-code"
-    description = "a text-to-code generation benchmark dataset, compiled"
-    path = "xlcost"
+def adapt_xlcost_from_huggingface(
+    self, data: dict, path: str, id_in_file: int | str
+) -> dict:
 
-    @classmethod
-    def download(cls, processes=None):
-        """Download this dataset from the HuggingFace Hub.
+    source = data["code"]
+    identifier = hashlib.sha256(source.encode("utf-8")).hexdigest()
 
-        Also do a little pre-processing.
-        """
-
-        def parse(sample):
-            return {
-                "source": sample["code"],
-                "summary": sample["text"],
-            }
-
-        dataset = datasets.load_dataset(
-            "codeparrot/xlcost-text-to-code", "C++-program-level"
-        )
-        dataset = datasets.concatenate_datasets(
-            [
-                dataset["train"],
-                dataset["test"],
-                dataset["validation"],
-            ]
-        )
-
-        keep = {"id", "source", "summary"}
-        dataset = dataset.map(
-            parse, remove_columns=set(dataset.features) - keep, num_proc=processes
-        )
-
-        return dataset
-
-    @classmethod
-    def parse(cls, path: str, processes=None):
-        if path == "download":
-            logger.info(f"downloading {cls.__name__} from the HuggingFace Hub")
-
-            dataset = cls.download()
-        else:
-            dataset = datasets.load_from_disk(path)
-
-        dataset.__class__ = cls
-
-        return dataset
+    return {
+        "id": identifier,
+        "text": source,
+        "metadata": {"summary": data["text"]},
+    }
 
 
-class XLCostCompiled(XLCost):
-    path = "xlcost-compiled"
+class XLCost(Dataset):
+    name = "xlcost"
 
-    transforms = [compile.Compile(), compile.CompileErrorsFilter()]
+    def get_pipeline(self, input, writer, parallelism):
+        def xlcost_dataset_reader_split_factory(language: str, split: str):
+            return HuggingFaceDatasetReader(
+                "codeparrot/xlcost-text-to-code",
+                {"name": f"{language}-program-level", "split": split},
+                adapter=adapt_xlcost_from_huggingface,
+            )
 
+        def xlcost_dataset_reader_language_factory(language: str):
+            for split in ("train", "test", "validation"):
+                yield xlcost_dataset_reader_split_factory(language, split)
 
-class XLCostCompiledDisassembled(XLCost):
-    path = "xlcost-compiled-disassembled"
-    schema = schema.SummarizedFunction
+        steps = [
+            *xlcost_dataset_reader_language_factory("C"),
+            *xlcost_dataset_reader_language_factory("C++"),
+            CppCompiler(),
+            GhidraDisassembler(),
+        ]
+        steps.extend(writer)
 
-    transforms = [
-        compile.Compile(),
-        compile.CompileErrorsFilter(),
-        capstone.CapstoneDisassemble(),
-    ]
+        return self.get_executor(steps, tasks=parallelism)
 
 
 if __name__ == "__main__":
-    dataset.main([XLCostCompiledDisassembled, XLCostCompiled, XLCost])
+    main(XLCost)

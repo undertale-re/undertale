@@ -49,10 +49,10 @@ if __name__ == "__main__":
 
     arguments = parser.parse_args()
 
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     if torch.cuda.is_available():
         torch.cuda.set_device(0)
-    
+
     undertale_logging.setup_logging()
 
     os.makedirs(arguments.output, exist_ok=True)
