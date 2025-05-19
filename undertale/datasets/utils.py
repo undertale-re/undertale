@@ -1,7 +1,7 @@
 import importlib
 
 
-def from_specifier(specifier: str, schema=None):
+def from_specifier(specifier: str):
     """Fetch a dataset from a specifier string.
 
     This both identifies the dataset class and loads it by calling
@@ -10,8 +10,6 @@ def from_specifier(specifier: str, schema=None):
     Arguments:
         specifier: The module path and dataset class name to load (format:
             `{module.path}:{DatasetClass}`)
-        schema: If provided, validate that the loaded dataset follows this
-            schema.
 
     Returns:
         The requested dataset.
@@ -41,13 +39,9 @@ def from_specifier(specifier: str, schema=None):
     dataset_class = getattr(module, class_name)
 
     try:
-        dataset = dataset_class.fetch()
+        dataset = dataset_class().fetch()
     except Exception as e:
         raise ValueError(f"failed to load {class_name}: {e}")
-
-    if schema:
-        if not issubclass(dataset.schema, schema):
-            raise ValueError(f"unsupported dataset {class_name}: invalid schema")
 
     return dataset
 

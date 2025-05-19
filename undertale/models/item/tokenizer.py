@@ -226,9 +226,7 @@ if __name__ == "__main__":
     )
 
     try:
-        dataset = datasets.from_specifier(
-            arguments.dataset, schema=datasets.schema.Function
-        )
+        dataset = datasets.from_specifier(arguments.dataset)
     except ValueError as e:
         logger.critical(e)
         exit(1)
