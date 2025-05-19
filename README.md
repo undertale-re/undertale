@@ -67,9 +67,61 @@ available in the cache directory, you can do something like:
 ```python
 from undertale.datasets import humanevalx
 
-dataset = humanevalx.HumanEvalXCompiledDisassembled.fetch()
+dataset = humanevalx.HumanEvalX.fetch()
 
 ...
+```
+
+### Models
+
+#### Tokenizer Training
+
+```bash
+python -m undertale.models.item.tokenizer \
+    undertale.datasets.humanevalx:HumanEvalX \
+    -o item.tokenizer.json
+```
+
+#### Masked Language Modeling Pre-Training
+
+```bash
+# masked language modeling pre-training
+python -m undertale.models.item.pretrain-maskedlm \
+    undertale.datasets.humanevalx:HumanEvalX \
+    -t item.tokenizer.json \
+    -o pretrain-maskedlm
+```
+
+#### Contrastive Embedding Fine-Tuning
+
+```bash
+python -m undertale.models.item.finetune-embedding \
+    <dataset-tbd> \
+    -t item.tokenizer.json \
+    -m pretrain-maskedlm/9 \
+    -o finetune-embedding
+```
+
+#### Masked Language Modeling Inference
+
+**Warning: this output is pretty bad right now with only the small dataset - it should get better once we can start training with larger datasets.**
+
+```bash
+python -m undertale.models.item.infer-maskedlm \
+    -t item.tokenizer.json \
+    -m pretrain-maskedlm/9 \
+    "add eax, [MASK]"
+```
+
+#### Summarization Inference
+
+**Warning: this still uses an untrained code-language connector, the output will be gibberish, but it proves that everything is wired up correctly.**
+
+```bash
+python -m undertale.models.item.infer-summarization \
+    -t item.tokenizer.json \
+    -m finetune-embedding/9 \
+    "add eax, ebx\nxor ecx, ecx"
 ```
 
 ## Contributing

@@ -157,7 +157,7 @@ class Dataset(metaclass=ABCMeta):
 
         logger.debug(f"loading dataset from {path!r}")
 
-        return datasets.load_dataset(path)
+        return datasets.load_dataset(path, split="train")
 
     @staticmethod
     def store(dataset: datasets.Dataset, path: str) -> None:
