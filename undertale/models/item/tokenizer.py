@@ -1,11 +1,13 @@
 import argparse
 import collections
 import logging
+import os
 import re
 
+import polars
 import tokenizers
+from tqdm import tqdm
 
-from ... import datasets
 from ... import logging as undertale_logging
 
 logger = logging.getLogger(__name__)
@@ -28,24 +30,22 @@ SPECIAL_TOKENS = [
 ]
 
 
-def preprocess(sample):
-    """Preprocess a sample into pretokens.
+def pretokenize(disassembly: str) -> str:
+    """Preprocess some disassembly into pretokens.
 
-    This takes a given sample's disassembly directly from Ghidra and parses it
-    into pretokens - separating out arguments and immediates, etc.
+    This takes some disassembly in Intel syntax and parses it into pretokens -
+    separating out arguments and immediates, etc.
 
     Arguments:
-        sample: A sample from a function dataset. Must contain the
-            `disassembly` field, as specified in the schema.
+        disassembly: String disassembly, one instruction per line.
 
     Returns:
-        A dictionary with the key `preprocessed` containing pretokenized
-        disassembly.
+        The preprocessed disassembly.
     """
 
     pretokens = []
 
-    for instruction in sample["disassembly"].split("\n"):
+    for instruction in disassembly.split("\n"):
         split = instruction.split(" ", maxsplit=1)
 
         # Instruction prefix (e.g., 'lock add ...')
@@ -66,7 +66,9 @@ def preprocess(sample):
 
         pretokens.append(mnemonic)
 
-        for operand in operands.split(", "):
+        for operand in operands.split(","):
+            operand = operand.strip()
+
             # Immediate value (e.g., `0x1337`).
             if operand.startswith("0x") or operand.startswith("-0x"):
                 operand = str(int(operand, 16))
@@ -112,17 +114,7 @@ def preprocess(sample):
     if pretokens and pretokens[-1] == TOKEN_NEXT:
         pretokens.pop()
 
-    return {"preprocessed": " ".join(pretokens)}
-
-
-def preprocess_batch(batch):
-    result = {"preprocessed": []}
-    for sample in batch["disassembly"]:
-        result["preprocessed"].append(
-            preprocess({"disassembly": sample})["preprocessed"]
-        )
-
-    return result
+    return " ".join(pretokens)
 
 
 def train(dataset, vocab_size=4096):
@@ -134,8 +126,7 @@ def train(dataset, vocab_size=4096):
     constrain the size of the dataset.
 
     Arguments:
-        dataset: The dataset on which to train. This dataset should conform to
-            the `Function` schema.
+        dataset: The path to the dataset on which to train.
         vocab_size: The vocabulary size for the immediate BPE model. This is a
             hyperparameter that could be tuned to optimize the token
             representation.
@@ -143,10 +134,6 @@ def train(dataset, vocab_size=4096):
     Returns:
         A trained tokenizer.
     """
-
-    logger.info(f"preprocessing {dataset.__class__.__name__}")
-
-    dataset = dataset.map(preprocess, desc="preprocessing")
 
     tokenizer = tokenizers.Tokenizer(tokenizers.models.BPE(unk_token=TOKEN_UNKNOWN))
     tokenizer.pre_tokenizer = tokenizers.pre_tokenizers.Whitespace()
@@ -163,14 +150,20 @@ def train(dataset, vocab_size=4096):
     tokens, immediates = collections.defaultdict(int), collections.defaultdict(int)
 
     def build_dictionary(sample):
-        for token in sample["preprocessed"].split():
+        for token in sample.split():
             try:
                 int(token)
                 immediates[token] += 1
             except ValueError:
                 tokens[token] += 1
 
-    dataset.map(build_dictionary, desc="compute dictionary")
+    path = os.path.abspath(os.path.expanduser(dataset))
+    chunks = os.listdir(path)
+    for i, file in enumerate(tqdm(chunks, desc="building dictionary")):
+        if file.endswith(".parquet"):
+            chunk = polars.scan_parquet(os.path.join(path, file))
+            for s in chunk.select("disassembly").collect()["disassembly"].to_list():
+                build_dictionary(s)
 
     def build_tokenizer_trainer(dictionary):
         for token, count in dictionary.items():
@@ -203,7 +196,7 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "dataset",
-        help="dataset on which to train the tokenizer (format: `{module.path}:{DatasetClass}`)",
+        help="path to the dataset on which to train the tokenizer",
     )
     parser.add_argument("-o", "--output", required=True, help="output file")
 
@@ -225,13 +218,7 @@ if __name__ == "__main__":
         file=arguments.logging_file,
     )
 
-    try:
-        dataset = datasets.from_specifier(arguments.dataset)
-    except ValueError as e:
-        logger.critical(e)
-        exit(1)
-
-    tokenizer = train(dataset)
+    tokenizer = train(arguments.dataset)
     tokenizer.save(arguments.output)
 
     logger.info(f"saved tokenizer to: {arguments.output}")

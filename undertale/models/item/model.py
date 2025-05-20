@@ -134,7 +134,7 @@ class EmbeddingModelOutput(ModelOutput):
     @classmethod
     def decode(cls, data):
         data = base64.b64decode(data)
-        data = struct.unpack(f"{len(data)//4}f", data)
+        data = struct.unpack(f"{len(data) // 4}f", data)
         data = torch.tensor(data).unsqueeze(0).to(device)
 
         return cls(embedded=data)

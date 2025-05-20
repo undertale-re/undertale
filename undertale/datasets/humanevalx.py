@@ -3,6 +3,7 @@ from datatrove.pipeline.readers import HuggingFaceDatasetReader
 from .base import Dataset, main
 from .pipeline.compilers import CppCompiler
 from .pipeline.disassemblers import GhidraDisassembler
+from .pipeline.formatters import ITEMPretokenizer
 
 
 def adapt_humanevalx_from_huggingface(
@@ -27,6 +28,7 @@ class HumanEvalX(Dataset):
             ),
             CppCompiler(),
             GhidraDisassembler(),
+            ITEMPretokenizer(),
         ]
         steps.extend(writer)
 
