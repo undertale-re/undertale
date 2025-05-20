@@ -75,7 +75,7 @@ def pretokenize(disassembly: str) -> str:
                 pretokens.append(operand)
             # Memory address (e.g., `[rax]`).
             elif "[" in operand:
-                # Size directive (e.g., `byte btr [rax]`).
+                # Size directive (e.g., `byte ptr [rax]`).
                 if "ptr" in operand:
                     size, _, operand = operand.split(maxsplit=2)
                     pretokens.append(size)
