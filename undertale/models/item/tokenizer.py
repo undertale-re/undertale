@@ -80,7 +80,7 @@ def preprocess(sample):
             elif "[" in operand:
                 # Size directive (e.g., `byte ptr [rax]`).
                 if "ptr" in operand:
-                    breakpoint()
+                    # breakpoint()
                     size, _, operand = operand.split(maxsplit=2)
                     pretokens.append(size)
                     # breakpoint()
@@ -90,13 +90,25 @@ def preprocess(sample):
                     for size_substr in SIZES
                     for size_str in op_split
                 ):  # Rizin does not have 'ptr'
-                    size, operand = operand.split()
+                    try:
+                        size, operand = operand.split()
+                    except:  # instruction = 'add byte [rax + rax], cl'
+                        # breakpoint()
+                        left_brack = operand.find("[")
+                        size = operand[:left_brack]
+                        operand = operand[left_brack:]
+                        # breakpoint()
                     pretokens.append(size)
                     # breakpoint()
                 # Segment indicator (e.g., `ds:[rax]`).
                 if ":" in operand:
                     segment, operand = operand.split(":")
                     pretokens.append(segment)
+                if "var" in operand:
+                    var_part = operand[operand.find("var") :]
+                    var_num = int(var_part[4 : var_part.find("h")], 16)
+                    offset = var_num - 8
+                    operand = f"[rbp-{offset}]"
                 # breakpoint()
                 assert operand[0] == "["
                 assert operand[-1] == "]"
