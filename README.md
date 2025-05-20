@@ -85,7 +85,6 @@ python -m undertale.models.item.tokenizer \
 #### Masked Language Modeling Pre-Training
 
 ```bash
-# masked language modeling pre-training
 python -m undertale.models.item.pretrain-maskedlm \
     undertale.datasets.humanevalx:HumanEvalX \
     -t item.tokenizer.json \
@@ -104,7 +103,9 @@ python -m undertale.models.item.finetune-embedding \
 
 #### Masked Language Modeling Inference
 
-**Warning: this output is pretty bad right now with only the small dataset - it should get better once we can start training with larger datasets.**
+> [!WARNING]
+> This output is pretty bad right now with only the small dataset - it should
+> get better once we can start training with larger datasets.
 
 ```bash
 python -m undertale.models.item.infer-maskedlm \
@@ -115,7 +116,9 @@ python -m undertale.models.item.infer-maskedlm \
 
 #### Summarization Inference
 
-**Warning: this still uses an untrained code-language connector, the output will be gibberish, but it proves that everything is wired up correctly.**
+> [!WARNING]
+> This still uses an untrained code-language connector, the output will be
+> gibberish, but it proves that everything is wired up correctly.
 
 ```bash
 python -m undertale.models.item.infer-summarization \
