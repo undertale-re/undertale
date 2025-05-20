@@ -27,6 +27,8 @@ SPECIAL_TOKENS = [
     TOKEN_NEXT,
 ]
 
+SIZES = ["qword", "dword", "word", "byte"]
+
 
 def preprocess(sample):
     """Preprocess a sample into pretokens.
@@ -66,22 +68,36 @@ def preprocess(sample):
 
         pretokens.append(mnemonic)
 
-        for operand in operands.split(", "):
+        op_split = operands.split(", ")
+        for operand in op_split:
             # Immediate value (e.g., `0x1337`).
             if operand.startswith("0x") or operand.startswith("-0x"):
                 operand = str(int(operand, 16))
                 pretokens.append(operand)
             # Memory address (e.g., `[rax]`).
+            # Call instructions need to show addresses instead of symbols
+            # Translate vars like [var_58h] into register names
             elif "[" in operand:
-                # Size directive (e.g., `byte btr [rax]`).
+                # Size directive (e.g., `byte ptr [rax]`).
                 if "ptr" in operand:
+                    breakpoint()
                     size, _, operand = operand.split(maxsplit=2)
                     pretokens.append(size)
+                    # breakpoint()
+                    # Still need to search for list of sizes that are valid
+                elif any(
+                    size_substr in size_str
+                    for size_substr in SIZES
+                    for size_str in op_split
+                ):  # Rizin does not have 'ptr'
+                    size, operand = operand.split()
+                    pretokens.append(size)
+                    # breakpoint()
                 # Segment indicator (e.g., `ds:[rax]`).
                 if ":" in operand:
                     segment, operand = operand.split(":")
                     pretokens.append(segment)
-
+                # breakpoint()
                 assert operand[0] == "["
                 assert operand[-1] == "]"
                 operand = operand[1:-1]
