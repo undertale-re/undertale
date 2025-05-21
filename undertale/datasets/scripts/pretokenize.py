@@ -3,8 +3,8 @@ from pathlib import Path
 
 from datatrove.pipeline.readers import ParquetReader
 
-from .base import Dataset, main
-from .pipeline.formatters import ITEMPretokenizer
+from ..base import Dataset, main
+from ..pipeline.formatters import ITEMPretokenizer
 
 
 def adapt_dataset_from_parquet(
