@@ -123,12 +123,13 @@ def pretokenize(disassembly: str) -> str:
                         # configuration currently generates them.
                         pretokens.append("[ARG]")
                     elif "var" in op:
-                        var_part = operand[operand.find("var") :]
-                        var_num = int(var_part[4 : var_part.find("h")], 16)
-                        offset = var_num - 8
-                        operand = f"rbp - {offset}"
-                        for i in operand.split(" "):
-                            pretokens.append(i)
+                        # TODO double check that this is correct - ideally this
+                        # should be fixed in the RizinDisassembler.
+                        number = operand[operand.find("var") :]
+                        offset = int(number[4 : number.find("h")], 16) - 8
+                        pretokens.append("rbp")
+                        pretokens.append("-")
+                        pretokens.append(f"{offset}")
                     else:
                         pretokens.append(op)
 
