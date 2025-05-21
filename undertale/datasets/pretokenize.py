@@ -37,7 +37,6 @@ class Pretokenizer(Dataset):
         return self.get_executor(
             steps,
             venv_path=os.path.join(f"{Path.home()}/.conda/envs", "undertale"),
-            logging_dir=self.logging_directory,
             time="48:00:00",
             cpus_per_task=2,
             mem_per_cpu_gb=40,
