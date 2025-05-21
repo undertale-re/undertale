@@ -39,7 +39,6 @@ class Pretokenizer(Dataset):
             partition="xeon-p8",
             sbatch_args={
                 "distribution": "cyclic:cyclic",
-                "chdir": Path.home(),
             },
         )
 
