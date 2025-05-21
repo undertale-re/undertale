@@ -9,7 +9,8 @@ import polars
 import tokenizers
 from tqdm import tqdm
 
-from ... import logging as undertale_logging
+# from ... import logging as undertale_logging
+import undertale.logging as undertale_logging
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +123,12 @@ def pretokenize(disassembly: str) -> str:
                         # configuration currently generates them.
                         pretokens.append("[ARG]")
                     elif "var" in op:
-                        pretokens.append("[VAR]")
+                        var_part = operand[operand.find("var") :]
+                        var_num = int(var_part[4 : var_part.find("h")], 16)
+                        offset = var_num - 8
+                        operand = f"rbp - {offset}"
+                        for i in operand.split(" "):
+                            pretokens.append(i)
                     else:
                         pretokens.append(op)
 
