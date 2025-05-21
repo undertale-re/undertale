@@ -9,8 +9,7 @@ import polars
 import tokenizers
 from tqdm import tqdm
 
-# from ... import logging as undertale_logging
-import undertale.logging as undertale_logging
+from ... import logging as undertale_logging
 
 logger = logging.getLogger(__name__)
 
