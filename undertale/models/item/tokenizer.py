@@ -49,8 +49,26 @@ def pretokenize(disassembly: str) -> str:
     for instruction in disassembly.split("\n"):
         split = instruction.split(" ", maxsplit=1)
 
+        # Hardware lock instruction prefix (e.g., 'xrelease lock add ...')
+        if split[0] in ["xacquire", "xrelease"]:
+            assert len(split) == 2
+            prefix, remainder = split
+
+            pretokens.append(prefix)
+
+            split = remainder.split(" ", maxsplit=1)
+
         # Instruction prefix (e.g., 'lock add ...')
-        if split[0] in ["lock"]:
+        if split[0] in [
+            "lock",
+            "bnd",
+            "notrack",
+            "rep",
+            "repe",
+            "repz",
+            "repne",
+            "repnz",
+        ]:
             assert len(split) == 2
             prefix, remainder = split
 
@@ -77,8 +95,11 @@ def pretokenize(disassembly: str) -> str:
             # Memory address (e.g., `[rax]`).
             elif "[" in operand:
                 # Size directive (e.g., `byte ptr [rax]`).
-                if "ptr" in operand:
-                    size, _, operand = operand.split(maxsplit=2)
+                if any(size in operand for size in ["qword", "word", "dword", "byte"]):
+                    if "ptr" in operand:
+                        size, _, operand = operand.split(maxsplit=2)
+                    else:
+                        size, operand = operand.split(maxsplit=1)
                     pretokens.append(size)
                 # Segment indicator (e.g., `ds:[rax]`).
                 if ":" in operand:
@@ -100,7 +121,14 @@ def pretokenize(disassembly: str) -> str:
                     if op.startswith("0x") or op.startswith("-0x"):
                         op = str(int(op, 16))
 
-                    pretokens.append(op)
+                    if "arg" in op:
+                        # FIXME these should not exist but our rizin
+                        # configuration currently generates them.
+                        pretokens.append("[ARG]")
+                    elif "var" in op:
+                        pretokens.append("[VAR]")
+                    else:
+                        pretokens.append(op)
 
                 pretokens.append("]")
             # Everything else should be a register.
