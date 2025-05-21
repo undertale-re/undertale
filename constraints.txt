@@ -4,52 +4,50 @@
 #
 #    pip-compile --extra=development --output-file=constraints.txt --strip-extras setup.py
 #
-aiohappyeyeballs==2.4.3
+aiohappyeyeballs==2.6.1
     # via aiohttp
-aiohttp==3.10.10
-    # via
-    #   datasets
-    #   fsspec
-aiosignal==1.3.1
+aiohttp==3.11.18
+    # via fsspec
+aiosignal==1.3.2
     # via aiohttp
 annotated-types==0.7.0
     # via pydantic
-anyio==4.6.2.post1
+anyio==4.9.0
     # via
     #   httpx
     #   openai
-async-timeout==4.0.3
+async-timeout==5.0.1
     # via aiohttp
-attrs==24.2.0
+attrs==25.3.0
     # via aiohttp
-beautifulsoup4==4.12.3
+beautifulsoup4==4.13.4
     # via bs4
-black==24.10.0
+black==25.1.0
     # via undertale (setup.py)
 bs4==0.0.2
     # via undertale (setup.py)
 build==1.2.2.post1
     # via pip-tools
-capstone==5.0.3
+capstone==5.0.6
     # via undertale (setup.py)
-certifi==2024.8.30
+certifi==2025.4.26
     # via
     #   httpcore
     #   httpx
     #   requests
 cfgv==3.4.0
     # via pre-commit
-charset-normalizer==3.4.0
+charset-normalizer==3.4.2
     # via requests
-click==8.1.7
+click==8.2.0
     # via
     #   black
     #   pip-tools
 cpp-demangle==0.1.2
     # via undertale (setup.py)
-datasets==3.0.1
+datasets==3.6.0
     # via undertale (setup.py)
-datatrove==0.4.0
+datatrove==0.5.0
     # via undertale (setup.py)
 dill==0.3.8
     # via
@@ -60,38 +58,43 @@ distlib==0.3.9
     # via virtualenv
 distro==1.9.0
     # via openai
-exceptiongroup==1.2.2
+exceptiongroup==1.3.0
     # via anyio
-filelock==3.16.1
+filelock==3.18.0
     # via
     #   datasets
     #   huggingface-hub
+    #   torch
+    #   transformers
     #   undertale (setup.py)
     #   virtualenv
-flake8==7.1.1
+flake8==7.2.0
     # via undertale (setup.py)
-frozenlist==1.4.1
+frozenlist==1.6.0
     # via
     #   aiohttp
     #   aiosignal
-fsspec==2024.6.1
+fsspec==2025.3.0
     # via
     #   datasets
     #   datatrove
     #   huggingface-hub
-h11==0.14.0
+    #   torch
+h11==0.16.0
     # via httpcore
-httpcore==1.0.6
+httpcore==1.0.9
     # via httpx
-httpx==0.27.2
+httpx==0.28.1
     # via openai
-huggingface-hub==0.25.2
+huggingface-hub==0.31.2
     # via
     #   datasets
     #   datatrove
-humanize==4.12.1
+    #   tokenizers
+    #   transformers
+humanize==4.12.3
     # via datatrove
-identify==2.6.1
+identify==2.6.10
     # via pre-commit
 idna==3.10
     # via
@@ -99,21 +102,29 @@ idna==3.10
     #   httpx
     #   requests
     #   yarl
-isort==5.13.2
+isort==6.0.1
     # via undertale (setup.py)
 itanium-demangler==1.1
     # via undertale (setup.py)
-jiter==0.6.1
+jinja2==3.1.6
+    # via torch
+jiter==0.9.0
     # via openai
-jpype1==1.5.0
+joblib==1.5.0
+    # via scikit-learn
+jpype1==1.5.2
     # via pyhidra
-lief==0.16.4
+lief==0.16.5
     # via undertale (setup.py)
 loguru==0.7.3
     # via datatrove
+markupsafe==3.0.2
+    # via jinja2
 mccabe==0.7.0
     # via flake8
-multidict==6.1.0
+mpmath==1.3.0
+    # via sympy
+multidict==6.4.3
     # via
     #   aiohttp
     #   yarl
@@ -121,21 +132,62 @@ multiprocess==0.70.16
     # via
     #   datasets
     #   datatrove
-mypy-extensions==1.0.0
+mypy-extensions==1.1.0
     # via black
 networkx==3.4.2
-    # via undertale (setup.py)
+    # via
+    #   torch
+    #   undertale (setup.py)
 nodeenv==1.9.1
     # via pre-commit
-numpy==2.1.2
+numpy==2.2.5
     # via
     #   datasets
     #   datatrove
     #   pandas
-    #   pyarrow
-openai==1.51.2
+    #   scikit-learn
+    #   scipy
+    #   transformers
+nvidia-cublas-cu12==12.6.4.1
+    # via
+    #   nvidia-cudnn-cu12
+    #   nvidia-cusolver-cu12
+    #   torch
+nvidia-cuda-cupti-cu12==12.6.80
+    # via torch
+nvidia-cuda-nvrtc-cu12==12.6.77
+    # via torch
+nvidia-cuda-runtime-cu12==12.6.77
+    # via torch
+nvidia-cudnn-cu12==9.5.1.17
+    # via torch
+nvidia-cufft-cu12==11.3.0.4
+    # via torch
+nvidia-cufile-cu12==1.11.1.6
+    # via torch
+nvidia-curand-cu12==10.3.7.77
+    # via torch
+nvidia-cusolver-cu12==11.7.1.2
+    # via torch
+nvidia-cusparse-cu12==12.5.4.2
+    # via
+    #   nvidia-cusolver-cu12
+    #   torch
+nvidia-cusparselt-cu12==0.6.3
+    # via torch
+nvidia-nccl-cu12==2.26.2
+    # via torch
+nvidia-nvjitlink-cu12==12.6.85
+    # via
+    #   nvidia-cufft-cu12
+    #   nvidia-cusolver-cu12
+    #   nvidia-cusparse-cu12
+    #   torch
+nvidia-nvtx-cu12==12.6.77
+    # via torch
+openai==1.78.1
     # via undertale (setup.py)
-packaging==24.1
+packaging==25.0
     # via
     #   black
     #   build
@@ -143,6 +195,7 @@ packaging==24.1
     #   huggingface-hub
     #   jpype1
     #   pyhidra
+    #   transformers
 pandas==2.2.3
     # via datasets
 pathspec==0.12.1
@@ -151,23 +204,27 @@ pefile==2024.8.26
     # via undertale (setup.py)
 pip-tools==7.4.1
     # via undertale (setup.py)
-platformdirs==4.3.6
+platformdirs==4.3.8
     # via
     #   black
     #   virtualenv
-pre-commit==4.0.1
+polars==1.29.0
     # via undertale (setup.py)
-propcache==0.2.0
-    # via yarl
-pyarrow==17.0.0
+pre-commit==4.2.0
+    # via undertale (setup.py)
+propcache==0.3.1
+    # via
+    #   aiohttp
+    #   yarl
+pyarrow==20.0.0
     # via datasets
-pycodestyle==2.12.1
+pycodestyle==2.13.0
     # via flake8
-pydantic==2.9.2
+pydantic==2.11.4
     # via openai
-pydantic-core==2.23.4
+pydantic-core==2.33.2
     # via pydantic
-pyflakes==3.2.0
+pyflakes==3.3.2
     # via flake8
 pyhidra==1.3.0
     # via undertale (setup.py)
@@ -177,66 +234,94 @@ pyproject-hooks==1.2.0
     #   pip-tools
 python-dateutil==2.9.0.post0
     # via pandas
-pytz==2024.2
+pytz==2025.2
     # via pandas
 pyyaml==6.0.2
     # via
     #   datasets
     #   huggingface-hub
     #   pre-commit
+    #   transformers
 r2pipe==1.9.4
     # via undertale (setup.py)
+regex==2024.11.6
+    # via transformers
 requests==2.32.3
     # via
     #   datasets
     #   huggingface-hub
+    #   transformers
     #   undertale (setup.py)
 rust-demangler==1.0
     # via undertale (setup.py)
 rzpipe==0.6.2
     # via undertale (setup.py)
-six==1.16.0
+safetensors==0.5.3
+    # via transformers
+scikit-learn==1.6.1
+    # via undertale (setup.py)
+scipy==1.15.3
+    # via scikit-learn
+six==1.17.0
     # via python-dateutil
 sniffio==1.3.1
     # via
     #   anyio
-    #   httpx
     #   openai
-soupsieve==2.6
+soupsieve==2.7
     # via beautifulsoup4
-tomli==2.0.2
+sympy==1.14.0
+    # via torch
+threadpoolctl==3.6.0
+    # via scikit-learn
+tokenizers==0.21.1
+    # via transformers
+tomli==2.2.1
     # via
     #   black
     #   build
     #   pip-tools
-tqdm==4.66.5
+torch==2.7.0
+    # via undertale (setup.py)
+tqdm==4.67.1
     # via
     #   datasets
     #   datatrove
     #   huggingface-hub
     #   openai
-typing-extensions==4.12.2
+    #   transformers
+transformers==4.51.3
+    # via undertale (setup.py)
+triton==3.3.0
+    # via torch
+typing-extensions==4.13.2
     # via
     #   anyio
+    #   beautifulsoup4
     #   black
+    #   exceptiongroup
     #   huggingface-hub
     #   multidict
     #   openai
     #   pydantic
     #   pydantic-core
-tzdata==2024.2
+    #   torch
+    #   typing-inspection
+typing-inspection==0.4.0
+    # via pydantic
+tzdata==2025.2
     # via pandas
 unix-ar==0.2.1
     # via undertale (setup.py)
-urllib3==2.2.3
+urllib3==2.4.0
     # via requests
-virtualenv==20.26.6
+virtualenv==20.31.2
     # via pre-commit
-wheel==0.44.0
+wheel==0.45.1
     # via pip-tools
 xxhash==3.5.0
     # via datasets
-yarl==1.15.2
+yarl==1.20.0
     # via aiohttp
 
 # The following packages are considered to be unsafe in a requirements file:

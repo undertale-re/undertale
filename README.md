@@ -30,17 +30,17 @@ direct module call.
 To parse and commit a dataset:
 
 ```bash
-python -m undertale.datasets.{dataset-module} parse {input}
+python -m undertale.datasets.{dataset-module} parse {input} {output}
 ```
 
 Examples:
 
 ```bash
 # Parse the HumanEval-X dataset.
-python -m undertale.datasets.humanevalx parse _
+python -m undertale.datasets.humanevalx parse _ humaneval-x/
 
 # Parse the HumanEval-X dataset with 8 parallel processes.
-python -m undertale.datasets.humanevalx parse _ --parallelism 8
+python -m undertale.datasets.humanevalx parse _ humaneval-x/ --parallelism 8
 ```
 
 > [!NOTE]
@@ -50,13 +50,13 @@ python -m undertale.datasets.humanevalx parse _ --parallelism 8
 To load a given dataset and open a shell for exploration:
 
 ```bash
-python -m undertale.datasets.{dataset-module} shell
+python -m undertale.datasets.shell {input}
 ```
 
 Example:
 
 ```bash
-python -m undertale.datasets.humanevalx shell
+python -m undertale.datasets.shell humaneval-x
 ```
 
 The dataset will be available in a variable called `dataset` in the shell.
@@ -65,11 +65,66 @@ To write a script that uses a dataset that has already been parsed and is
 available in the cache directory, you can do something like:
 
 ```python
-from undertale.datasets import humanevalx
+from undertale.datasets import Dataset
 
-dataset = humanevalx.HumanEvalXCompiledDisassembled.fetch()
+dataset = Dataset.load(path)
 
 ...
+```
+
+### Models
+
+#### Tokenizer Training
+
+```bash
+python -m undertale.models.item.tokenizer \
+    undertale.datasets.humanevalx:HumanEvalX \
+    -o item.tokenizer.json
+```
+
+#### Masked Language Modeling Pre-Training
+
+```bash
+python -m undertale.models.item.pretrain-maskedlm \
+    undertale.datasets.humanevalx:HumanEvalX \
+    -t item.tokenizer.json \
+    -o pretrain-maskedlm
+```
+
+#### Contrastive Embedding Fine-Tuning
+
+```bash
+python -m undertale.models.item.finetune-embedding \
+    <dataset-tbd> \
+    -t item.tokenizer.json \
+    -m pretrain-maskedlm/9 \
+    -o finetune-embedding
+```
+
+#### Masked Language Modeling Inference
+
+> [!WARNING]
+> This output is pretty bad right now with only the small dataset - it should
+> get better once we can start training with larger datasets.
+
+```bash
+python -m undertale.models.item.infer-maskedlm \
+    -t item.tokenizer.json \
+    -m pretrain-maskedlm/9 \
+    "add eax, [MASK]"
+```
+
+#### Summarization Inference
+
+> [!WARNING]
+> This still uses an untrained code-language connector, the output will be
+> gibberish, but it proves that everything is wired up correctly.
+
+```bash
+python -m undertale.models.item.infer-summarization \
+    -t item.tokenizer.json \
+    -m finetune-embedding/9 \
+    "add eax, ebx\nxor ecx, ecx"
 ```
 
 ## Contributing

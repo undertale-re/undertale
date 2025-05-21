@@ -19,8 +19,12 @@ setup(
     packages=find_packages(),
     python_requires="==3.10.*",
     install_requires=[
+        "polars",
+        "scikit-learn",
         "datatrove",
         "datasets",
+        "transformers",
+        "torch",
         "openai",
         "capstone",
         "pyhidra",
