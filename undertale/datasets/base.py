@@ -35,7 +35,9 @@ def adapt_to_flatten(self, document: Document) -> dict:
 
 
 writers = {
-    "parquet": lambda output: [ParquetWriter(output, adapter=adapt_to_flatten)],
+    "parquet": lambda output: [
+        ParquetWriter(output, adapter=adapt_to_flatten, max_file_size=100 * 1024 * 1024)
+    ],
 }
 
 default_writer = "parquet"

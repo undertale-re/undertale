@@ -36,7 +36,7 @@ class ITEMPretokenizer(PipelineStep):
 
                     self.stat_update("succeeded")
                 except Exception as e:
-                    logger.warning(f"failed to process {document['id']}: {e}")
+                    logger.exception(f"failed to process '{document.id}': {e}")
                     self.stat_update("failed")
                     continue
 
