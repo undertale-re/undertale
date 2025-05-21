@@ -1,5 +1,4 @@
 import os
-import uuid
 from pathlib import Path
 
 from datatrove.pipeline.readers import ParquetReader
@@ -19,11 +18,6 @@ def adapt_dataset_from_parquet(
 
 
 class Pretokenizer(Dataset):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self.logging_directory = f"{self.logging_directory}-{uuid.uuid4()}"
-
     def get_pipeline(self, input, writer, parallelism):
         steps = [
             ParquetReader(
