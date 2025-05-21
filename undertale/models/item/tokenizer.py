@@ -1,6 +1,7 @@
 import argparse
 import collections
 import logging
+import multiprocessing
 import os
 import re
 
@@ -117,7 +118,33 @@ def pretokenize(disassembly: str) -> str:
     return " ".join(pretokens)
 
 
-def train(dataset, vocab_size=4096):
+def process(path: str):
+    """Process a single dataset chunk.
+
+    Arguments:
+        path: The full path to the dataset chunk (parquet file).
+
+    Returns:
+        A dictionary mapping tokens to counts, and a dictionary mapping
+        immediates to counts, for all samples in `path`.
+    """
+
+    # Build a token dictionary, separating out immediate values.
+    tokens, immediates = collections.defaultdict(int), collections.defaultdict(int)
+
+    chunk = polars.scan_parquet(path)
+    for sample in chunk.select("disassembly").collect()["disassembly"].to_list():
+        for token in sample.split():
+            try:
+                int(token)
+                immediates[token] += 1
+            except ValueError:
+                tokens[token] += 1
+
+    return tokens, immediates
+
+
+def train(dataset, parallelism: int = 1, vocab_size: int = 4096):
     """Train our custom tokenizer on a given dataset.
 
     This tokenizer essentially computes a dictionary of tokens for all
@@ -127,6 +154,8 @@ def train(dataset, vocab_size=4096):
 
     Arguments:
         dataset: The path to the dataset on which to train.
+        parallelism: The number of parallel processes to use fo tokenizer
+            training.
         vocab_size: The vocabulary size for the immediate BPE model. This is a
             hyperparameter that could be tuned to optimize the token
             representation.
@@ -146,24 +175,26 @@ def train(dataset, vocab_size=4096):
 
     logger.info("training tokenizer")
 
-    # Build a token dictionary, separating out immediate values.
-    tokens, immediates = collections.defaultdict(int), collections.defaultdict(int)
-
-    def build_dictionary(sample):
-        for token in sample.split():
-            try:
-                int(token)
-                immediates[token] += 1
-            except ValueError:
-                tokens[token] += 1
-
+    results = []
     path = os.path.abspath(os.path.expanduser(dataset))
-    chunks = os.listdir(path)
-    for i, file in enumerate(tqdm(chunks, desc="building dictionary")):
-        if file.endswith(".parquet"):
-            chunk = polars.scan_parquet(os.path.join(path, file))
-            for s in chunk.select("disassembly").collect()["disassembly"].to_list():
-                build_dictionary(s)
+    chunks = [os.path.join(path, f) for f in os.listdir(path) if f.endswith(".parquet")]
+
+    if parallelism > 1:
+        with multiprocessing.Pool(processes=parallelism) as pool:
+            iterator = tqdm(
+                pool.imap(process, chunks), total=len(chunks), desc="processing dataset"
+            )
+            results = list(iterator)
+    else:
+        for chunk in tqdm(chunks, desc="processing dataset"):
+            results.append(process(chunk))
+
+    tokens, immediates = collections.defaultdict(int), collections.defaultdict(int)
+    for t, i in results:
+        for k, v in t.items():
+            tokens[k] += v
+        for k, v in i.items():
+            immediates[k] += v
 
     def build_tokenizer_trainer(dictionary):
         for token, count in dictionary.items():
@@ -198,7 +229,15 @@ if __name__ == "__main__":
         "dataset",
         help="path to the dataset on which to train the tokenizer",
     )
-    parser.add_argument("-o", "--output", required=True, help="output file")
+    parser.add_argument("output", help="output file")
+
+    parser.add_argument(
+        "-p",
+        "--parallelism",
+        type=int,
+        default=1,
+        help="number of parallel processes to use (default: %(default)s)",
+    )
 
     parser.add_argument(
         "-l",
@@ -218,7 +257,7 @@ if __name__ == "__main__":
         file=arguments.logging_file,
     )
 
-    tokenizer = train(arguments.dataset)
+    tokenizer = train(arguments.dataset, parallelism=arguments.parallelism)
     tokenizer.save(arguments.output)
 
     logger.info(f"saved tokenizer to: {arguments.output}")
