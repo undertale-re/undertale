@@ -68,77 +68,84 @@ def preprocess(sample):
 
         pretokens.append(mnemonic)
 
-        op_split = operands.split(", ")
-        for operand in op_split:
-            # Immediate value (e.g., `0x1337`).
-            if operand.startswith("0x") or operand.startswith("-0x"):
-                operand = str(int(operand, 16))
-                pretokens.append(operand)
-            # Memory address (e.g., `[rax]`).
-            # Call instructions need to show addresses instead of symbols
-            # Translate vars like [var_58h] into register names
-            elif "[" in operand:
-                # Size directive (e.g., `byte ptr [rax]`).
-                if "ptr" in operand:
+        if "call" in instruction:
+            pretokens.append(operands)
+        else:
+            op_split = operands.split(", ")
+            for operand in op_split:
+                # Immediate value (e.g., `0x1337`).
+                if operand.startswith("0x") or operand.startswith("-0x"):
                     # breakpoint()
-                    size, _, operand = operand.split(maxsplit=2)
-                    pretokens.append(size)
-                    # breakpoint()
-                    # Still need to search for list of sizes that are valid
-                elif any(
-                    size_substr in size_str
-                    for size_substr in SIZES
-                    for size_str in op_split
-                ):  # Rizin does not have 'ptr'
-                    try:
-                        size, operand = operand.split()
-                    except:  # instruction = 'add byte [rax + rax], cl'
+                    operand = str(int(operand, 16))
+                    pretokens.append(operand)
+                # Memory address (e.g., `[rax]`).
+                # Call instructions need to show addresses instead of symbols
+                # Translate vars like [var_58h] into register names
+                elif "[" in operand:
+                    # Size directive (e.g., `byte ptr [rax]`).
+                    if "ptr" in operand:
                         # breakpoint()
-                        left_brack = operand.find("[")
-                        size = operand[:left_brack]
-                        operand = operand[left_brack:]
+                        size, _, operand = operand.split(maxsplit=2)
+                        pretokens.append(size)
                         # breakpoint()
-                    pretokens.append(size)
-                    # breakpoint()
-                # Segment indicator (e.g., `ds:[rax]`).
-                if ":" in operand:
-                    segment, operand = operand.split(":")
-                    pretokens.append(segment)
-                if "var" in operand:
-                    var_part = operand[operand.find("var") :]
-                    var_num = int(var_part[4 : var_part.find("h")], 16)
-                    offset = var_num - 8
-                    operand = f"[rbp-{offset}]"
-                # breakpoint()
-                assert operand[0] == "["
-                assert operand[-1] == "]"
-                operand = operand[1:-1]
+                    # Rizin does not have 'ptr'
+                    elif any(
+                        size_substr in size_str
+                        for size_substr in SIZES
+                        for size_str in op_split
+                    ):
+                        try:
+                            size, operand = operand.split()
+                        except:  # instruction = 'add byte [rax + rax], cl'
+                            # breakpoint()
+                            left_brack = operand.find("[")
+                            size = operand[:left_brack]
+                            operand = operand[left_brack:]
+                            # breakpoint()
+                        pretokens.append(size)
+                        # breakpoint()
+                    # Segment indicator (e.g., `ds:[rax]`).
+                    if ":" in operand:
+                        segment, operand = operand.split(":")
+                        pretokens.append(segment)
+                    if "var" in operand or "arg" in operand:
+                        var_part = operand[operand.find("var") :]
+                        var_num = int(var_part[4 : var_part.find("h")], 16)
+                        offset = var_num - 8
+                        operand = f"[rbp+-{offset}]"
+                        for i in operand:
+                            pretokens.append(i)
+                    # if "call" in operand:
+                    #     breakpoint()
+                    assert operand[0] == "["
+                    assert operand[-1] == "]"
+                    operand = operand[1:-1]
 
-                pretokens.append("[")
+                    pretokens.append("[")
 
-                # Base, offset, multiplier syntax
-                split = re.split(r"(\+|-|\*)", operand)
-                split = [o.strip() for o in split]
+                    # Base, offset, multiplier syntax
+                    split = re.split(r"(\+|-|\*)", operand)
+                    split = [o.strip() for o in split]
 
-                for op in split:
-                    # Immediate value.
-                    if op.startswith("0x") or op.startswith("-0x"):
-                        op = str(int(op, 16))
+                    for op in split:
+                        # Immediate value.
+                        if op.startswith("0x") or op.startswith("-0x"):
+                            op = str(int(op, 16))
 
-                    pretokens.append(op)
+                        pretokens.append(op)
 
-                pretokens.append("]")
-            # Everything else should be a register.
-            else:
-                assert " " not in operand
+                    pretokens.append("]")
+                # Everything else should be a register.
+                else:
+                    assert " " not in operand
 
-                pretokens.append(operand)
+                    pretokens.append(operand)
 
-        pretokens.append(TOKEN_NEXT)
+            pretokens.append(TOKEN_NEXT)
 
-    # Remove final NEXT token.
-    if pretokens and pretokens[-1] == TOKEN_NEXT:
-        pretokens.pop()
+        # Remove final NEXT token.
+        if pretokens and pretokens[-1] == TOKEN_NEXT:
+            pretokens.pop()
 
     return {"preprocessed": " ".join(pretokens)}
 
