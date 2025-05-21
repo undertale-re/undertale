@@ -118,7 +118,7 @@ class AssemblageWindowsReader(PipelineStep):
 
                 if i > 0 and (i % 100000) == 0:
                     logger.info(
-                        f"Progress... {i} functions so far, {float(num_with_source)/i:.4f} have source, {float(num_failed_rvas)/i:.7f} with bad rvas"
+                        f"Progress... {i} functions so far, {float(num_with_source) / i:.4f} have source, {float(num_failed_rvas) / i:.7f} with bad rvas"
                     )
 
                 if (current_binary_id is None) or (current_binary_id != b_id):

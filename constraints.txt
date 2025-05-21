@@ -208,6 +208,8 @@ platformdirs==4.3.8
     # via
     #   black
     #   virtualenv
+polars==1.29.0
+    # via undertale (setup.py)
 pre-commit==4.2.0
     # via undertale (setup.py)
 propcache==0.3.1

@@ -83,7 +83,7 @@ class AssemblageVcpkgReader(PipelineStep):
 
                 if i > 0 and (i % 100000) == 0:
                     logger.info(
-                        f"Progress... {i} functions so far, {float(num_failed_rvas)/i:.7f} with bad rvas"
+                        f"Progress... {i} functions so far, {float(num_failed_rvas) / i:.7f} with bad rvas"
                     )
 
                 if i > 1000000:

@@ -1,11 +1,13 @@
 import argparse
 import collections
 import logging
+import os
 import re
 
+import polars
 import tokenizers
+from tqdm import tqdm
 
-from ... import datasets
 from ... import logging as undertale_logging
 
 logger = logging.getLogger(__name__)
@@ -30,24 +32,22 @@ SPECIAL_TOKENS = [
 SIZES = ["qword", "dword", "word", "byte"]
 
 
-def preprocess(sample):
-    """Preprocess a sample into pretokens.
+def pretokenize(disassembly: str) -> str:
+    """Preprocess some disassembly into pretokens.
 
-    This takes a given sample's disassembly directly from Ghidra and parses it
-    into pretokens - separating out arguments and immediates, etc.
+    This takes some disassembly in Intel syntax and parses it into pretokens -
+    separating out arguments and immediates, etc.
 
     Arguments:
-        sample: A sample from a function dataset. Must contain the
-            `disassembly` field, as specified in the schema.
+        disassembly: String disassembly, one instruction per line.
 
     Returns:
-        A dictionary with the key `preprocessed` containing pretokenized
-        disassembly.
+        The preprocessed disassembly.
     """
 
     pretokens = []
 
-    for instruction in sample["disassembly"].split("\n"):
+    for instruction in disassembly.split("\n"):
         split = instruction.split(" ", maxsplit=1)
 
         # Instruction prefix (e.g., 'lock add ...')
@@ -68,96 +68,55 @@ def preprocess(sample):
 
         pretokens.append(mnemonic)
 
-        if "call" in instruction:
-            pretokens.append(operands)
-        else:
-            op_split = operands.split(", ")
-            for operand in op_split:
-                # Immediate value (e.g., `0x1337`).
-                if operand.startswith("0x") or operand.startswith("-0x"):
-                    # breakpoint()
-                    operand = str(int(operand, 16))
-                    pretokens.append(operand)
-                # Memory address (e.g., `[rax]`).
-                # Call instructions need to show addresses instead of symbols
-                # Translate vars like [var_58h] into register names
-                elif "[" in operand:
-                    # Size directive (e.g., `byte ptr [rax]`).
-                    if "ptr" in operand:
-                        # breakpoint()
-                        size, _, operand = operand.split(maxsplit=2)
-                        pretokens.append(size)
-                        # breakpoint()
-                    # Rizin does not have 'ptr'
-                    elif any(
-                        size_substr in size_str
-                        for size_substr in SIZES
-                        for size_str in op_split
-                    ):
-                        try:
-                            size, operand = operand.split()
-                        except:  # instruction = 'add byte [rax + rax], cl'
-                            # breakpoint()
-                            left_brack = operand.find("[")
-                            size = operand[:left_brack]
-                            operand = operand[left_brack:]
-                            # breakpoint()
-                        pretokens.append(size)
-                        # breakpoint()
-                    # Segment indicator (e.g., `ds:[rax]`).
-                    if ":" in operand:
-                        segment, operand = operand.split(":")
-                        pretokens.append(segment)
-                    if "var" in operand or "arg" in operand:
-                        var_part = operand[operand.find("var") :]
-                        var_num = int(var_part[4 : var_part.find("h")], 16)
-                        offset = var_num - 8
-                        operand = f"[rbp+-{offset}]"
-                        for i in operand:
-                            pretokens.append(i)
-                    # if "call" in operand:
-                    #     breakpoint()
-                    assert operand[0] == "["
-                    assert operand[-1] == "]"
-                    operand = operand[1:-1]
+        for operand in operands.split(","):
+            operand = operand.strip()
 
-                    pretokens.append("[")
+            # Immediate value (e.g., `0x1337`).
+            if operand.startswith("0x") or operand.startswith("-0x"):
+                operand = str(int(operand, 16))
+                pretokens.append(operand)
+            # Memory address (e.g., `[rax]`).
+            elif "[" in operand:
+                # Size directive (e.g., `byte ptr [rax]`).
+                if "ptr" in operand:
+                    size, _, operand = operand.split(maxsplit=2)
+                    pretokens.append(size)
+                # Segment indicator (e.g., `ds:[rax]`).
+                if ":" in operand:
+                    segment, operand = operand.split(":")
+                    pretokens.append(segment)
 
-                    # Base, offset, multiplier syntax
-                    split = re.split(r"(\+|-|\*)", operand)
-                    split = [o.strip() for o in split]
+                assert operand[0] == "["
+                assert operand[-1] == "]"
+                operand = operand[1:-1]
 
-                    for op in split:
-                        # Immediate value.
-                        if op.startswith("0x") or op.startswith("-0x"):
-                            op = str(int(op, 16))
+                pretokens.append("[")
 
-                        pretokens.append(op)
+                # Base, offset, multiplier syntax
+                split = re.split(r"(\+|-|\*)", operand)
+                split = [o.strip() for o in split]
 
-                    pretokens.append("]")
-                # Everything else should be a register.
-                else:
-                    assert " " not in operand
+                for op in split:
+                    # Immediate value.
+                    if op.startswith("0x") or op.startswith("-0x"):
+                        op = str(int(op, 16))
 
-                    pretokens.append(operand)
+                    pretokens.append(op)
 
-            pretokens.append(TOKEN_NEXT)
+                pretokens.append("]")
+            # Everything else should be a register.
+            else:
+                assert " " not in operand
 
-        # Remove final NEXT token.
-        if pretokens and pretokens[-1] == TOKEN_NEXT:
-            pretokens.pop()
+                pretokens.append(operand)
 
-    return {"preprocessed": " ".join(pretokens)}
+        pretokens.append(TOKEN_NEXT)
 
+    # Remove final NEXT token.
+    if pretokens and pretokens[-1] == TOKEN_NEXT:
+        pretokens.pop()
 
-def preprocess_batch(batch):
-    result = {"preprocessed": []}
-    for sample in batch["disassembly"]:
-        result["preprocessed"].append(
-            preprocess({"disassembly": sample})["preprocessed"]
-        )
-
-    return result
+    return " ".join(pretokens)
 
 
 def train(dataset, vocab_size=4096):
@@ -169,8 +128,7 @@ def train(dataset, vocab_size=4096):
     constrain the size of the dataset.
 
     Arguments:
-        dataset: The dataset on which to train. This dataset should conform to
-            the `Function` schema.
+        dataset: The path to the dataset on which to train.
         vocab_size: The vocabulary size for the immediate BPE model. This is a
             hyperparameter that could be tuned to optimize the token
             representation.
@@ -178,10 +136,6 @@ def train(dataset, vocab_size=4096):
     Returns:
         A trained tokenizer.
     """
-
-    logger.info(f"preprocessing {dataset.__class__.__name__}")
-
-    dataset = dataset.map(preprocess, desc="preprocessing")
 
     tokenizer = tokenizers.Tokenizer(tokenizers.models.BPE(unk_token=TOKEN_UNKNOWN))
     tokenizer.pre_tokenizer = tokenizers.pre_tokenizers.Whitespace()
@@ -198,14 +152,20 @@ def train(dataset, vocab_size=4096):
     tokens, immediates = collections.defaultdict(int), collections.defaultdict(int)
 
     def build_dictionary(sample):
-        for token in sample["preprocessed"].split():
+        for token in sample.split():
             try:
                 int(token)
                 immediates[token] += 1
             except ValueError:
                 tokens[token] += 1
 
-    dataset.map(build_dictionary, desc="compute dictionary")
+    path = os.path.abspath(os.path.expanduser(dataset))
+    chunks = os.listdir(path)
+    for i, file in enumerate(tqdm(chunks, desc="building dictionary")):
+        if file.endswith(".parquet"):
+            chunk = polars.scan_parquet(os.path.join(path, file))
+            for s in chunk.select("disassembly").collect()["disassembly"].to_list():
+                build_dictionary(s)
 
     def build_tokenizer_trainer(dictionary):
         for token, count in dictionary.items():
@@ -238,7 +198,7 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "dataset",
-        help="dataset on which to train the tokenizer (format: `{module.path}:{DatasetClass}`)",
+        help="path to the dataset on which to train the tokenizer",
     )
     parser.add_argument("-o", "--output", required=True, help="output file")
 
@@ -260,13 +220,7 @@ if __name__ == "__main__":
         file=arguments.logging_file,
     )
 
-    try:
-        dataset = datasets.from_specifier(arguments.dataset)
-    except ValueError as e:
-        logger.critical(e)
-        exit(1)
-
-    tokenizer = train(dataset)
+    tokenizer = train(arguments.dataset)
     tokenizer.save(arguments.output)
 
     logger.info(f"saved tokenizer to: {arguments.output}")
