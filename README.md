@@ -37,10 +37,10 @@ Examples:
 
 ```bash
 # Parse the HumanEval-X dataset.
-python -m undertale.datasets.humanevalx parse _ humaneval-x/
+python -m undertale.datasets.humanevalx parse _ humanevalx/
 
 # Parse the HumanEval-X dataset with 8 parallel processes.
-python -m undertale.datasets.humanevalx parse _ humaneval-x/ --parallelism 8
+python -m undertale.datasets.humanevalx parse _ humanevalx/ --parallelism 8
 ```
 
 > [!NOTE]
@@ -50,13 +50,13 @@ python -m undertale.datasets.humanevalx parse _ humaneval-x/ --parallelism 8
 To load a given dataset and open a shell for exploration:
 
 ```bash
-python -m undertale.datasets.shell {input}
+python -m undertale.datasets.scripts.shell {input}
 ```
 
 Example:
 
 ```bash
-python -m undertale.datasets.shell humaneval-x
+python -m undertale.datasets.scripts.shell humanevalx
 ```
 
 The dataset will be available in a variable called `dataset` in the shell.
