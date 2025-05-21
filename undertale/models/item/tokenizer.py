@@ -53,9 +53,7 @@ def pretokenize(disassembly: str) -> str:
         if split[0] in ["xacquire", "xrelease"]:
             assert len(split) == 2
             prefix, remainder = split
-
             pretokens.append(prefix)
-
             split = remainder.split(" ", maxsplit=1)
 
         # Instruction prefix (e.g., 'lock add ...')
@@ -71,9 +69,7 @@ def pretokenize(disassembly: str) -> str:
         ]:
             assert len(split) == 2
             prefix, remainder = split
-
             pretokens.append(prefix)
-
             split = remainder.split(" ", maxsplit=1)
 
         # Instruction without operands (e.g., `ret`).
