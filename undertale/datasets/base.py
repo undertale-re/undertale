@@ -65,7 +65,9 @@ class Dataset(metaclass=ABCMeta):
     ):
         self.writer = writer
         self.executor = executor
-        self.logging_directory = logging_directory or f"{self.name}-logs"
+        self.logging_directory = (
+            logging_directory or f"{self.__class__.__name__.lower()}-logs"
+        )
 
     schema: Optional[Schema] = None
     """The schema class that this dataset implements.
