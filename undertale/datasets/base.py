@@ -35,9 +35,23 @@ def adapt_to_flatten(self, document: Document) -> dict:
     return sample
 
 
+def adapt_to_flatten_for_pretraining(self, document: Document) -> dict:
+    return {
+        "input_ids": document.metadata["tokens"]["input_ids"],
+        "attention_mask": document.metadata["tokens"]["attention_mask"],
+    }
+
+
 writers = {
     "parquet": lambda output: [
         ParquetWriter(output, adapter=adapt_to_flatten, max_file_size=100 * 1024 * 1024)
+    ],
+    "pretraining": lambda output: [
+        ParquetWriter(
+            output,
+            adapter=adapt_to_flatten_for_pretraining,
+            max_file_size=100 * 1024 * 1024,
+        )
     ],
 }
 

@@ -47,6 +47,9 @@ def pretokenize(disassembly: str) -> str:
     pretokens = []
 
     for instruction in disassembly.split("\n"):
+        # standardize input - lowercase
+        instruction = instruction.lower()
+
         split = instruction.split(" ", maxsplit=1)
 
         # Hardware lock instruction prefix (e.g., 'xrelease lock add ...')
