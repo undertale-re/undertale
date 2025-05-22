@@ -25,9 +25,7 @@ if __name__ == "__main__":
     model = model.from_pretrained(arguments.model, local_files_only=True)
     model.eval()
 
-    pretokens = item.tokenizer.preprocess({"disassembly": arguments.input})[
-        "preprocessed"
-    ]
+    pretokens = item.tokenizer.pretokenize(arguments.input)
     encoded = tokenizer.encode(pretokens)
     input_ids = torch.tensor((encoded.ids,), dtype=torch.long)
     attention_mask = torch.tensor((encoded.attention_mask,), dtype=torch.long)

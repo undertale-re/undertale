@@ -94,19 +94,45 @@ python -m undertale.models.item.tokenizer \
     item.tokenizer.json
 ```
 
-> [!CAUTION]
-> The following steps are in flux and currently do not work. They will be
-> updated when the training scripts have been fixed.
+#### Tokenization
+
+With your trained tokenizer, you can now tokenize the whole dataset, writing
+results to a minimal pretraining dataset:
+
+```bash
+python -m undertale.datasets.scripts.tokenize \
+    -t item.tokenizer.json \
+    -w pretraining \
+    humanevalx-pretokenized/ \
+    humanevalx-tokenized/
+```
 
 #### Masked Language Modeling Pre-Training
 
+With a tokenized dataset, you can now proceed with the first phase of
+pre-training:
 
 ```bash
 python -m undertale.models.item.pretrain-maskedlm \
-    undertale.datasets.humanevalx:HumanEvalX \
     -t item.tokenizer.json \
-    -o pretrain-maskedlm
+    humanevalx-tokenized/ \
+    pretrain-maskedlm \
 ```
+
+#### Masked Language Modeling Inference
+
+> [!WARNING]
+> This output is pretty bad with a model trained only on the small dataset.
+
+```bash
+python -m undertale.models.item.infer-maskedlm \
+    -t item.tokenizer.json \
+    -m pretrain-maskedlm/9 \
+    "add eax, [MASK]"
+```
+
+> [!CAUTION]
+> The following steps have not been tested and are currently in development.
 
 #### Contrastive Embedding Fine-Tuning
 
@@ -116,19 +142,6 @@ python -m undertale.models.item.finetune-embedding \
     -t item.tokenizer.json \
     -m pretrain-maskedlm/9 \
     -o finetune-embedding
-```
-
-#### Masked Language Modeling Inference
-
-> [!WARNING]
-> This output is pretty bad right now with only the small dataset - it should
-> get better once we can start training with larger datasets.
-
-```bash
-python -m undertale.models.item.infer-maskedlm \
-    -t item.tokenizer.json \
-    -m pretrain-maskedlm/9 \
-    "add eax, [MASK]"
 ```
 
 #### Summarization Inference

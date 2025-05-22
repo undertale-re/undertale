@@ -9,8 +9,8 @@ import transformers
 from sklearn import metrics
 from torch.utils.data import DataLoader
 
-from ... import datasets
 from ... import logging as undertale_logging
+from ...datasets.base import Dataset
 from . import model, tokenizer
 
 logger = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ if __name__ == "__main__":
         "dataset",
         help="dataset on which to train the model (format: `{module.path}:{DatasetClass}`)",
     )
-    parser.add_argument("-o", "--output", required=True, help="output model directory")
+    parser.add_argument("output", help="output model directory")
 
     parser.add_argument(
         "-c",
@@ -63,7 +63,7 @@ if __name__ == "__main__":
 
     configuration = model.InstructionTraceConfig(
         vocab_size=tok.get_vocab_size(),
-        next_token_id=tok.token_to_id("[NEXT]"),
+        next_token_id=tok.token_to_id(tokenizer.TOKEN_NEXT),
         max_position_embeddings=sequence_length,
         type_vocab_size=1,
     )
@@ -74,23 +74,10 @@ if __name__ == "__main__":
         model = model.from_pretrained(arguments.checkpoint, local_files_only=True)
 
     try:
-        dataset = datasets.from_specifier(arguments.dataset)
+        dataset = Dataset.load(arguments.dataset)
     except ValueError as e:
         logger.critical(e)
         exit(1)
-
-    def tokenize(batch):
-        preprocessed = tokenizer.preprocess_batch(batch)
-        encoded = tok.encode_batch(preprocessed["preprocessed"])
-
-        batch["input_ids"] = [s.ids for s in encoded]
-        batch["attention_mask"] = [s.attention_mask for s in encoded]
-
-        return batch
-
-    dataset = dataset.map(
-        tokenize, batched=True, remove_columns=dataset.column_names, desc="tokenizing"
-    )
 
     dataset = dataset.train_test_split(test_size=0.1)
 
