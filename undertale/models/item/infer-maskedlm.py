@@ -20,6 +20,7 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     if torch.cuda.is_available():
         torch.cuda.set_device(0)
+    
     tokenizer = item.tokenizer.load(arguments.tokenizer)
     config = item.InstructionTraceConfig.from_tokenizer(tokenizer)
     model = item.InstructionTraceEncoderTransformerForMaskedLM(config)
