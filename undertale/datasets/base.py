@@ -1,4 +1,5 @@
 import argparse
+import inspect
 import logging
 from abc import ABCMeta, abstractmethod
 from typing import List, Optional, Type
@@ -84,8 +85,12 @@ class Dataset(metaclass=ABCMeta):
             pipeline: A list of pipeline steps.
         """
 
-        return executors[self.executor](
-            pipeline, logging_dir=self.logging_directory, **kwargs
+        Executor = executors[self.executor]
+        arguments = inspect.getfullargspec(Executor).args
+        return Executor(
+            pipeline,
+            logging_dir=kwargs.get("logging_dir", self.logging_directory),
+            **{k: kwargs[k] for k in arguments if k in kwargs},
         )
 
     @abstractmethod

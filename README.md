@@ -56,7 +56,7 @@ python -m undertale.datasets.scripts.shell {input}
 Example:
 
 ```bash
-python -m undertale.datasets.scripts.shell humanevalx
+python -m undertale.datasets.scripts.shell humanevalx/
 ```
 
 The dataset will be available in a variable called `dataset` in the shell.
@@ -74,11 +74,23 @@ dataset = Dataset.load(path)
 
 ### Models
 
+#### Pretoken Processing
+
+Before the tokenizer can be trained on a dataset, disassembly must be processed
+into pretokens that the tokenizer can consume. To pretokenize e.g., the
+HumanEvalX dataset (generated above), run:
+
+```python
+python -m undertale.datasets.scripts.pretokenize humanevalx/ humanevalx-pretokenized/
+```
+
 #### Tokenizer Training
+
+Next, you can train a tokenizer on the pretokenized dataset:
 
 ```bash
 python -m undertale.models.item.tokenizer \
-    undertale.datasets.humanevalx:HumanEvalX \
+    humanevalx-pretokenized/ \
     -o item.tokenizer.json
 ```
 
