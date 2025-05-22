@@ -30,17 +30,17 @@ direct module call.
 To parse and commit a dataset:
 
 ```bash
-python -m undertale.datasets.{dataset-module} parse {input} {output}
+python -m undertale.datasets.{dataset-module} {input} {output}
 ```
 
 Examples:
 
 ```bash
 # Parse the HumanEval-X dataset.
-python -m undertale.datasets.humanevalx parse _ humanevalx/
+python -m undertale.datasets.humanevalx _ humanevalx/
 
 # Parse the HumanEval-X dataset with 8 parallel processes.
-python -m undertale.datasets.humanevalx parse _ humanevalx/ --parallelism 8
+python -m undertale.datasets.humanevalx _ humanevalx/ --parallelism 8
 ```
 
 > [!NOTE]
