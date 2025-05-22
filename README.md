@@ -94,7 +94,12 @@ python -m undertale.models.item.tokenizer \
     item.tokenizer.json
 ```
 
+> [!CAUTION]
+> The following steps are in flux and currently do not work. They will be
+> updated when the training scripts have been fixed.
+
 #### Masked Language Modeling Pre-Training
+
 
 ```bash
 python -m undertale.models.item.pretrain-maskedlm \
