@@ -91,7 +91,7 @@ Next, you can train a tokenizer on the pretokenized dataset:
 ```bash
 python -m undertale.models.item.tokenizer \
     humanevalx-pretokenized/ \
-    -o item.tokenizer.json
+    item.tokenizer.json
 ```
 
 #### Masked Language Modeling Pre-Training
