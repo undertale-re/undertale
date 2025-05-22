@@ -30,17 +30,17 @@ direct module call.
 To parse and commit a dataset:
 
 ```bash
-python -m undertale.datasets.{dataset-module} parse {input} {output}
+python -m undertale.datasets.{dataset-module} {input} {output}
 ```
 
 Examples:
 
 ```bash
 # Parse the HumanEval-X dataset.
-python -m undertale.datasets.humanevalx parse _ humaneval-x/
+python -m undertale.datasets.humanevalx _ humanevalx/
 
 # Parse the HumanEval-X dataset with 8 parallel processes.
-python -m undertale.datasets.humanevalx parse _ humaneval-x/ --parallelism 8
+python -m undertale.datasets.humanevalx _ humanevalx/ --parallelism 8
 ```
 
 > [!NOTE]
@@ -50,13 +50,13 @@ python -m undertale.datasets.humanevalx parse _ humaneval-x/ --parallelism 8
 To load a given dataset and open a shell for exploration:
 
 ```bash
-python -m undertale.datasets.shell {input}
+python -m undertale.datasets.scripts.shell {input}
 ```
 
 Example:
 
 ```bash
-python -m undertale.datasets.shell humaneval-x
+python -m undertale.datasets.scripts.shell humanevalx/
 ```
 
 The dataset will be available in a variable called `dataset` in the shell.
@@ -74,15 +74,32 @@ dataset = Dataset.load(path)
 
 ### Models
 
+#### Pretoken Processing
+
+Before the tokenizer can be trained on a dataset, disassembly must be processed
+into pretokens that the tokenizer can consume. To pretokenize e.g., the
+HumanEvalX dataset (generated above), run:
+
+```python
+python -m undertale.datasets.scripts.pretokenize humanevalx/ humanevalx-pretokenized/
+```
+
 #### Tokenizer Training
+
+Next, you can train a tokenizer on the pretokenized dataset:
 
 ```bash
 python -m undertale.models.item.tokenizer \
-    undertale.datasets.humanevalx:HumanEvalX \
-    -o item.tokenizer.json
+    humanevalx-pretokenized/ \
+    item.tokenizer.json
 ```
 
+> [!CAUTION]
+> The following steps are in flux and currently do not work. They will be
+> updated when the training scripts have been fixed.
+
 #### Masked Language Modeling Pre-Training
+
 
 ```bash
 python -m undertale.models.item.pretrain-maskedlm \

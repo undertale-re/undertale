@@ -29,9 +29,17 @@ class ITEMPretokenizer(PipelineStep):
 
         for document in data:
             with self.track_time():
-                document.metadata["disassembly"] = pretokenize(
-                    document.metadata["disassembly"]
-                )
+                try:
+                    document.metadata["disassembly"] = pretokenize(
+                        document.metadata["disassembly"]
+                    )
+
+                    self.stat_update("succeeded")
+                except Exception as e:
+                    logger.exception(f"failed to process '{document.id}': {e}")
+                    self.stat_update("failed")
+                    continue
+
                 yield document
 
 

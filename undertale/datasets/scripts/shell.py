@@ -4,8 +4,8 @@ import logging
 
 import polars
 
-from ..logging import setup_logging
-from .base import Dataset
+from ...logging import setup_logging
+from ..base import Dataset
 
 logger = logging.getLogger(__name__)
 
