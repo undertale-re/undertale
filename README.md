@@ -121,14 +121,17 @@ python -m undertale.models.item.pretrain-maskedlm \
 
 #### Masked Language Modeling Inference
 
+With a pre-trained model you can now do masked language modeling inference (for
+a given pretokenized text with a single mask token) with the following script:
+
 > [!WARNING]
-> This output is pretty bad with a model trained only on the small dataset.
+> This output is pretty useless unless trained on a sufficiently large dataset.
 
 ```bash
 python -m undertale.models.item.infer-maskedlm \
     -t item.tokenizer.json \
     -m pretrain-maskedlm/9 \
-    "add eax, [MASK]"
+    "xor rax [MASK]"
 ```
 
 > [!CAUTION]

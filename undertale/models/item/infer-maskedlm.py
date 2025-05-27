@@ -1,6 +1,6 @@
 import argparse
 
-import torch
+from transformers import FillMaskPipeline, PreTrainedTokenizerFast
 
 from undertale.models import item
 
@@ -14,27 +14,30 @@ if __name__ == "__main__":
     )
     parser.add_argument("-m", "--model", required=True, help="trained model file(s)")
 
-    parser.add_argument("input", help="masked disassembly input to fill in")
+    parser.add_argument(
+        "input", help="masked disassembly input to fill in (in pretokenized form)"
+    )
 
     arguments = parser.parse_args()
 
-    tokenizer = item.tokenizer.load(arguments.tokenizer)
-    config = item.InstructionTraceConfig.from_tokenizer(tokenizer)
-    model = item.InstructionTraceEncoderTransformerForMaskedLM(config)
+    tokenizer = PreTrainedTokenizerFast(
+        tokenizer_file=arguments.tokenizer,
+        mask_token=item.tokenizer.TOKEN_MASK,
+        unk_token=item.tokenizer.TOKEN_UNKNOWN,
+        pad_token=item.tokenizer.TOKEN_PAD,
+    )
 
-    model = model.from_pretrained(arguments.model, local_files_only=True)
+    model = item.InstructionTraceEncoderTransformerForMaskedLM.from_pretrained(
+        arguments.model, local_files_only=True
+    )
     model.eval()
 
-    pretokens = item.tokenizer.pretokenize(arguments.input)
-    encoded = tokenizer.encode(pretokens)
-    input_ids = torch.tensor((encoded.ids,), dtype=torch.long)
-    attention_mask = torch.tensor((encoded.attention_mask,), dtype=torch.long)
+    pipeline = FillMaskPipeline(model, tokenizer)
 
-    with torch.no_grad():
-        output = model(input_ids, attention_mask)
-
-    tokens = torch.argmax(output.logits[0], dim=-1)
-
-    decoded = tokenizer.decode(list(tokens))
-
-    print(decoded)
+    for result in pipeline(arguments.input):
+        print("=" * 80)
+        print(f"token: {result['token_str']!r}")
+        print(f"score: {result['score']:.3f}")
+        print("-" * 80)
+        print(f"{result['sequence']}")
+    print("=" * 80)

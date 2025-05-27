@@ -47,9 +47,6 @@ def pretokenize(disassembly: str) -> str:
     pretokens = []
 
     for instruction in disassembly.split("\n"):
-        # standardize input - lowercase
-        instruction = instruction.lower()
-
         split = instruction.split(" ", maxsplit=1)
 
         # Hardware lock instruction prefix (e.g., 'xrelease lock add ...')
@@ -87,8 +84,11 @@ def pretokenize(disassembly: str) -> str:
         for operand in operands.split(","):
             operand = operand.strip()
 
+            # Special token (e.g., `[MASK]`).
+            if operand in SPECIAL_TOKENS:
+                pretokens.append(operand)
             # Immediate value (e.g., `0x1337`).
-            if operand.startswith("0x") or operand.startswith("-0x"):
+            elif operand.startswith("0x") or operand.startswith("-0x"):
                 operand = str(int(operand, 16))
                 pretokens.append(operand)
             # Memory address (e.g., `[rax]`).
