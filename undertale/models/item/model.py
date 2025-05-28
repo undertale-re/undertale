@@ -104,6 +104,8 @@ class InstructionTraceEncoderTransformer(BertModel):
 
         self.embeddings = InstructionTracePositionEmbedding(config)
 
+        self.post_init()
+
     def get_input_embeddings(self):
         return self.embeddings.token
 
@@ -116,6 +118,8 @@ class InstructionTraceEncoderTransformerForMaskedLM(BertForMaskedLM):
         super().__init__(config)
 
         self.bert = InstructionTraceEncoderTransformer(config, add_pooling_layer=False)
+
+        self.post_init()
 
 
 @dataclass
