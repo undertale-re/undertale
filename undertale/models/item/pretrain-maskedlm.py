@@ -93,10 +93,18 @@ if __name__ == "__main__":
 
     batch_size = arguments.batch_size
     training = DataLoader(
-        dataset["train"], shuffle=True, batch_size=batch_size, collate_fn=collator
+        dataset["train"],
+        shuffle=True,
+        batch_size=batch_size,
+        collate_fn=collator,
+        num_workers=8,
     )
     validation = DataLoader(
-        dataset["test"], shuffle=True, batch_size=batch_size, collate_fn=collator
+        dataset["test"],
+        shuffle=True,
+        batch_size=batch_size,
+        collate_fn=collator,
+        num_workers=8,
     )
 
     learning_rate = 1e-4
