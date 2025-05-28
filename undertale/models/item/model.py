@@ -1,96 +1,36 @@
-import base64
-import struct
-from dataclasses import dataclass
-from typing import Optional, Tuple
+from math import sqrt
 
-import torch
-import transformers
-from torch import nn
-from transformers.modeling_utils import PreTrainedModel
-from transformers.models import gpt2
-from transformers.models.bert.modeling_bert import BertForMaskedLM, BertModel
-from transformers.utils import ModelOutput
-
-from . import tokenizer
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+from torch import Tensor, arange, bmm, cat, long, stack
+from torch.nn import GELU, Dropout, Embedding, LayerNorm, Linear, Module, ModuleList
+from torch.nn.functional import softmax
 
 
-class InstructionTraceConfig(transformers.BertConfig):
-    def __init__(
-        self,
-        next_token_id=1,
-        embedding_size=128,
-        embedding_dropout_prob=0.1,
-        frozen_encoder=False,
-        connector_size=128,
-        **kwargs,
-    ):
-        super().__init__(**kwargs)
-
-        self.next_token_id = next_token_id
-        self.embedding_size = embedding_size
-        self.embedding_dropout_prob = embedding_dropout_prob
-        self.frozen_encoder = frozen_encoder
-        self.connector_size = connector_size
-
-    @classmethod
-    def from_tokenizer(cls, tok):
-        return cls(
-            vocab_size=tok.get_vocab_size(),
-            next_token_id=tok.token_to_id(tokenizer.TOKEN_NEXT),
-            max_position_embeddings=tok.padding["length"],
-            type_vocab_size=1,
-        )
+class Defaults:
+    depth = 12
+    hidden_dimensions = 768
+    input_size = 512
+    heads = 12
+    intermediate_dimension = 3072
+    dropout = 0.1
 
 
-class InstructionTracePositionEmbedding(nn.Module):
-    def __init__(self, config):
+class PositionEmbedding(Module):
+    def __init__(self, hidden_dimensions: int, vocab_size: int, input_size: int):
         super().__init__()
 
-        self.next_token_id = config.next_token_id
+        self.token = Embedding(vocab_size, hidden_dimensions)
+        self.position = Embedding(input_size, hidden_dimensions)
+        self.norm = LayerNorm(hidden_dimensions, eps=1e-12)
+        self.dropout = Dropout()
 
-        self.token = nn.Embedding(config.vocab_size, config.hidden_size)
-        self.instruction = nn.Embedding(
-            config.max_position_embeddings, config.hidden_size
-        )
-        self.argument = nn.Embedding(config.max_position_embeddings, config.hidden_size)
+    def forward(self, embedding):
+        length = embedding.size(1)
+        positions = arange(length, dtype=long).unsqueeze(0)
 
-        self.norm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
-        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        tokens = self.token(embedding)
+        positions = self.position(positions)
 
-    def forward(
-        self,
-        input_ids=None,
-        token_type_ids=None,
-        position_ids=None,
-        inputs_embeds=None,
-        past_key_values_length=0,
-    ):
-        assert token_type_ids is None or token_type_ids.sum() == 0
-        assert position_ids is None
-        assert inputs_embeds is None
-        assert past_key_values_length == 0
-        assert input_ids.dim() <= 2
-
-        if input_ids.dim() == 1:
-            tokens = input_ids.unsqueeze(0)
-        else:
-            tokens = input_ids
-
-        starts = torch.roll(tokens == self.next_token_id, 1)
-        starts[:, 0] = False
-        instructions = torch.cumsum(starts, dim=-1)
-
-        arguments = torch.zeros(instructions.shape, dtype=torch.long, device=device)
-        for i, batch in enumerate(instructions):
-            arguments[i] = torch.cat([torch.arange(v) for v in torch.bincount(batch)])
-
-        tokens = self.token(tokens)
-        instructions = self.instruction(instructions)
-        arguments = self.argument(arguments)
-
-        embedded = tokens + instructions + arguments
+        embedded = tokens + positions
 
         embedded = self.norm(embedded)
         embedded = self.dropout(embedded)
@@ -98,242 +38,227 @@ class InstructionTracePositionEmbedding(nn.Module):
         return embedded
 
 
-class InstructionTraceEncoderTransformer(BertModel):
-    def __init__(self, config, add_pooling_layer=True):
-        super().__init__(config, add_pooling_layer)
-
-        self.embeddings = InstructionTracePositionEmbedding(config)
-
-        self.post_init()
-
-    def get_input_embeddings(self):
-        return self.embeddings.token
-
-    def set_input_embeddings(self, value):
-        self.embeddings.token = value
+def scaled_dot_product_attention(query: Tensor, key: Tensor, value: Tensor) -> Tensor:
+    scores = bmm(query, key.transpose(1, 2)) / sqrt(query.size(-1))
+    weights = softmax(scores, dim=-1)
+    return bmm(weights, value)
 
 
-class InstructionTraceEncoderTransformerForMaskedLM(BertForMaskedLM):
-    def __init__(self, config):
-        super().__init__(config)
-
-        self.bert = InstructionTraceEncoderTransformer(config, add_pooling_layer=False)
-
-        self.post_init()
-
-
-@dataclass
-class EmbeddingModelOutput(ModelOutput):
-    embedded: torch.FloatTensor = None
-    hidden_states: Optional[Tuple[torch.FloatTensor]] = None
-    attentions: Optional[Tuple[torch.FloatTensor]] = None
-
-    def encode(self):
-        data = self.embedded.squeeze().tolist()
-        data = struct.pack(f"{len(data)}f", *data)
-        data = base64.b64encode(data).decode("utf-8")
-
-        return data
-
-    @classmethod
-    def decode(cls, data):
-        data = base64.b64decode(data)
-        data = struct.unpack(f"{len(data) // 4}f", data)
-        data = torch.tensor(data).unsqueeze(0).to(device)
-
-        return cls(embedded=data)
-
-
-class InstructionTraceEmbeddingHead(nn.Module):
-    def __init__(self, config):
+class Attention(Module):
+    def __init__(self, embedded_dimensions: int, head_dimensions: int):
         super().__init__()
 
-        self.linear1 = nn.Linear(config.hidden_size, config.hidden_size // 2)
-        self.linear2 = nn.Linear(config.hidden_size // 2, config.embedding_size)
-        self.activation = nn.GELU()
-        self.dropout = nn.Dropout(config.embedding_dropout_prob)
+        self.q = Linear(embedded_dimensions, head_dimensions)
+        self.k = Linear(embedded_dimensions, head_dimensions)
+        self.v = Linear(embedded_dimensions, head_dimensions)
 
-    def forward(self, inputs):
-        outputs = self.linear1(inputs)
-        outputs = self.activation(outputs)
-        outputs = self.linear2(outputs)
-        outputs = self.dropout(outputs)
-
-        return outputs
+    def forward(self, state: Tensor) -> Tensor:
+        return scaled_dot_product_attention(self.q(state), self.k(state), self.v(state))
 
 
-class InstructionTraceEncoderTransformerForSequenceEmbedding(PreTrainedModel):
-    config_class = InstructionTraceConfig
+class MultiHeadAttention(Module):
+    def __init__(self, embedded_dimensions: int, heads: int):
+        super().__init__()
 
-    def __init__(self, config):
-        super().__init__(config)
+        head_dimensions = embedded_dimensions // heads
 
-        self.bert = InstructionTraceEncoderTransformer(config, add_pooling_layer=False)
-
-        if config.frozen_encoder:
-            for parameter in self.bert.parameters():
-                parameter.requires_grad = False
-
-        self.embedding = InstructionTraceEmbeddingHead(config)
-
-    def forward(self, input_ids, attention_mask):
-        outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
-
-        # Pool sequence model by taking the embedding of the [CLS] token - this
-        # is how HuggingFace handles pooling, we just don't want the extra
-        # dense layer that they add
-        pooled = outputs.last_hidden_state[:, 0]
-
-        # Mean pooling - Trex's approach
-        # pooled = output.last_hidden_state.mean(dim=-2)
-
-        embedded = self.embedding(pooled)
-
-        return EmbeddingModelOutput(
-            embedded=embedded,
-            hidden_states=outputs.hidden_states,
-            attentions=outputs.attentions,
+        self.heads = ModuleList(
+            [Attention(embedded_dimensions, head_dimensions) for _ in range(heads)]
         )
 
+        self.output = Linear(embedded_dimensions, embedded_dimensions)
 
-class CosineInstructionTraceDifference(nn.Module):
-    def __init__(self, config):
-        super().__init__()
-
-        self.activation = nn.Sigmoid()
-
-    def forward(self, first, second):
-        cos = nn.CosineSimilarity(dim=-1, eps=1e-6)
-        difference = cos(first, second)
-
-        return self.activation(difference)
-
-
-class EuclidianInstructionTraceDifference(nn.Module):
-    def __init__(self, config):
-        super().__init__()
-
-        self.activation = nn.Sigmoid()
-
-    def forward(self, first, second):
-        difference = torch.sqrt(torch.sum((first - second) ** 2, dim=-1))
-
-        return self.activation(difference)
-
-
-class LearnedInstructionTraceDifference(nn.Module):
-    def __init__(self, config):
-        super().__init__()
-
-        self.linear = nn.Linear(config.embedding_size, 1)
-        self.activation = nn.Sigmoid()
-
-    def forward(self, first, second):
-        difference = torch.abs(first - second)
-        outputs = self.linear(difference).squeeze()
-        outputs = self.activation(outputs)
-
-        return outputs
-
-
-@dataclass
-class SimilarityModelOutput(ModelOutput):
-    loss: Optional[torch.FloatTensor] = None
-    logits: torch.FloatTensor = None
-    embedded1: Optional[Tuple[torch.FloatTensor]] = None
-    embedded2: Optional[Tuple[torch.FloatTensor]] = None
-    hidden_states1: Optional[Tuple[torch.FloatTensor]] = None
-    hidden_states2: Optional[Tuple[torch.FloatTensor]] = None
-    attentions1: Optional[Tuple[torch.FloatTensor]] = None
-    attentions2: Optional[Tuple[torch.FloatTensor]] = None
-
-
-class InstructionTraceEncoderTransformerForSequenceSimilarity(PreTrainedModel):
-    config_class = InstructionTraceConfig
-
-    def __init__(self, config):
-        super().__init__(config)
-
-        self.embedding = InstructionTraceEncoderTransformerForSequenceEmbedding(config)
-        self.difference = CosineInstructionTraceDifference(config)
-
-    def forward(
-        self, input_ids1, attention_mask1, input_ids2, attention_mask2, labels=None
-    ):
-        embedded1 = self.embedding(input_ids=input_ids1, attention_mask=attention_mask1)
-        embedded2 = self.embedding(input_ids=input_ids2, attention_mask=attention_mask2)
-
-        logits = self.difference(embedded1.embedded, embedded2.embedded)
-
-        if labels is not None:
-            function = nn.BCELoss()
-            loss = function(logits, labels.float())
-        else:
-            loss = None
-
-        return SimilarityModelOutput(
-            loss=loss,
-            logits=logits,
-            embedded1=embedded1.embedded,
-            embedded2=embedded2.embedded,
-            hidden_states1=embedded1.hidden_states,
-            hidden_states2=embedded2.hidden_states,
-            attentions1=embedded1.attentions,
-            attentions2=embedded2.attentions,
-        )
-
-
-class InstructionTraceLanguageConnector(nn.Module):
-    def __init__(self, input_size, output_size, hidden_size=128):
-        super().__init__()
-        self.connectors = nn.ModuleList(
-            [nn.Linear(input_size, output_size) for _ in range(hidden_size)]
-        )
-
-    def forward(self, inputs_embeds):
-        return torch.stack([c(inputs_embeds) for c in self.connectors], dim=1)
-
-
-class InstructionTraceEncoderTransformerForSequenceSummarizationGPT2(PreTrainedModel):
-    config_class = InstructionTraceConfig
-
-    def __init__(self, config):
-        super().__init__(config)
-
-        self.item = InstructionTraceEncoderTransformerForSequenceEmbedding(config)
-
-        self.gpt2 = gpt2.GPT2LMHeadModel.from_pretrained("gpt2")
-        self.gpt2.requires_grad_(False)
-
-        self.connector = InstructionTraceLanguageConnector(
-            input_size=self.item.config.embedding_size,
-            output_size=self.gpt2.config.n_embd,
-            hidden_size=config.connector_size,
-        )
-
-    def forward(self, input_ids, attention_mask):
-        embedding = self.item(input_ids, attention_mask)
-        tokens = self.connector(embedding.embedded)
-        attention = torch.ones(*tokens.shape[:-1])
-        output = self.gpt2(inputs_embeds=tokens, attention_mask=attention)
+    def forward(self, state):
+        attended = cat([h(state) for h in self.heads], dim=-1)
+        output = self.output(attended)
 
         return output
 
-    def generate(self, input_ids, attention_mask, **kwargs):
-        embedding = self.item(input_ids, attention_mask)
-        tokens = self.connector(embedding.embedded)
-        attention = torch.ones(*tokens.shape[:-1])
-        generated = self.gpt2.generate(
-            inputs_embeds=tokens, attention_mask=attention, **kwargs
+
+class FeedForward(Module):
+    def __init__(
+        self, hidden_dimensions: int, intermediate_dimensions: int, dropout: float
+    ):
+        super().__init__()
+
+        self.linear1 = Linear(hidden_dimensions, intermediate_dimensions)
+        self.linear2 = Linear(intermediate_dimensions, hidden_dimensions)
+        self.activation = GELU()
+        self.dropout = Dropout(dropout)
+
+    def forward(self, state: Tensor) -> Tensor:
+        hidden = self.activation(self.linear1(state))
+        output = self.dropout(self.linear2(hidden))
+
+        return output
+
+
+class TransformerEncoderLayer(Module):
+    def __init__(
+        self,
+        hidden_dimensions: int,
+        heads: int,
+        intermediate_dimensions: int,
+        dropout: float,
+    ):
+        super().__init__()
+
+        self.norm1 = LayerNorm(hidden_dimensions)
+        self.attention = MultiHeadAttention(hidden_dimensions, heads)
+        self.norm2 = LayerNorm(hidden_dimensions)
+        self.ff = FeedForward(hidden_dimensions, intermediate_dimensions, dropout)
+
+    def forward(self, state: Tensor) -> Tensor:
+        # Vanila.
+        # attended = self.attention(state)
+        # output = self.ff(attended)
+
+        # Add layer normalization.
+        # attended = self.attention(self.norm1(state))
+        # output = self.ff(self.norm2(attended))
+
+        # Add skip connections.
+        hidden = self.norm1(state)
+        output = state + self.attention(hidden)
+        hidden = self.norm2(output)
+        output = output + self.ff(hidden)
+
+        return output
+
+
+class TransformerEncoder(Module):
+    def __init__(
+        self,
+        depth: int,
+        hidden_dimensions: int,
+        vocab_size: int,
+        input_size: int,
+        heads: int,
+        intermediate_dimensions: int,
+        dropout: float,
+    ):
+        super().__init__()
+
+        self.embedding = PositionEmbedding(hidden_dimensions, vocab_size, input_size)
+        self.layers = ModuleList(
+            [
+                TransformerEncoderLayer(
+                    hidden_dimensions, heads, intermediate_dimensions, dropout
+                )
+                for _ in range(depth)
+            ]
         )
 
-        return generated
+    def forward(self, state: Tensor) -> Tensor:
+        output = self.embedding(state)
+
+        for layer in self.layers:
+            output = layer(output)
+
+        return output
+
+
+class MaskedLMHead(Module):
+    def __init__(self, hidden_dimensions, vocab_size):
+        super().__init__()
+
+        self.linear = Linear(hidden_dimensions, vocab_size)
+
+    def forward(self, state: Tensor) -> Tensor:
+        return softmax(self.linear(state), dim=-1)
+
+
+class TransformerEncoderForMaskedLM(Module):
+    def __init__(
+        self,
+        depth: int,
+        hidden_dimensions: int,
+        vocab_size: int,
+        input_size: int,
+        heads: int,
+        intermediate_dimensions: int,
+        dropout: float,
+    ):
+        super().__init__()
+
+        self.encoder = TransformerEncoder(
+            depth,
+            hidden_dimensions,
+            vocab_size,
+            input_size,
+            heads,
+            intermediate_dimensions,
+            dropout,
+        )
+        self.head = MaskedLMHead(hidden_dimensions, vocab_size)
+
+    def forward(self, state: Tensor) -> Tensor:
+        hidden = self.encoder(state)
+        output = self.head(hidden)
+
+        return output
+
+
+class TransformerEncoderForSequenceSimilarity(Module):
+    pass
+
+
+class TransformerEncoderForSequenceClassification(Module):
+    def __init__(
+        self,
+        classes: int,
+        depth: int,
+        hidden_dimensions: int,
+        vocab_size: int,
+        input_size: int,
+        heads: int,
+        intermediate_dimensions: int,
+        dropout: float,
+    ):
+        super().__init__()
+
+        self.encoder = TransformerEncoder(
+            depth,
+            hidden_dimensions,
+            vocab_size,
+            input_size,
+            heads,
+            intermediate_dimensions,
+            dropout,
+        )
+        self.dropout = Dropout(dropout)
+        self.head = Linear(hidden_dimensions, classes)
+
+    def forward(self, state: Tensor) -> Tensor:
+        # Select only the final state to classify.
+        hidden = self.encoder(state)[:, 0, :]
+        hidden = self.dropout(hidden)
+        output = self.head(hidden)
+
+        return output
+
+
+class LanguageConnector(Module):
+    def __init__(self, input_size: int, output_size: int, hidden_size: int):
+        super().__init__()
+
+        self.connectors = ModuleList(
+            [Linear(input_size, output_size) for _ in range(hidden_size)]
+        )
+
+    def forward(self, state: Tensor) -> Tensor:
+        return stack([c(state) for c in self.connectors], dim=1)
+
+
+class TransformerEncoderForSequenceSummarizationGPT2(Module):
+    pass
 
 
 __all__ = [
-    "InstructionTraceConfig",
-    "InstructionTraceEncoderTransformerForMaskedLM",
-    "InstructionTraceEncoderTransformerForSequenceEmbedding",
-    "InstructionTraceEncoderTransformerForSequenceSimilarity",
-    "InstructionTraceEncoderTransformerForSequenceSummarizationGPT2",
+    "Defaults",
+    "TransformerEncoder",
+    "TransformerEncoderForMaskedLM",
+    "TransformerEncoderForSequenceSimilarity",
+    "TransformerEncoderForSequenceClassification",
+    "TransformerEncoderForSequenceSummarizationGPT2",
 ]
