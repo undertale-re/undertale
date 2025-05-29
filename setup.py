@@ -25,6 +25,7 @@ setup(
         "datasets",
         "transformers",
         "torch",
+        "lightning",
         "openai",
         "capstone",
         "pyhidra",
