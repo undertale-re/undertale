@@ -1,8 +1,12 @@
 from math import sqrt
+from typing import Optional
 
-from torch import Tensor, arange, bmm, cat, long, stack
+from lightning import LightningModule
+from sklearn.metrics import f1_score
+from torch import Tensor, arange, argmax, bmm, cat, long, stack
 from torch.nn import GELU, Dropout, Embedding, LayerNorm, Linear, Module, ModuleList
-from torch.nn.functional import softmax
+from torch.nn.functional import cross_entropy, softmax
+from torch.optim import AdamW
 
 
 class Defaults:
@@ -10,7 +14,7 @@ class Defaults:
     hidden_dimensions = 768
     input_size = 512
     heads = 12
-    intermediate_dimension = 3072
+    intermediate_dimensions = 3072
     dropout = 0.1
 
 
@@ -23,11 +27,11 @@ class PositionEmbedding(Module):
         self.norm = LayerNorm(hidden_dimensions, eps=1e-12)
         self.dropout = Dropout()
 
-    def forward(self, embedding):
-        length = embedding.size(1)
+    def forward(self, state: Tensor) -> Tensor:
+        length = state.size(1)
         positions = arange(length, dtype=long).unsqueeze(0)
 
-        tokens = self.token(embedding)
+        tokens = self.token(state)
         positions = self.position(positions)
 
         embedded = tokens + positions
@@ -38,8 +42,14 @@ class PositionEmbedding(Module):
         return embedded
 
 
-def scaled_dot_product_attention(query: Tensor, key: Tensor, value: Tensor) -> Tensor:
-    scores = bmm(query, key.transpose(1, 2)) / sqrt(query.size(-1))
+def scaled_dot_product_attention(
+    query: Tensor, key: Tensor, value: Tensor, mask: Optional[Tensor] = None
+) -> Tensor:
+    scores = bmm(query, key.transpose(-2, -1)) / sqrt(query.size(-1))
+
+    if mask is not None:
+        scores = scores.masked_fill(mask.unsqueeze(-2) == 0, -1e9)
+
     weights = softmax(scores, dim=-1)
     return bmm(weights, value)
 
@@ -52,8 +62,10 @@ class Attention(Module):
         self.k = Linear(embedded_dimensions, head_dimensions)
         self.v = Linear(embedded_dimensions, head_dimensions)
 
-    def forward(self, state: Tensor) -> Tensor:
-        return scaled_dot_product_attention(self.q(state), self.k(state), self.v(state))
+    def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
+        return scaled_dot_product_attention(
+            self.q(state), self.k(state), self.v(state), mask=mask
+        )
 
 
 class MultiHeadAttention(Module):
@@ -68,8 +80,8 @@ class MultiHeadAttention(Module):
 
         self.output = Linear(embedded_dimensions, embedded_dimensions)
 
-    def forward(self, state):
-        attended = cat([h(state) for h in self.heads], dim=-1)
+    def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
+        attended = cat([h(state, mask) for h in self.heads], dim=-1)
         output = self.output(attended)
 
         return output
@@ -108,7 +120,7 @@ class TransformerEncoderLayer(Module):
         self.norm2 = LayerNorm(hidden_dimensions)
         self.ff = FeedForward(hidden_dimensions, intermediate_dimensions, dropout)
 
-    def forward(self, state: Tensor) -> Tensor:
+    def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
         # Vanila.
         # attended = self.attention(state)
         # output = self.ff(attended)
@@ -119,7 +131,7 @@ class TransformerEncoderLayer(Module):
 
         # Add skip connections.
         hidden = self.norm1(state)
-        output = state + self.attention(hidden)
+        output = state + self.attention(hidden, mask)
         hidden = self.norm2(output)
         output = output + self.ff(hidden)
 
@@ -149,11 +161,11 @@ class TransformerEncoder(Module):
             ]
         )
 
-    def forward(self, state: Tensor) -> Tensor:
+    def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
         output = self.embedding(state)
 
         for layer in self.layers:
-            output = layer(output)
+            output = layer(output, mask)
 
         return output
 
@@ -168,7 +180,7 @@ class MaskedLMHead(Module):
         return softmax(self.linear(state), dim=-1)
 
 
-class TransformerEncoderForMaskedLM(Module):
+class TransformerEncoderForMaskedLM(LightningModule, Module):
     def __init__(
         self,
         depth: int,
@@ -192,11 +204,35 @@ class TransformerEncoderForMaskedLM(Module):
         )
         self.head = MaskedLMHead(hidden_dimensions, vocab_size)
 
-    def forward(self, state: Tensor) -> Tensor:
-        hidden = self.encoder(state)
+    def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
+        hidden = self.encoder(state, mask)
         output = self.head(hidden)
 
         return output
+
+    def configure_optimizers(self):
+        return AdamW(self.parameters(), lr=1e-4)
+
+    def training_step(self, batch, index):
+        output = self(batch.input_ids, batch.attention_mask)
+        loss = cross_entropy(output.view(-1, output.size(-1)), batch.labels.view(-1))
+
+        self.log("loss", loss)
+
+        return loss
+
+    def validation_step(self, batch, index):
+        output = self(batch.input_ids, batch.attention_mask)
+
+        references = batch.labels
+        predictions = argmax(output, dim=-1)
+
+        predictions = predictions[references != -100]
+        references = references[references != -100]
+
+        f1 = f1_score(references.tolist(), predictions.tolist(), average="micro")
+
+        self.log("f1", f1)
 
 
 class TransformerEncoderForSequenceSimilarity(Module):
@@ -229,9 +265,9 @@ class TransformerEncoderForSequenceClassification(Module):
         self.dropout = Dropout(dropout)
         self.head = Linear(hidden_dimensions, classes)
 
-    def forward(self, state: Tensor) -> Tensor:
+    def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
         # Select only the final state to classify.
-        hidden = self.encoder(state)[:, 0, :]
+        hidden = self.encoder(state, mask)[:, 0, :]
         hidden = self.dropout(hidden)
         output = self.head(hidden)
 
