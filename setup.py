@@ -26,6 +26,7 @@ setup(
         "transformers",
         "torch",
         "lightning",
+        "tensorboard",
         "openai",
         "capstone",
         "pyhidra",

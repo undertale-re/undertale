@@ -4,6 +4,8 @@
 #
 #    pip-compile --extra=development --output-file=constraints.txt --strip-extras setup.py
 #
+absl-py==2.3.0
+    # via tensorboard
 aiohappyeyeballs==2.6.1
     # via aiohttp
 aiohttp==3.11.18
@@ -85,9 +87,7 @@ editor==1.6.6
 exceptiongroup==1.3.0
     # via anyio
 fastapi==0.115.12
-    # via
-    #   lightning
-    #   lightning-cloud
+    # via lightning-cloud
 filelock==3.18.0
     # via
     #   datasets
@@ -109,6 +109,8 @@ fsspec==2025.3.0
     #   huggingface-hub
     #   lightning
     #   torch
+grpcio==1.72.1
+    # via tensorboard
 h11==0.16.0
     # via
     #   httpcore
@@ -165,10 +167,14 @@ lightning-utilities==0.14.3
     #   torchmetrics
 loguru==0.7.3
     # via datatrove
+markdown==3.8
+    # via tensorboard
 markdown-it-py==3.0.0
     # via rich
 markupsafe==3.0.2
-    # via jinja2
+    # via
+    #   jinja2
+    #   werkzeug
 mccabe==0.7.0
     # via flake8
 mdurl==0.1.2
@@ -199,6 +205,7 @@ numpy==2.2.5
     #   pandas
     #   scikit-learn
     #   scipy
+    #   tensorboard
     #   tensorboardx
     #   torchmetrics
     #   transformers
@@ -253,6 +260,7 @@ packaging==25.0
     #   lightning
     #   lightning-utilities
     #   pyhidra
+    #   tensorboard
     #   tensorboardx
     #   torchmetrics
     #   transformers
@@ -279,6 +287,7 @@ propcache==0.3.1
 protobuf==6.31.1
     # via
     #   lightning-cloud
+    #   tensorboard
     #   tensorboardx
 psutil==7.0.0
     # via lightning
@@ -354,6 +363,7 @@ six==1.17.0
     # via
     #   lightning-cloud
     #   python-dateutil
+    #   tensorboard
 sniffio==1.3.1
     # via
     #   anyio
@@ -368,6 +378,10 @@ starsessions==1.3.0
     # via lightning
 sympy==1.14.0
     # via torch
+tensorboard==2.19.0
+    # via undertale (setup.py)
+tensorboard-data-server==0.7.2
+    # via tensorboard
 tensorboardx==2.6.2.2
     # via lightning
 threadpoolctl==3.6.0
@@ -439,6 +453,8 @@ wcwidth==0.2.13
     # via blessed
 websocket-client==1.8.0
     # via lightning-cloud
+werkzeug==3.1.3
+    # via tensorboard
 wheel==0.45.1
     # via pip-tools
 xmod==1.8.1

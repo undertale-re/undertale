@@ -192,6 +192,7 @@ class TransformerEncoderForMaskedLM(LightningModule, Module):
         dropout: float,
     ):
         super().__init__()
+        self.save_hyperparameters()
 
         self.encoder = TransformerEncoder(
             depth,
@@ -217,7 +218,7 @@ class TransformerEncoderForMaskedLM(LightningModule, Module):
         output = self(batch.input_ids, batch.attention_mask)
         loss = cross_entropy(output.view(-1, output.size(-1)), batch.labels.view(-1))
 
-        self.log("loss", loss, prog_bar=True)
+        self.log("train_loss", loss, prog_bar=True)
 
         return loss
 
@@ -232,7 +233,7 @@ class TransformerEncoderForMaskedLM(LightningModule, Module):
 
         f1 = f1_score(references.tolist(), predictions.tolist(), average="micro")
 
-        self.log("f1", f1, prog_bar=True)
+        self.log("valid_f1", f1, prog_bar=True)
 
 
 class TransformerEncoderForSequenceSimilarity(Module):

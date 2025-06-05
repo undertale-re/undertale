@@ -1,9 +1,13 @@
 import argparse
 import logging
+import os
 
 import torch
 import transformers
 from lightning import Trainer
+from lightning.pytorch.callbacks import ModelCheckpoint, RichProgressBar
+from lightning.pytorch.callbacks.early_stopping import EarlyStopping
+from lightning.pytorch.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
 
 from ... import logging as undertale_logging
@@ -12,6 +16,13 @@ from . import tokenizer
 from .model import Defaults, TransformerEncoderForMaskedLM
 
 logger = logging.getLogger(__name__)
+
+
+class ProgressBar(RichProgressBar):
+    def get_metrics(self, trainer, model):
+        items = super().get_metrics(trainer, model)
+        items.pop("v_num", None)
+        return items
 
 
 if __name__ == "__main__":
@@ -65,11 +76,6 @@ if __name__ == "__main__":
         dropout=Defaults.dropout,
     )
 
-    if arguments.checkpoint:
-        # TODO
-        # model = model.from_pretrained(arguments.checkpoint, local_files_only=True)
-        pass
-
     try:
         dataset = Dataset.load(arguments.dataset)
     except ValueError as e:
@@ -104,9 +110,22 @@ if __name__ == "__main__":
         num_workers=8,
     )
 
-    trainer = Trainer(
-        # limit_train_batches=2,
-        # limit_val_batches=2,
-        # max_epochs=1,
+    output = os.path.abspath(os.path.expanduser(arguments.output))
+
+    progress = ProgressBar(leave=True)
+    checkpoint = ModelCheckpoint(filename="{epoch}-{train_loss:.2f}-{valid_f1:.2f}")
+    stop = EarlyStopping(monitor="valid_f1", mode="max", patience=5)
+    logger = TensorBoardLogger(
+        save_dir=os.path.dirname(output), name=os.path.basename(output)
     )
-    trainer.fit(model, train_dataloaders=training, val_dataloaders=validation)
+
+    trainer = Trainer(
+        callbacks=[progress, checkpoint, stop],
+        logger=logger,
+    )
+    trainer.fit(
+        model,
+        train_dataloaders=training,
+        val_dataloaders=validation,
+        ckpt_path=arguments.checkpoint,
+    )
