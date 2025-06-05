@@ -1,10 +1,13 @@
 #!/bin/bash
 #SBATCH --job-name=pretrain-h100
-#SBATCH -o pretrain-log-%j-%t
 #SBATCH --partition=xeon-g6430-h100
-#SBATCH --exclusive
+#SBATCH --nodes=2
+#SBATCH --ntasks-per-node=2
+#SBATCH --cpus-per-task=16
 #SBATCH --gres=gpu:h100:2
-
+#SBATCH --mem=0
+#SBATCH --distribution=nopack
+#SBATCH -o pretrain-log-%j
 
 eval "$(conda shell.bash hook)"
 conda activate undertale
@@ -15,12 +18,15 @@ WORKSPACE=/state/partition1/user/$USER
 
 export HF_HOME=$WORKSPACE/cache
 
-mkdir -p $WORKSPACE
-rsync --progress -r ~/undertale_shared/datasets/$DATASET/ $WORKSPACE/$DATASET/
-rsync --progress ~/undertale_shared/models/item/$TOKENIZER $WORKSPACE/
+srun mkdir -p $WORKSPACE
+srun rsync --progress -r ~/undertale_shared/datasets/$DATASET/ $WORKSPACE/$DATASET/
+srun rsync --progress ~/undertale_shared/models/item/$TOKENIZER $WORKSPACE/
 
 srun python -m undertale.models.item.pretrain-maskedlm \
-    -t $WORKSPACE/$TOKENIZER \
+    --tokenizer $WORKSPACE/$TOKENIZER \
     $WORKSPACE/$DATASET/ \
     pretrain-maskedlm/ \
-    -b 128
+    --accelerator gpu \
+    --nodes 2 \
+    --devices 2 \
+    --batch-size 144
