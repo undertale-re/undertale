@@ -58,12 +58,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "-n", "--nodes", default=1, type=int, help="number of nodes to use"
     )
-    parser.add_argument(
-        "-s",
-        "--strategy",
-        default="auto",
-        help="parallelization strategy (if necessary)",
-    )
 
     arguments = parser.parse_args()
 
@@ -134,7 +128,8 @@ if __name__ == "__main__":
         accelerator=arguments.accelerator,
         devices=arguments.devices,
         num_nodes=arguments.nodes,
-        strategy=arguments.strategy,
+        strategy="ddp",
+        max_epochs=256,
         # Testing
         # log_every_n_steps=1,
         # limit_train_batches=2,
