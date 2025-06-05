@@ -19,7 +19,9 @@ class Defaults:
 
 
 class PositionEmbedding(Module):
-    def __init__(self, hidden_dimensions: int, vocab_size: int, input_size: int):
+    def __init__(
+        self, hidden_dimensions: int, vocab_size: int, input_size: int, dropout: float
+    ):
         super().__init__()
 
         self.token = Embedding(vocab_size, hidden_dimensions)
@@ -151,7 +153,9 @@ class TransformerEncoder(Module):
     ):
         super().__init__()
 
-        self.embedding = PositionEmbedding(hidden_dimensions, vocab_size, input_size)
+        self.embedding = PositionEmbedding(
+            hidden_dimensions, vocab_size, input_size, dropout
+        )
         self.layers = ModuleList(
             [
                 TransformerEncoderLayer(
