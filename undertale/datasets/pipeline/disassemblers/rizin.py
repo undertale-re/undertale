@@ -18,7 +18,9 @@ class RizinDisassembler(PipelineStep):
     ) -> DocumentsPipeline:
 
         import json
+        import pickle
 
+        import networkx as nx
         import rzpipe
         from datatrove.utils.logging import logger
 
@@ -39,6 +41,24 @@ class RizinDisassembler(PipelineStep):
                 return pdf_dict
             except:
                 return {}
+
+        def extract_cfg(fn_name):
+            graph_json = self.r.cmd(f"agf json @ {fn_name}")
+            cfg = json.loads(graph_json)
+
+            graph = nx.DiGraph()
+            for node in cfg["nodes"]:
+                offset = node["offset"]
+                disassembly = node["body"]
+                node = (offset, disassembly)
+                graph.add_node(node)
+
+            for node in cfg["nodes"]:
+                for dst_id in node["out_nodes"]:
+                    dst_offset = cfg["nodes"][dst_id]["offset"]
+                    graph.add_edge(node, dst_offset)
+
+            return graph
 
         if not data:
             return
@@ -61,6 +81,8 @@ class RizinDisassembler(PipelineStep):
                     continue
 
                 d = disas_buf(code)
+                fn_name = document.metadata["function_name"]
+                graph = extract_cfg(fn_name)
 
                 disassembly = []
                 if "ops" in d.keys():
@@ -71,6 +93,7 @@ class RizinDisassembler(PipelineStep):
                 disassembly = "\n".join(disassembly)
 
                 document.metadata["disassembly"] = disassembly
+                document.metadata["cfg"] = pickle.dumps(graph)
 
                 yield document
                 self.stat_update("disassembled")
