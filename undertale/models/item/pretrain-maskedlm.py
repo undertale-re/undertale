@@ -44,17 +44,26 @@ if __name__ == "__main__":
         "--checkpoint",
         help="trained model checkpoint from which to resume training",
     )
-    parser.add_argument(
-        "-e",
-        "--epochs",
-        type=int,
-        default=10,
-        help="number of epochs for which to train",
-    )
-    parser.add_argument(
-        "--start-epoch", type=int, default=0, help="starting epoch number"
-    )
     parser.add_argument("-b", "--batch-size", type=int, default=8, help="batch size")
+    parser.add_argument(
+        "-a", "--accelerator", default="auto", help="accelerator to use"
+    )
+    parser.add_argument(
+        "-d",
+        "--devices",
+        default=1,
+        type=int,
+        help="number of accelerator devices to use (per node)",
+    )
+    parser.add_argument(
+        "-n", "--nodes", default=1, type=int, help="number of nodes to use"
+    )
+    parser.add_argument(
+        "-s",
+        "--strategy",
+        default="auto",
+        help="parallelization strategy (if necessary)",
+    )
 
     arguments = parser.parse_args()
 
@@ -122,6 +131,15 @@ if __name__ == "__main__":
     trainer = Trainer(
         callbacks=[progress, checkpoint, stop],
         logger=logger,
+        accelerator=arguments.accelerator,
+        devices=arguments.devices,
+        num_nodes=arguments.nodes,
+        strategy=arguments.strategy,
+        # Testing
+        # log_every_n_steps=1,
+        # limit_train_batches=2,
+        # limit_val_batches=2,
+        # max_epochs=1,
     )
     trainer.fit(
         model,
