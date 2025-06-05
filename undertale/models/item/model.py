@@ -29,7 +29,7 @@ class PositionEmbedding(Module):
 
     def forward(self, state: Tensor) -> Tensor:
         length = state.size(1)
-        positions = arange(length, dtype=long).unsqueeze(0)
+        positions = arange(length, dtype=long).unsqueeze(0).to(state.device)
 
         tokens = self.token(state)
         positions = self.position(positions)
