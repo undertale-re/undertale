@@ -5,7 +5,7 @@ import os
 import torch
 import transformers
 from lightning import Trainer
-from lightning.pytorch.callbacks import ModelCheckpoint, RichProgressBar
+from lightning.pytorch.callbacks import ModelCheckpoint, TQDMProgressBar
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 from lightning.pytorch.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
@@ -18,7 +18,7 @@ from .model import Defaults, TransformerEncoderForMaskedLM
 logger = logging.getLogger(__name__)
 
 
-class ProgressBar(RichProgressBar):
+class ProgressBar(TQDMProgressBar):
     def get_metrics(self, trainer, model):
         items = super().get_metrics(trainer, model)
         items.pop("v_num", None)
@@ -134,7 +134,6 @@ if __name__ == "__main__":
         # log_every_n_steps=1,
         # limit_train_batches=2,
         # limit_val_batches=2,
-        # max_epochs=1,
     )
     trainer.fit(
         model,
