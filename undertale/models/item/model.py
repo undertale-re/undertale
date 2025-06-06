@@ -1,11 +1,21 @@
-from math import sqrt
 from typing import Optional
 
 from lightning import LightningModule
 from sklearn.metrics import f1_score
-from torch import Tensor, arange, argmax, bmm, cat, long, stack
-from torch.nn import GELU, Dropout, Embedding, LayerNorm, Linear, Module, ModuleList
-from torch.nn.functional import cross_entropy, softmax
+from torch import Tensor, arange, argmax, long, stack
+from torch.nn import (
+    Dropout,
+    Embedding,
+    LayerNorm,
+    Linear,
+    Module,
+    ModuleList,
+)
+from torch.nn import TransformerEncoder as TorchTransformerEncoder
+from torch.nn import (
+    TransformerEncoderLayer,
+)
+from torch.nn.functional import cross_entropy
 from torch.optim import AdamW
 
 
@@ -44,102 +54,6 @@ class PositionEmbedding(Module):
         return embedded
 
 
-def scaled_dot_product_attention(
-    query: Tensor, key: Tensor, value: Tensor, mask: Optional[Tensor] = None
-) -> Tensor:
-    scores = bmm(query, key.transpose(-2, -1)) / sqrt(query.size(-1))
-
-    if mask is not None:
-        scores = scores.masked_fill(mask.unsqueeze(-2) == 0, -1e9)
-
-    weights = softmax(scores, dim=-1)
-    return bmm(weights, value)
-
-
-class Attention(Module):
-    def __init__(self, embedded_dimensions: int, head_dimensions: int):
-        super().__init__()
-
-        self.q = Linear(embedded_dimensions, head_dimensions)
-        self.k = Linear(embedded_dimensions, head_dimensions)
-        self.v = Linear(embedded_dimensions, head_dimensions)
-
-    def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
-        return scaled_dot_product_attention(
-            self.q(state), self.k(state), self.v(state), mask=mask
-        )
-
-
-class MultiHeadAttention(Module):
-    def __init__(self, embedded_dimensions: int, heads: int):
-        super().__init__()
-
-        head_dimensions = embedded_dimensions // heads
-
-        self.heads = ModuleList(
-            [Attention(embedded_dimensions, head_dimensions) for _ in range(heads)]
-        )
-
-        self.output = Linear(embedded_dimensions, embedded_dimensions)
-
-    def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
-        attended = cat([h(state, mask) for h in self.heads], dim=-1)
-        output = self.output(attended)
-
-        return output
-
-
-class FeedForward(Module):
-    def __init__(
-        self, hidden_dimensions: int, intermediate_dimensions: int, dropout: float
-    ):
-        super().__init__()
-
-        self.linear1 = Linear(hidden_dimensions, intermediate_dimensions)
-        self.linear2 = Linear(intermediate_dimensions, hidden_dimensions)
-        self.activation = GELU()
-        self.dropout = Dropout(dropout)
-
-    def forward(self, state: Tensor) -> Tensor:
-        hidden = self.activation(self.linear1(state))
-        output = self.dropout(self.linear2(hidden))
-
-        return output
-
-
-class TransformerEncoderLayer(Module):
-    def __init__(
-        self,
-        hidden_dimensions: int,
-        heads: int,
-        intermediate_dimensions: int,
-        dropout: float,
-    ):
-        super().__init__()
-
-        self.norm1 = LayerNorm(hidden_dimensions)
-        self.attention = MultiHeadAttention(hidden_dimensions, heads)
-        self.norm2 = LayerNorm(hidden_dimensions)
-        self.ff = FeedForward(hidden_dimensions, intermediate_dimensions, dropout)
-
-    def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
-        # Vanila.
-        # attended = self.attention(state)
-        # output = self.ff(attended)
-
-        # Add layer normalization.
-        # attended = self.attention(self.norm1(state))
-        # output = self.ff(self.norm2(attended))
-
-        # Add skip connections.
-        hidden = self.norm1(state)
-        output = state + self.attention(hidden, mask)
-        hidden = self.norm2(output)
-        output = output + self.ff(hidden)
-
-        return output
-
-
 class TransformerEncoder(Module):
     def __init__(
         self,
@@ -156,20 +70,20 @@ class TransformerEncoder(Module):
         self.embedding = PositionEmbedding(
             hidden_dimensions, vocab_size, input_size, dropout
         )
-        self.layers = ModuleList(
-            [
-                TransformerEncoderLayer(
-                    hidden_dimensions, heads, intermediate_dimensions, dropout
-                )
-                for _ in range(depth)
-            ]
+
+        layer = TransformerEncoderLayer(
+            d_model=hidden_dimensions,
+            nhead=heads,
+            dim_feedforward=intermediate_dimensions,
+            dropout=dropout,
+            activation="gelu",
+            batch_first=True,
         )
+        self.encoder = TorchTransformerEncoder(layer, num_layers=depth)
 
     def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
-        output = self.embedding(state)
-
-        for layer in self.layers:
-            output = layer(output, mask)
+        embedded = self.embedding(state)
+        output = self.encoder(embedded, src_key_padding_mask=mask == 1)
 
         return output
 
@@ -181,7 +95,7 @@ class MaskedLMHead(Module):
         self.linear = Linear(hidden_dimensions, vocab_size)
 
     def forward(self, state: Tensor) -> Tensor:
-        return softmax(self.linear(state), dim=-1)
+        return self.linear(state)
 
 
 class TransformerEncoderForMaskedLM(LightningModule, Module):
