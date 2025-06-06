@@ -17,6 +17,7 @@ from torch.nn import (
 )
 from torch.nn.functional import cross_entropy
 from torch.optim import AdamW
+from torch.optim.lr_scheduler import LambdaLR
 
 
 class Defaults:
@@ -130,13 +131,28 @@ class TransformerEncoderForMaskedLM(LightningModule, Module):
         return output
 
     def configure_optimizers(self):
-        return AdamW(self.parameters(), lr=1e-4)
+        optimizer = AdamW(self.parameters(), lr=1e-4)
+
+        def constant_with_linear_warmup(step):
+            return min(step / 500, 1)
+
+        scheduler = LambdaLR(optimizer, constant_with_linear_warmup)
+
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "interval": "step",
+                "frequency": 1,
+            },
+        }
 
     def training_step(self, batch, index):
         output = self(batch.input_ids, batch.attention_mask)
         loss = cross_entropy(output.view(-1, output.size(-1)), batch.labels.view(-1))
 
         self.log("train_loss", loss, prog_bar=True, sync_dist=True)
+        self.log("lr", self.trainer.optimizers[0].param_groups[0]["lr"], sync_dist=True)
 
         return loss
 
