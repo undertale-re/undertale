@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH --job-name=pretrain-h100
-#SBATCH --partition=xeon-g6430-h100
-#SBATCH --nodes=2
+#SBATCH --partition=e9-h100nvl
+#SBATCH --nodes=16
 #SBATCH --ntasks-per-node=2
-#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=12
 #SBATCH --gres=gpu:h100:2
 #SBATCH --mem=0
 #SBATCH --distribution=nopack
@@ -27,6 +27,6 @@ srun python -m undertale.models.item.pretrain-maskedlm \
     $WORKSPACE/$DATASET/ \
     pretrain-maskedlm/ \
     --accelerator gpu \
-    --nodes 2 \
-    --devices 2 \
+    --nodes $SLURM_JOB_NUM_NODES \
+    --devices $SLURM_NTASKS_PER_NODE \
     --batch-size 144
