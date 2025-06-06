@@ -27,6 +27,8 @@ class Defaults:
     heads = 12
     intermediate_dimensions = 3072
     dropout = 0.1
+    lr = 5e-5
+    warmup = 4000
 
 
 class PositionEmbedding(Module):
@@ -109,6 +111,8 @@ class TransformerEncoderForMaskedLM(LightningModule, Module):
         heads: int,
         intermediate_dimensions: int,
         dropout: float,
+        lr: float,
+        warmup: int,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -124,6 +128,9 @@ class TransformerEncoderForMaskedLM(LightningModule, Module):
         )
         self.head = MaskedLMHead(hidden_dimensions, vocab_size)
 
+        self.lr = lr
+        self.warmup = warmup
+
     def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
         hidden = self.encoder(state, mask)
         output = self.head(hidden)
@@ -131,10 +138,10 @@ class TransformerEncoderForMaskedLM(LightningModule, Module):
         return output
 
     def configure_optimizers(self):
-        optimizer = AdamW(self.parameters(), lr=1e-4)
+        optimizer = AdamW(self.parameters(), lr=self.lr)
 
         def constant_with_linear_warmup(step):
-            return min(step / 500, 1)
+            return min(step / self.warmup, 1)
 
         scheduler = LambdaLR(optimizer, constant_with_linear_warmup)
 

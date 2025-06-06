@@ -1,6 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=pretrain-h100
 #SBATCH --partition=e9-h100nvl
+#SBATCH --exclude=a-4-16
 #SBATCH --nodes=16
 #SBATCH --ntasks-per-node=2
 #SBATCH --cpus-per-task=12
@@ -8,6 +9,7 @@
 #SBATCH --mem=0
 #SBATCH --distribution=nopack
 #SBATCH -o pretrain-log-%j
+
 
 eval "$(conda shell.bash hook)"
 conda activate undertale
@@ -29,4 +31,5 @@ srun python -m undertale.models.item.pretrain-maskedlm \
     --accelerator gpu \
     --nodes $SLURM_JOB_NUM_NODES \
     --devices $SLURM_NTASKS_PER_NODE \
+    --version $SLURM_JOB_ID \
     --batch-size 144

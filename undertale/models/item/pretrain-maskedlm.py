@@ -58,6 +58,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-n", "--nodes", default=1, type=int, help="number of nodes to use"
     )
+    parser.add_argument("-v", "--version", help="training run version name")
 
     arguments = parser.parse_args()
 
@@ -77,6 +78,8 @@ if __name__ == "__main__":
         heads=Defaults.heads,
         intermediate_dimensions=Defaults.intermediate_dimensions,
         dropout=Defaults.dropout,
+        lr=Defaults.lr,
+        warmup=Defaults.warmup,
     )
 
     try:
@@ -119,7 +122,9 @@ if __name__ == "__main__":
     checkpoint = ModelCheckpoint(filename="{epoch}-{train_loss:.2f}-{valid_f1:.2f}")
     stop = EarlyStopping(monitor="valid_f1", mode="max", patience=5)
     logger = TensorBoardLogger(
-        save_dir=os.path.dirname(output), name=os.path.basename(output)
+        save_dir=os.path.dirname(output),
+        name=os.path.basename(output),
+        version=arguments.version,
     )
 
     trainer = Trainer(
