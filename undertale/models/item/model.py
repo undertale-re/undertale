@@ -2,22 +2,26 @@ from typing import Optional
 
 from lightning import LightningModule
 from sklearn.metrics import f1_score
-from torch import Tensor, arange, argmax, long, stack
-from torch.nn import (
-    Dropout,
-    Embedding,
-    LayerNorm,
-    Linear,
-    Module,
-    ModuleList,
+from torch import (
+    Tensor,
+    arange,
+    argmax,
+    bincount,
+    cat,
+    cumsum,
+    long,
+    roll,
+    stack,
+    zeros,
 )
+from torch.nn import Dropout, Embedding, LayerNorm, Linear, Module, ModuleList
 from torch.nn import TransformerEncoder as TorchTransformerEncoder
-from torch.nn import (
-    TransformerEncoderLayer,
-)
+from torch.nn import TransformerEncoderLayer
 from torch.nn.functional import cross_entropy
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import LambdaLR
+
+from .tokenizer import SPECIAL_TOKENS, TOKEN_NEXT
 
 
 class Defaults:
@@ -38,18 +42,28 @@ class PositionEmbedding(Module):
         super().__init__()
 
         self.token = Embedding(vocab_size, hidden_dimensions)
-        self.position = Embedding(input_size, hidden_dimensions)
+        self.instruction = Embedding(input_size, hidden_dimensions)
+        self.argument = Embedding(input_size, hidden_dimensions)
         self.norm = LayerNorm(hidden_dimensions, eps=1e-12)
         self.dropout = Dropout()
 
+        self.next_token_id = SPECIAL_TOKENS.index(TOKEN_NEXT)
+
     def forward(self, state: Tensor) -> Tensor:
-        length = state.size(1)
-        positions = arange(length, dtype=long).unsqueeze(0).to(state.device)
+        # FIXME this could probably be optimized
+        starts = roll(state == self.next_token_id, 1)
+        starts[:, 0] = False
+        instructions = cumsum(starts, dim=-1)
+
+        arguments = zeros(instructions.shape, dtype=long, device=state.device)
+        for i, batch in enumerate(instructions):
+            arguments[i] = cat([arange(v) for v in bincount(batch)])
 
         tokens = self.token(state)
-        positions = self.position(positions)
+        instructions = self.instruction(instructions)
+        arguments = self.argument(arguments)
 
-        embedded = tokens + positions
+        embedded = tokens + instructions + arguments
 
         embedded = self.norm(embedded)
         embedded = self.dropout(embedded)
