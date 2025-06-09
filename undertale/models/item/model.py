@@ -14,7 +14,7 @@ from torch import (
     stack,
     zeros,
 )
-from torch.nn import Dropout, Embedding, LayerNorm, Linear, Module, ModuleList
+from torch.nn import GELU, Dropout, Embedding, LayerNorm, Linear, Module, ModuleList
 from torch.nn import TransformerEncoder as TorchTransformerEncoder
 from torch.nn import TransformerEncoderLayer
 from torch.nn.functional import cross_entropy
@@ -45,7 +45,7 @@ class PositionEmbedding(Module):
         self.instruction = Embedding(input_size, hidden_dimensions)
         self.argument = Embedding(input_size, hidden_dimensions)
         self.norm = LayerNorm(hidden_dimensions, eps=1e-12)
-        self.dropout = Dropout()
+        self.dropout = Dropout(dropout)
 
         self.next_token_id = SPECIAL_TOKENS.index(TOKEN_NEXT)
 
@@ -106,13 +106,22 @@ class TransformerEncoder(Module):
 
 
 class MaskedLMHead(Module):
-    def __init__(self, hidden_dimensions, vocab_size):
+    def __init__(self, hidden_dimensions: int, vocab_size: int):
         super().__init__()
 
-        self.linear = Linear(hidden_dimensions, vocab_size)
+        self.transform = Linear(hidden_dimensions, hidden_dimensions)
+        self.activation = GELU()
+        self.norm = LayerNorm(hidden_dimensions, eps=1e-12)
+
+        self.decode = Linear(hidden_dimensions, vocab_size)
 
     def forward(self, state: Tensor) -> Tensor:
-        return self.linear(state)
+        hidden = self.activation(self.transform(state))
+        hidden = self.norm(hidden)
+
+        output = self.decode(hidden)
+
+        return output
 
 
 class TransformerEncoderForMaskedLM(LightningModule, Module):
