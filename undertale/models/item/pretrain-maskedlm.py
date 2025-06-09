@@ -123,7 +123,8 @@ if __name__ == "__main__":
         filename="{epoch}-{train_loss:.2f}-{valid_f1:.2f}",
         save_top_k=-1,
     )
-    stop = EarlyStopping(monitor="valid_f1", mode="max", patience=5)
+    train_stop = EarlyStopping(monitor="train_loss", mode="min", patience=2)
+    valid_stop = EarlyStopping(monitor="valid_f1", mode="max", patience=2)
     logger = TensorBoardLogger(
         save_dir=os.path.dirname(output),
         name=os.path.basename(output),
@@ -131,7 +132,7 @@ if __name__ == "__main__":
     )
 
     trainer = Trainer(
-        callbacks=[progress, checkpoint, stop],
+        callbacks=[progress, checkpoint, train_stop, valid_stop],
         logger=logger,
         accelerator=arguments.accelerator,
         devices=arguments.devices,
