@@ -119,7 +119,10 @@ if __name__ == "__main__":
     output = os.path.abspath(os.path.expanduser(arguments.output))
 
     progress = ProgressBar(leave=True)
-    checkpoint = ModelCheckpoint(filename="{epoch}-{train_loss:.2f}-{valid_f1:.2f}")
+    checkpoint = ModelCheckpoint(
+        filename="{epoch}-{train_loss:.2f}-{valid_f1:.2f}",
+        save_top_k=-1,
+    )
     stop = EarlyStopping(monitor="valid_f1", mode="max", patience=5)
     logger = TensorBoardLogger(
         save_dir=os.path.dirname(output),
