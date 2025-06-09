@@ -137,7 +137,7 @@ if __name__ == "__main__":
         devices=arguments.devices,
         num_nodes=arguments.nodes,
         strategy="ddp",
-        max_epochs=256,
+        max_epochs=96,
         # Testing
         # log_every_n_steps=1,
         # limit_train_batches=2,
