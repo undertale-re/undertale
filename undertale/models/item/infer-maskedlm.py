@@ -1,8 +1,9 @@
 import argparse
 
-from transformers import FillMaskPipeline, PreTrainedTokenizerFast
+from torch import argmax, tensor, where
 
-from undertale.models import item
+from . import tokenizer
+from .model import TransformerEncoderForMaskedLM
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -12,7 +13,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "-t", "--tokenizer", required=True, help="trained tokenizer file"
     )
-    parser.add_argument("-m", "--model", required=True, help="trained model file(s)")
+    parser.add_argument(
+        "-c", "--checkpoint", required=True, help="trained model checkpoint"
+    )
 
     parser.add_argument(
         "input", help="masked disassembly input to fill in (in pretokenized form)"
@@ -20,24 +23,22 @@ if __name__ == "__main__":
 
     arguments = parser.parse_args()
 
-    tokenizer = PreTrainedTokenizerFast(
-        tokenizer_file=arguments.tokenizer,
-        mask_token=item.tokenizer.TOKEN_MASK,
-        unk_token=item.tokenizer.TOKEN_UNKNOWN,
-        pad_token=item.tokenizer.TOKEN_PAD,
+    tok = tokenizer.load(arguments.tokenizer)
+    model = TransformerEncoderForMaskedLM.load_from_checkpoint(arguments.checkpoint)
+
+    encoded = tok.encode(arguments.input)
+    tokens, mask = tensor(encoded.ids), tensor(encoded.attention_mask)
+
+    output = model(tokens.unsqueeze(0), mask.unsqueeze(0)).squeeze()
+
+    # TODO explore Top-K prediction with confidence scores from softmax logits.
+    # top = topk(softmax(output, dim=-1), k=5)
+
+    filled = where(
+        tokens == tok.token_to_id(tokenizer.TOKEN_MASK), argmax(output, dim=-1), tokens
     )
 
-    model = item.InstructionTraceEncoderTransformerForMaskedLM.from_pretrained(
-        arguments.model, local_files_only=True
-    )
-    model.eval()
+    predicted = tok.decode(filled.tolist(), skip_special_tokens=False)
+    predicted = predicted.replace(tokenizer.TOKEN_PAD, "").strip()
 
-    pipeline = FillMaskPipeline(model, tokenizer)
-
-    for result in pipeline(arguments.input):
-        print("=" * 80)
-        print(f"token: {result['token_str']!r}")
-        print(f"score: {result['score']:.3f}")
-        print("-" * 80)
-        print(f"{result['sequence']}")
-    print("=" * 80)
+    print(predicted)

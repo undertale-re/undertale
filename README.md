@@ -124,15 +124,16 @@ python -m undertale.models.item.pretrain-maskedlm \
 With a pre-trained model you can now do masked language modeling inference (for
 a given pretokenized text with a single mask token) with the following script:
 
-> [!WARNING]
-> This output is pretty useless unless trained on a sufficiently large dataset.
-
 ```bash
 python -m undertale.models.item.infer-maskedlm \
     -t item.tokenizer.json \
-    -m pretrain-maskedlm/9 \
+    -c pretrain-maskedlm/version_0/checkpoints/model.ckpt \
     "xor rax [MASK]"
 ```
+
+> [!WARNING]
+> This output is pretty useless for the toy dataset used for training in this
+> README. If you want full-sized model checkpoints, contact us.
 
 > [!CAUTION]
 > The following steps have not been tested and are currently in development.
