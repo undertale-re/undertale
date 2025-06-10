@@ -43,6 +43,7 @@ class RizinDisassembler(PipelineStep):
                 return {}
 
         def extract_cfg(fn_name):
+            nodes = {}
             graph_json = self.r.cmd(f"agf json @ {fn_name}")
             cfg = json.loads(graph_json)
 
@@ -51,12 +52,14 @@ class RizinDisassembler(PipelineStep):
                 offset = node["offset"]
                 disassembly = node["body"]
                 node = (offset, disassembly)
+                nodes[offset] = node
                 graph.add_node(node)
 
             for node in cfg["nodes"]:
+                offset = node["offset"]
                 for dst_id in node["out_nodes"]:
                     dst_offset = cfg["nodes"][dst_id]["offset"]
-                    graph.add_edge(node, dst_offset)
+                    graph.add_edge(nodes[offset], dst_offset)
 
             return graph
 
