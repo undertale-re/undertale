@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=pretrain-h100
 #SBATCH --partition=e9-h100nvl
-#SBATCH --exclude=a-4-16,a-3-18,a-3-20,a-6-15,a-6-13
+#SBATCH --exclude=a-4-16,a-3-18,a-3-20,a-6-15,a-6-13,b-5-7
 #SBATCH --nodes=16
 #SBATCH --ntasks-per-node=2
 #SBATCH --cpus-per-task=12

@@ -31,8 +31,8 @@ class Defaults:
     heads = 12
     intermediate_dimensions = 3072
     dropout = 0.1
-    lr = 5e-5
-    warmup = 4000
+    lr = 1e-4
+    warmup = 512
 
 
 class PositionEmbedding(Module):
