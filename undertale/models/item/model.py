@@ -93,6 +93,7 @@ class TransformerEncoder(Module):
             nhead=heads,
             dim_feedforward=intermediate_dimensions,
             dropout=dropout,
+            layer_norm_eps=1e-12,
             activation="gelu",
             batch_first=True,
         )
