@@ -26,12 +26,13 @@ from .tokenizer import SPECIAL_TOKENS, TOKEN_NEXT
 
 
 class Defaults:
-    depth = 12
-    hidden_dimensions = 768
     input_size = 512
+    depth = 12
     heads = 12
+    hidden_dimensions = 768
     intermediate_dimensions = 3072
     dropout = 0.1
+    eps = 1e-12
     lr = 1e-4
     warmup = 512
 
@@ -49,12 +50,12 @@ def scaled_dot_product_attention(
 
 
 class Attention(Module):
-    def __init__(self, embedded_dimensions: int, head_dimensions: int):
+    def __init__(self, hidden_dimensions: int, head_dimensions: int):
         super().__init__()
 
-        self.q = Linear(embedded_dimensions, head_dimensions)
-        self.k = Linear(embedded_dimensions, head_dimensions)
-        self.v = Linear(embedded_dimensions, head_dimensions)
+        self.q = Linear(hidden_dimensions, head_dimensions)
+        self.k = Linear(hidden_dimensions, head_dimensions)
+        self.v = Linear(hidden_dimensions, head_dimensions)
 
     def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
         return scaled_dot_product_attention(
@@ -63,16 +64,16 @@ class Attention(Module):
 
 
 class MultiHeadAttention(Module):
-    def __init__(self, embedded_dimensions: int, heads: int):
+    def __init__(self, hidden_dimensions: int, heads: int):
         super().__init__()
 
-        head_dimensions = embedded_dimensions // heads
+        head_dimensions = hidden_dimensions // heads
 
         self.heads = ModuleList(
-            [Attention(embedded_dimensions, head_dimensions) for _ in range(heads)]
+            [Attention(hidden_dimensions, head_dimensions) for _ in range(heads)]
         )
 
-        self.output = Linear(embedded_dimensions, embedded_dimensions)
+        self.output = Linear(hidden_dimensions, hidden_dimensions)
 
     def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
         attended = cat([h(state, mask) for h in self.heads], dim=-1)
@@ -134,14 +135,19 @@ class TransformerEncoderLayer(Module):
 
 class PositionEmbedding(Module):
     def __init__(
-        self, hidden_dimensions: int, vocab_size: int, input_size: int, dropout: float
+        self,
+        hidden_dimensions: int,
+        vocab_size: int,
+        input_size: int,
+        dropout: float,
+        eps: float,
     ):
         super().__init__()
 
         self.token = Embedding(vocab_size, hidden_dimensions)
         self.instruction = Embedding(input_size, hidden_dimensions)
         self.argument = Embedding(input_size, hidden_dimensions)
-        self.norm = LayerNorm(hidden_dimensions, eps=1e-12)
+        self.norm = LayerNorm(hidden_dimensions, eps=eps)
         self.dropout = Dropout(dropout)
 
         self.next_token_id = SPECIAL_TOKENS.index(TOKEN_NEXT)
@@ -178,11 +184,12 @@ class TransformerEncoder(Module):
         heads: int,
         intermediate_dimensions: int,
         dropout: float,
+        eps: float,
     ):
         super().__init__()
 
         self.embedding = PositionEmbedding(
-            hidden_dimensions, vocab_size, input_size, dropout
+            hidden_dimensions, vocab_size, input_size, dropout, eps
         )
         self.layers = ModuleList(
             [
@@ -203,12 +210,12 @@ class TransformerEncoder(Module):
 
 
 class MaskedLMHead(Module):
-    def __init__(self, hidden_dimensions: int, vocab_size: int):
+    def __init__(self, hidden_dimensions: int, vocab_size: int, eps: float):
         super().__init__()
 
         self.transform = Linear(hidden_dimensions, hidden_dimensions)
         self.activation = GELU()
-        self.norm = LayerNorm(hidden_dimensions, eps=1e-12)
+        self.norm = LayerNorm(hidden_dimensions, eps=eps)
 
         self.decode = Linear(hidden_dimensions, vocab_size)
 
@@ -231,6 +238,7 @@ class TransformerEncoderForMaskedLM(LightningModule, Module):
         heads: int,
         intermediate_dimensions: int,
         dropout: float,
+        eps: float,
         lr: float,
         warmup: int,
     ):
@@ -245,8 +253,9 @@ class TransformerEncoderForMaskedLM(LightningModule, Module):
             heads,
             intermediate_dimensions,
             dropout,
+            eps,
         )
-        self.head = MaskedLMHead(hidden_dimensions, vocab_size)
+        self.head = MaskedLMHead(hidden_dimensions, vocab_size, eps)
 
         self.lr = lr
         self.warmup = warmup

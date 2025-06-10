@@ -78,6 +78,7 @@ if __name__ == "__main__":
         heads=Defaults.heads,
         intermediate_dimensions=Defaults.intermediate_dimensions,
         dropout=Defaults.dropout,
+        eps=Defaults.eps,
         lr=Defaults.lr,
         warmup=Defaults.warmup,
     )
