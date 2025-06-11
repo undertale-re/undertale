@@ -34,7 +34,7 @@ class Defaults:
     dropout = 0.1
     eps = 1e-12
     lr = 1e-4
-    warmup = 512
+    warmup = 0.5
 
 
 def scaled_dot_product_attention(
@@ -240,7 +240,7 @@ class TransformerEncoderForMaskedLM(LightningModule, Module):
         dropout: float,
         eps: float,
         lr: float,
-        warmup: int,
+        warmup: float,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -259,6 +259,12 @@ class TransformerEncoderForMaskedLM(LightningModule, Module):
 
         self.lr = lr
         self.warmup = warmup
+        self.steps_per_epoch = None
+
+    def on_fit_start(self):
+        self.steps_per_epoch = (
+            self.trainer.estimated_stepping_batches // self.trainer.max_epochs
+        )
 
     def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
         hidden = self.encoder(state, mask)
@@ -270,7 +276,9 @@ class TransformerEncoderForMaskedLM(LightningModule, Module):
         optimizer = AdamW(self.parameters(), lr=self.lr)
 
         def constant_with_linear_warmup(step):
-            return min(step / self.warmup, 1)
+            if self.steps_per_epoch is None:
+                return 1
+            return min(step / self.warmup * self.steps_per_epoch, 1)
 
         scheduler = LambdaLR(optimizer, constant_with_linear_warmup)
 
