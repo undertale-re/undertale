@@ -3,16 +3,26 @@ import logging
 import os
 
 import torch
-import tqdm
 import transformers
-from sklearn import metrics
+from lightning import Trainer
+from lightning.pytorch.callbacks import ModelCheckpoint, TQDMProgressBar
+from lightning.pytorch.callbacks.early_stopping import EarlyStopping
+from lightning.pytorch.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
 
-from ... import datasets
 from ... import logging as undertale_logging
-from . import model, tokenizer
+from ...datasets.base import Dataset
+from . import tokenizer
+from .model import Defaults, TransformerEncoderForSequenceSimilarity
 
 logger = logging.getLogger(__name__)
+
+
+class ProgressBar(TQDMProgressBar):
+    def get_metrics(self, trainer, model):
+        items = super().get_metrics(trainer, model)
+        items.pop("v_num", None)
+        return items
 
 
 if __name__ == "__main__":
@@ -33,10 +43,28 @@ if __name__ == "__main__":
     start.add_argument(
         "-m", "--model", help="pretrained model from which to begin training"
     )
+
     start.add_argument(
         "-c",
         "--checkpoint",
         help="trained model checkpoint from which to resume training",
+    )
+    
+    parser.add_argument("-b", "--batch-size", type=int, default=8, help="batch size")
+
+    parser.add_argument(
+        "-a", "--accelerator", default="auto", help="accelerator to use"
+    )
+
+    parser.add_argument(
+        "-d",
+        "--devices",
+        default=1,
+        type=int,
+        help="number of accelerator devices to use (per node)",
+    )
+    parser.add_argument(
+        "-n", "--nodes", default=1, type=int, help="number of nodes to use"
     )
 
     parser.add_argument(
@@ -55,34 +83,49 @@ if __name__ == "__main__":
 
     undertale_logging.setup_logging()
 
-    os.makedirs(arguments.output, exist_ok=True)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    if torch.cuda.is_available():
+        torch.cuda.set_device(0)
 
-    sequence_length = 512
+    tok = tokenizer.load(arguments.tokenizer, sequence_length=512)
 
-    tok = tokenizer.load(arguments.tokenizer, sequence_length=sequence_length)
-
-    configuration = model.InstructionTraceConfig(
+    
+    model = TransformerEncoderForSequenceSimilarity(
+        depth=Defaults.depth,
+        hidden_dimensions=Defaults.hidden_dimensions,
         vocab_size=tok.get_vocab_size(),
-        next_token_id=tok.token_to_id("[NEXT]"),
-        max_position_embeddings=sequence_length,
-        type_vocab_size=1,
+        input_size=Defaults.input_size,
+        heads=Defaults.heads,
+        intermediate_dimensions=Defaults.intermediate_dimensions,
+        dropout=Defaults.dropout,
+        eps=Defaults.eps,
+        lr=Defaults.lr,
+        warmup=Defaults.warmup,
+        embedding_size=Defaults.embedding_size,
+        embedding_dropout_prob=Defaults.dropout
     )
 
-    model = model.InstructionTraceEncoderTransformerForSequenceSimilarity(configuration)
-
-    if arguments.model:
-        model.embedding = model.embedding.from_pretrained(
-            arguments.model, local_files_only=True
-        )
+    if (arguments.model):
+        # Seems like I want to load the previously trained
+        # TransformerEncoderForMaskedLM and then pull out its
+        # model1.encoder and hand it to this model we'll be using for seq
+        # similarity training.
+        #
+        # Presumably, arguments.model is meant to point to that pre-trained mlm.
+        #
+        mlm = TransformerEncoderForMaskedLM.load_from_checkpoint(arguments.model)
+        model.encoder = mlm.encoder
     elif arguments.checkpoint:
         model = model.from_pretrained(arguments.checkpoint, local_files_only=True)
-
+            
     try:
-        dataset = datasets.from_specifier(arguments.dataset)
+        dataset = Dataset.load(arguments.dataset)
     except ValueError as e:
         logger.critical(e)
         exit(1)
 
+    dataset = dataset.train_test_split(test_size=0.1)
+    
     def tokenize(batch):
         preprocessed = tokenizer.preprocess_batch(batch)
         encoded = tok.encode_batch(preprocessed["preprocessed"])
@@ -118,78 +161,46 @@ if __name__ == "__main__":
 
     batch_size = arguments.batch_size
     training = DataLoader(
-        dataset["train"], shuffle=True, batch_size=batch_size, collate_fn=collator
+        dataset["train"],
+        shuffle=True,
+        batch_size=batch_size,
+        collate_fn=collator
     )
     validation = DataLoader(
-        dataset["test"], shuffle=True, batch_size=batch_size, collate_fn=collator
+        dataset["test"],
+        shuffle=True,
+        batch_size=batch_size,
+        collate_fn=collator
     )
 
-    learning_rate = 1e-4
-    epochs = arguments.epochs
-
-    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
-
-    batches = len(training)
-    steps = epochs * batches
-
-    scheduler = transformers.get_scheduler(
-        "constant",
-        optimizer=optimizer,
-        num_training_steps=steps,
+    output = os.path.abspath(os.path.expanduser(arguments.output))
+    
+    progress = ProgressBar(leave=True)
+    checkpoint = ModelCheckpoint(
+        filename="{epoch}-{train_loss:.2f}-{valid_f1:.2f}",
+        save_top_k=-1,
+    )
+    stop = EarlyStopping(monitor="valid_f1", mode="max", patience=5, min_delta=0.001)
+    logger = TensorBoardLogger(
+        save_dir=os.path.dirname(output),
+        name=os.path.basename(output),
+        version=arguments.version,
     )
 
-    parallel = False
-    if torch.cuda.device_count() > 1:
-        parallel = True
-        model.embedding.bert = torch.nn.DataParallel(model.embedding.bert)
+    trainer = Trainer(
+        callbacks=[progress, checkpoint, stop],
+        logger=logger,
+        accelerator=arguments.accelerator,
+        devices=arguments.devices,
+        num_nodes=arguments.nodes,
+        strategy="ddp",
+        max_epochs=96,
+    )
+    trainer.fit(
+        model,
+        train_dataloaders=training,
+        val_dataloaders=validation,
+        ckpt_path=arguments.checkpoint,
+    )
 
-    model.to(model.device)
 
-    for epoch in range(arguments.start_epoch, arguments.start_epoch + epochs):
-        print(f"epoch {epoch}")
-
-        model.train()
-        losses = []
-        loop = tqdm.tqdm(training, desc="training")
-        for batch in loop:
-            batch = {k: v.to(model.device) for k, v in batch.items()}
-
-            outputs = model(**batch)
-            loss = outputs.loss
-            loss.backward()
-
-            optimizer.step()
-            scheduler.step()
-            optimizer.zero_grad()
-
-            losses.append(loss.item())
-            loop.set_postfix(loss=sum(losses) / len(losses))
-
-        if parallel:
-            model.embedding.bert = model.embedding.bert.module
-            model.save_pretrained(f"{arguments.output}/{epoch}")
-            model.embedding.bert = torch.nn.DataParallel(model.embedding.bert)
-        else:
-            model.save_pretrained(f"{arguments.output}/{epoch}")
-
-        model.eval()
-        values, labels = [], []
-        performance = {}
-        loop = tqdm.tqdm(validation, desc="validating")
-        for batch in loop:
-            batch = {k: v.to(model.device) for k, v in batch.items()}
-
-            with torch.no_grad():
-                outputs = model(**batch)
-
-            references = batch["labels"]
-            predictions = outputs.logits.squeeze()
-
-            labels.extend(references.tolist())
-            losses.append(predictions.tolist())
-
-            performance["roc-auc"] = metrics.roc_auc_score(labels, values)
-
-            loop.set_postfix(**performance)
-
-        print(f"evaluation performance: {performance}")
