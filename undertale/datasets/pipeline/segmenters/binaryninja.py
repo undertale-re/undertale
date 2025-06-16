@@ -40,8 +40,6 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
             InstructionTextTokenType.ExternalSymbolToken
         ]
 
-        arch = binaryninja.Architecture['x86_64']
-
         for document in data:
             code = document.text
             data_buffer = binaryninja.DataBuffer(code)
@@ -68,7 +66,8 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
                             line.tokens[idx].text = f"0x{symbol_token.value:x}"
                         disasm_str = ''.join(token.text for token in line.tokens if token.type not in SKIP_TOKENS)
                         disasm_str = ' '.join(disasm_str.strip().split())
-                        disassembly.append(disasm_str)
+                        if disasm_str != '':
+                            block_disassembly.append(disasm_str)
                     block_disassembly = "\n".join(block_disassembly)
                     node = (block.start, block_disassembly)
                     graph.add_node(node)
@@ -83,13 +82,20 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
                 for _, block in sorted(graph.nodes, key=lambda n: n[0]):
                     disassembly.append(block)
                 disassembly = "\n".join(disassembly)
+
+                decompilation = []
+                for block in fn.hlil:
+                    for instr in block:
+                        decompilation.append(str(instr))
+
+                decompilation = "\n".join(decompilation)
                 
                 metadata = document.metadata.copy()
 
                 metadata["cfg"] = pickle.dumps(graph)
                 metadata["disassembly"] = disassembly
                 metadata["function_name"] = fn_name
-                # metadata["decompilation"] = decompilation
+                metadata["decompilation"] = decompilation
 
                 yield Document(
                     id=f"{document.id}:{fn.start}",
