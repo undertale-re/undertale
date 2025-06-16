@@ -16,6 +16,10 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
 
         import binaryninja
         from binaryninja import SymbolType
+        from binaryninja.enums import InstructionTextTokenType
+        import networkx as nx
+        import pickle
+        from datatrove.data import Document
 
         SKIP_TYPES = [
             SymbolType.ImportedFunctionSymbol,
@@ -36,14 +40,17 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
             InstructionTextTokenType.ExternalSymbolToken
         ]
 
+        arch = binaryninja.Architecture['x86_64']
+
         for document in data:
             code = document.text
             data_buffer = binaryninja.DataBuffer(code)
             bv = binaryninja.load(source=data_buffer)
 
             for fn in bv.functions:
-                if fn.is_thunk or fn.symbol.type in SKIP_TYPES:
+                if fn.is_thunk or fn.symbol.type in SKIP_TYPES or fn.name.startswith("_Z"):
                     continue
+                fn_name = fn.name
                 
                 disassembly = []
                 graph = nx.Graph()
@@ -54,12 +61,12 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
                     block_disassembly = []
                     for line in block.disassembly_text:
                         idx, symbol_token = next(
-                            ((i, token) for i, token in enumerate(line.tokens) if token.type in symbol_tokens),
+                            ((i, token) for i, token in enumerate(line.tokens) if token.type in SYMBOL_TOKENS),
                             (None, None)  # default if not found
                         )
                         if symbol_token:
                             line.tokens[idx].text = f"0x{symbol_token.value:x}"
-                        disasm_str = ''.join(token.text for token in line.tokens if token.type not in skip_tokens)
+                        disasm_str = ''.join(token.text for token in line.tokens if token.type not in SKIP_TOKENS)
                         disasm_str = ' '.join(disasm_str.strip().split())
                         disassembly.append(disasm_str)
                     block_disassembly = "\n".join(block_disassembly)
@@ -75,12 +82,14 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
 
                 for _, block in sorted(graph.nodes, key=lambda n: n[0]):
                     disassembly.append(block)
+                disassembly = "\n".join(disassembly)
                 
                 metadata = document.metadata.copy()
 
                 metadata["cfg"] = pickle.dumps(graph)
                 metadata["disassembly"] = disassembly
-                metadata["decompilation"] = decompilation
+                metadata["function_name"] = fn_name
+                # metadata["decompilation"] = decompilation
 
                 yield Document(
                     id=f"{document.id}:{fn.start}",
