@@ -8,15 +8,15 @@ from datatrove.pipeline.base import PipelineStep
 from datatrove.pipeline.readers import ParquetReader
 from datatrove.pipeline.writers import ParquetWriter
 
-from ..base import DEFAULT_DATASETS_DIRECTORY, Dataset, main
-from ..pipeline.disassemblers import RadareDisassembler, RizinDisassembler
+from ..base import Dataset, main
+from ..pipeline.disassemblers import RadareDisassembler, RizinDisassembler, BinaryNinjaDisassembler
 
 
 class AssemblageVcpkgReader(PipelineStep):
     type = "📖 - READER"
     name = "A - AssemblageVcpkg"
 
-    _requires_dependencies = ["sqlite3", "pefile", "shutil", "random"]
+    # _requires_dependencies = ["sqlite3", "pefile", "shutil", "random"]
 
     def __init__(self):
         super().__init__()
@@ -221,7 +221,7 @@ class AssemblageVcpkg(Dataset):
             executor = self.get_my_executor(input)
             executor.pipeline.append(
                 ParquetWriter(
-                    output_folder=f"{DEFAULT_DATASETS_DIRECTORY}assemblage-vcpkg-dt",
+                    output_folder=f"{Path.home()}/undertale_shared/datasets/assemblage-vcpkg-dt",
                     adapter=lambda self, doc: doc.metadata,
                     max_file_size=50 * 1024 * 1024,
                 )
@@ -232,7 +232,7 @@ class AssemblageVcpkg(Dataset):
             executor = self.get_my_executor(input)
             executor.pipeline.append(
                 ParquetWriter(
-                    output_folder=f"{DEFAULT_DATASETS_DIRECTORY}assemblage-vcpkg-dt-disassembled",
+                    output_folder=f"{Path.home()}/undertale_shared/datasets/assemblage-vcpkg-dt-disassembled",
                     adapter=lambda self, doc: doc.metadata,
                     max_file_size=50 * 1024 * 1024,
                 )
@@ -242,7 +242,18 @@ class AssemblageVcpkg(Dataset):
             executor = self.get_my_executor(input)
             executor.pipeline.append(
                 ParquetWriter(
-                    output_folder=f"{DEFAULT_DATASETS_DIRECTORY}assemblage-vcpkg-dt-disassembled-rz",
+                    output_folder=f"{Path.home()}/undertale_shared/datasets/assemblage-vcpkg-dt-disassembled-rz",
+                    adapter=lambda self, doc: doc.metadata,
+                    max_file_size=50 * 1024 * 1024,
+                )
+            )
+            return executor
+
+        elif input == "binja":
+            executor = self.get_my_executor(input)
+            executor.pipeline.append(
+                ParquetWriter(
+                    output_folder=f"{Path.home()}/undertale_shared/datasets/assemblage-vcpkg-binja",
                     adapter=lambda self, doc: doc.metadata,
                     max_file_size=50 * 1024 * 1024,
                 )
@@ -277,7 +288,7 @@ class AssemblageVcpkg(Dataset):
             depends=slurm_parse,
             pipeline=[
                 ParquetReader(
-                    data_folder=f"{DEFAULT_DATASETS_DIRECTORY}assemblage-vcpkg-dt",
+                    data_folder=f"{Path.home()}/undertale_shared/datasets/assemblage-vcpkg-dt",
                     adapter=lambda self, data, path, id_in_file: {
                         "id": id_in_file,
                         "text": data["binary"],
@@ -305,7 +316,7 @@ class AssemblageVcpkg(Dataset):
             depends=slurm_parse,
             pipeline=[
                 ParquetReader(
-                    data_folder=f"{DEFAULT_DATASETS_DIRECTORY}assemblage-vcpkg-dt",
+                    data_folder=f"{Path.home()}/undertale_shared/datasets/assemblage-vcpkg-dt",
                     adapter=lambda self, data, path, id_in_file: {
                         "id": id_in_file,
                         "text": data["binary"],
@@ -328,12 +339,42 @@ class AssemblageVcpkg(Dataset):
             },
         )
 
+        # Binary Ninja disassemble
+        slurm_disassemble_binja = SlurmPipelineExecutor(
+            # depends=slurm_parse,
+            pipeline=[
+                ParquetReader(
+                    data_folder=f"{Path.home()}/undertale_shared/datasets/assemblage-vcpkg-dt",
+                    adapter=lambda self, data, path, id_in_file: {
+                        "id": id_in_file,
+                        "text": data["binary"],
+                        "metadata": data,
+                    },
+                ),
+                BinaryNinjaDisassembler(),
+            ],
+            venv_path=os.path.join(f"{Path.home()}/.conda/envs", "ut"),
+            logging_dir="~/undertale/logs",
+            time="48:00:00",
+            cpus_per_task=2,
+            mem_per_cpu_gb=40,
+            tasks=300,
+            job_name="vcpkg_disassemble_binja",
+            partition="xeon-p8",
+            sbatch_args={
+                "distribution": "cyclic:cyclic",
+                "chdir": Path.home(),
+            },
+        )
+
         if input == "binaries":
             return slurm_parse
         elif input == "r2":
             return slurm_disassemble
         elif input == "rz":
             return slurm_disassemble_rz
+        elif input == "binja":
+            return slurm_disassemble_binja
         return None
 
 
