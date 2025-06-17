@@ -9,7 +9,11 @@ from datatrove.pipeline.readers import ParquetReader
 from datatrove.pipeline.writers import ParquetWriter
 
 from ..base import Dataset, main
-from ..pipeline.disassemblers import RadareDisassembler, RizinDisassembler, BinaryNinjaDisassembler
+from ..pipeline.disassemblers import (
+    BinaryNinjaDisassembler,
+    RadareDisassembler,
+    RizinDisassembler,
+)
 
 
 class AssemblageVcpkgReader(PipelineStep):

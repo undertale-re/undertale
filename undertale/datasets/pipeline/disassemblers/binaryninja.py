@@ -13,34 +13,19 @@ class BinaryNinjaDisassembler(PipelineStep):
         self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
     ) -> DocumentsPipeline:
 
+        import pickle
+
         import binaryninja
-        from binaryninja import SymbolType
+        import networkx as nx
         from binaryninja.architecture import Architecture
         from binaryninja.enums import InstructionTextTokenType
-        import networkx as nx
-        import pickle
         from datatrove.data import Document
-        
-
-        SKIP_TYPES = [
-            SymbolType.ImportedFunctionSymbol,
-            SymbolType.ExternalSymbol,
-            SymbolType.LibraryFunctionSymbol,
-            SymbolType.ImportAddressSymbol, 
-            SymbolType.SymbolicFunctionSymbol
-        ]
 
         SKIP_TOKENS = [
             InstructionTextTokenType.AnnotationToken,
             InstructionTextTokenType.StackVariableToken,
             InstructionTextTokenType.CodeSymbolToken,
-            InstructionTextTokenType.TagToken
-        ]
-
-        SYMBOL_TOKENS = [
-            InstructionTextTokenType.CodeSymbolToken,
-            InstructionTextTokenType.DataSymbolToken,
-            InstructionTextTokenType.ExternalSymbolToken
+            InstructionTextTokenType.TagToken,
         ]
 
         architectures = {"x86": "x86", "x64": "x86_64", "arm64": "aarch64"}
@@ -63,8 +48,12 @@ class BinaryNinjaDisassembler(PipelineStep):
             for block in fn.basic_blocks:
                 block_disassembly = []
                 for line in block.disassembly_text:
-                    disasm_str = ''.join(token.text for token in line.tokens if token.type not in skip_tokens)
-                    disasm_str = ' '.join(disasm_str.strip().split())
+                    disasm_str = "".join(
+                        token.text
+                        for token in line.tokens
+                        if token.type not in SKIP_TOKENS
+                    )
+                    disasm_str = " ".join(disasm_str.strip().split())
                     block_disassembly.append(disasm_str)
                 block_disassembly = "\n".join(block_disassembly)
                 node = (block.start, block_disassembly)
@@ -73,15 +62,21 @@ class BinaryNinjaDisassembler(PipelineStep):
 
             for block in fn.basic_blocks:
                 outgoing_edges = block.outgoing_edges
-                dst_nodes = [str(edge)[str(edge).find('@')+1:-1] for edge in outgoing_edges]
+                dst_nodes = [
+                    str(edge)[str(edge).find("@") + 1 : -1] for edge in outgoing_edges
+                ]
                 for i in dst_nodes:
                     graph.add_edge(nodes[block.start], nodes[int(i, 16)])
 
             disassembly = []
             for block in sorted(fn.basic_blocks, key=lambda b: b.start):
                 for line in block.disassembly_text:
-                    disasm_str = ''.join(token.text for token in line.tokens if token.type not in skip_tokens)
-                    disasm_str = ' '.join(disasm_str.strip().split())
+                    disasm_str = "".join(
+                        token.text
+                        for token in line.tokens
+                        if token.type not in SKIP_TOKENS
+                    )
+                    disasm_str = " ".join(disasm_str.strip().split())
                     disassembly.append(disasm_str)
             disassembly = "\n".join(disassembly)
 

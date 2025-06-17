@@ -14,30 +14,31 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
         self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
     ) -> DocumentsPipeline:
 
+        import pickle
+
         import binaryninja
+        import networkx as nx
         from binaryninja import SymbolType
         from binaryninja.enums import InstructionTextTokenType
-        import networkx as nx
-        import pickle
         from datatrove.data import Document
 
         SKIP_TYPES = [
             SymbolType.ImportedFunctionSymbol,
             SymbolType.ExternalSymbol,
             SymbolType.LibraryFunctionSymbol,
-            SymbolType.ImportAddressSymbol, 
-            SymbolType.SymbolicFunctionSymbol
+            SymbolType.ImportAddressSymbol,
+            SymbolType.SymbolicFunctionSymbol,
         ]
-        
+
         SKIP_TOKENS = [
-                InstructionTextTokenType.AnnotationToken,
-                InstructionTextTokenType.StackVariableToken
-            ]
+            InstructionTextTokenType.AnnotationToken,
+            InstructionTextTokenType.StackVariableToken,
+        ]
 
         SYMBOL_TOKENS = [
             InstructionTextTokenType.CodeSymbolToken,
             InstructionTextTokenType.DataSymbolToken,
-            InstructionTextTokenType.ExternalSymbolToken
+            InstructionTextTokenType.ExternalSymbolToken,
         ]
 
         for document in data:
@@ -46,36 +47,51 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
             bv = binaryninja.load(source=data_buffer)
 
             for fn in bv.functions:
-                if fn.is_thunk or fn.symbol.type in SKIP_TYPES or fn.name.startswith("_Z"):
+                if (
+                    fn.is_thunk
+                    or fn.symbol.type in SKIP_TYPES
+                    or fn.name.startswith("_Z")
+                ):
                     continue
                 fn_name = fn.name
-                
+
                 disassembly = []
                 graph = nx.Graph()
                 nodes = {}
                 code = bv.read(fn.start, fn.total_bytes)
-                
+
                 for block in fn.basic_blocks:
                     block_disassembly = []
                     for line in block.disassembly_text:
                         idx, symbol_token = next(
-                            ((i, token) for i, token in enumerate(line.tokens) if token.type in SYMBOL_TOKENS),
-                            (None, None)  # default if not found
+                            (
+                                (i, token)
+                                for i, token in enumerate(line.tokens)
+                                if token.type in SYMBOL_TOKENS
+                            ),
+                            (None, None),  # default if not found
                         )
                         if symbol_token:
                             line.tokens[idx].text = f"0x{symbol_token.value:x}"
-                        disasm_str = ''.join(token.text for token in line.tokens if token.type not in SKIP_TOKENS)
-                        disasm_str = ' '.join(disasm_str.strip().split())
-                        if disasm_str != '':
+                        disasm_str = "".join(
+                            token.text
+                            for token in line.tokens
+                            if token.type not in SKIP_TOKENS
+                        )
+                        disasm_str = " ".join(disasm_str.strip().split())
+                        if disasm_str != "":
                             block_disassembly.append(disasm_str)
                     block_disassembly = "\n".join(block_disassembly)
                     node = (block.start, block_disassembly)
                     graph.add_node(node)
                     nodes[block.start] = node
-                
+
                 for block in fn.basic_blocks:
                     outgoing_edges = block.outgoing_edges
-                    dst_nodes = [str(edge)[str(edge).find('@')+1:-1] for edge in outgoing_edges]
+                    dst_nodes = [
+                        str(edge)[str(edge).find("@") + 1 : -1]
+                        for edge in outgoing_edges
+                    ]
                     for i in dst_nodes:
                         graph.add_edge(nodes[block.start], nodes[int(i, 16)])
 
@@ -89,7 +105,7 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
                         decompilation.append(str(instr))
 
                 decompilation = "\n".join(decompilation)
-                
+
                 metadata = document.metadata.copy()
 
                 metadata["cfg"] = pickle.dumps(graph)
@@ -106,4 +122,3 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
                 self.stat_update("functions")
 
             self.stat_update("binaries")
-
