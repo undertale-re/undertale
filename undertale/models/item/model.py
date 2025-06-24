@@ -370,6 +370,7 @@ class TransformerEncoderForSequenceClassification(Module):
         return output
 
 
+
 class LanguageConnector(Module):
     def __init__(self, input_size: int, output_size: int, hidden_size: int):
         super().__init__()
