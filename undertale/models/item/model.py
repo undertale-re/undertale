@@ -15,14 +15,14 @@ from torch import (
     roll,
     softmax,
     stack,
-    zeros,
     where,
+    zeros,
 )
-from torch.utils.tensorboard import SummaryWriter
 from torch.nn import GELU, Dropout, Embedding, LayerNorm, Linear, Module, ModuleList
 from torch.nn.functional import cross_entropy
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import LambdaLR
+from torch.utils.tensorboard import SummaryWriter
 
 from . import tokenizer
 from .tokenizer import SPECIAL_TOKENS, TOKEN_NEXT
@@ -245,7 +245,7 @@ class TransformerEncoderForMaskedLM(LightningModule, Module):
         lr: float,
         warmup: float,
         tokenizer_loc: str = "/data2/groups/undertale_shared/models/item/item.tokenizer.nixpkgs.json",
-        val_example_count: int = 5
+        val_example_count: int = 5,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -318,17 +318,30 @@ class TransformerEncoderForMaskedLM(LightningModule, Module):
 
         f1 = f1_score(references.tolist(), predictions.tolist(), average="micro")
 
-        self.log("valid_f1", f1, prog_bar=True, sync_dist=True)  
+        self.log("valid_f1", f1, prog_bar=True, sync_dist=True)
         if int(index) < self.val_example_count:
             filled = where(
-            batch.input_ids == self.tok.token_to_id(tokenizer.TOKEN_MASK), argmax(output, dim=-1), batch.input_ids
+                batch.input_ids == self.tok.token_to_id(tokenizer.TOKEN_MASK),
+                argmax(output, dim=-1),
+                batch.input_ids,
             )
-            input_seq = self.tok.decode(batch.input_ids[0].tolist(), skip_special_tokens=False).replace("[NEXT]", "\n").replace("[PAD]", "").strip()
+            input_seq = (
+                self.tok.decode(batch.input_ids[0].tolist(), skip_special_tokens=False)
+                .replace("[NEXT]", "\n")
+                .replace("[PAD]", "")
+                .strip()
+            )
             predicted = self.tok.decode(filled[0].tolist(), skip_special_tokens=False)
-            predicted = predicted.replace(tokenizer.TOKEN_PAD, "").replace("[NEXT]", "\n").strip()
+            predicted = (
+                predicted.replace(tokenizer.TOKEN_PAD, "")
+                .replace("[NEXT]", "\n")
+                .strip()
+            )
             if isinstance(self.logger.experiment, SummaryWriter):
-                self.logger.experiment.add_text("mask prediction", f"index: {index}\ninput: {input_seq}\n\noutput:{predicted}")
-
+                self.logger.experiment.add_text(
+                    "mask prediction",
+                    f"index: {index}\ninput: {input_seq}\n\noutput:{predicted}",
+                )
 
 
 class TransformerEncoderForSequenceSimilarity(Module):
