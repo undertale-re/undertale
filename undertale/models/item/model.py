@@ -329,19 +329,6 @@ class TransformerEncoderForMaskedLM(LightningModule, Module):
             if isinstance(self.logger.experiment, SummaryWriter):
                 self.logger.experiment.add_text("mask prediction", f"index: {index}\ninput: {input_seq}\n\noutput:{predicted}")
 
-    # def test_step(self, batch, index):
-    #     output = self(batch.input_ids, batch.attention_mask)
-    #     filled = where(
-    #     batch.input_ids == self.tok.token_to_id(tokenizer.TOKEN_MASK), argmax(output, dim=-1), batch.input_ids
-    #     )
-    #     # for i in range(min(10, batch.input_ids.shape[0])):
-    #     # print(batch.input_ids.shape)
-    #     input_seq = self.tok.decode(batch.input_ids[0].tolist())
-    #     predicted = self.tok.decode(filled[0].tolist(), skip_special_tokens=False)
-    #     predicted = predicted.replace(tokenizer.TOKEN_PAD, "").strip()
-    #     if isinstance(self.logger.experiment, SummaryWriter):
-    #         self.logger.experiment.add_text("mask prediction", f"input: {input_seq}\n\noutput:{predicted}")
-
 
 
 class TransformerEncoderForSequenceSimilarity(Module):
