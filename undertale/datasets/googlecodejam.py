@@ -137,7 +137,6 @@ class GoogleCodeJam(dataset.Dataset):
 
         return rows, competition_solutions
 
-
     @classmethod
     def parse(cls, path: str, processes=None):
         """
@@ -190,7 +189,7 @@ class GoogleCodeJam(dataset.Dataset):
             raw = "undertale_shared/datasets/raw/google-code-jam"
             staging = os.path.join(home, raw, "staging")
             logging.info(f"collecting .json files in dir: {staging}")
-            print (f"info>> collecting .json files in dir: {staging}")
+            print(f"info>> collecting .json files in dir: {staging}")
 
             rows = []
             for fname in os.listdir(staging):
