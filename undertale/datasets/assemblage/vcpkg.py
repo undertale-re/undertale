@@ -1,81 +1,75 @@
-import logging
 import os
-import sqlite3
 import time
-
-# import typing
 from pathlib import Path
 
-import pefile
-from datatrove.data import Document, DocumentsPipeline
+from datatrove.data import DocumentsPipeline
 from datatrove.executor import SlurmPipelineExecutor
+from datatrove.pipeline.base import PipelineStep
 from datatrove.pipeline.readers import ParquetReader
-from datatrove.pipeline.readers.base import BaseReader
 from datatrove.pipeline.writers import ParquetWriter
 
 from ..base import DEFAULT_DATASETS_DIRECTORY, Dataset, main
-from ..pipeline.disassemblers import RadareDisassembler
-
-logger = logging.getLogger(__name__)
-
-last_time = time.time()
-first_time = last_time
+from ..pipeline.disassemblers import RadareDisassembler, RizinDisassembler
 
 
-def tick():
-    global last_time
-    global first_time
-
-    t = time.time()
-    delta = t - last_time
-    f_delta = t - first_time
-    last_time = t
-    return (delta, f_delta)
-
-
-def create_directory(*args, **kwargs):
-    import os
-    import shutil
-
-    USER = os.environ.get("USER")
-    dst = f"/state/partition1/user/{USER}"
-    os.makedirs(dst, exist_ok=True)
-    shutil.copytree(
-        f"/home/gridsan/{USER}/undertale", f"{dst}/undertale", dirs_exist_ok=True
-    )
-    os.chdir(f"{dst}/undertale")
-
-
-class AssemblageVcpkgReader(BaseReader):
+class AssemblageVcpkgReader(PipelineStep):
     type = "📖 - READER"
     name = "A - AssemblageVcpkg"
 
+    _requires_dependencies = ["sqlite3", "pefile", "shutil", "random"]
+
     def __init__(self):
-        self.raw_data_dir = "~/undertale_shared/datasets/raw/assemblage"
-        logger.debug("In constructor")
+        super().__init__()
+        self.raw_data_dir = f"{Path.home()}/undertale_shared/datasets/raw/assemblage"
+        self.last_time = time.time()
+        self.first_time = self.last_time
 
     def run(self, data, rank: int = 0, world_size: int = 1) -> DocumentsPipeline:
-        sqlfile = "../vcpkg.sqlite"
+        import os
+        import random
+        import shutil
+        import sqlite3
+        import time
+
+        import pefile
+        from datatrove.data import Document
+        from datatrove.utils.logging import logger
+
+        def tick():
+            t = time.time()
+            delta = t - self.last_time
+            f_delta = t - self.first_time
+            self.last_time = t
+            return (delta, f_delta)
+
+        USER = os.environ.get("USER")
+        dst = f"/state/partition1/user/{USER}"
+        os.makedirs(dst, exist_ok=True)
+        random_file_no = random.randint(1, 1000)
+        shutil.copy(
+            f"{self.raw_data_dir}/vcpkg.sqlite", f"{dst}/vcpkg-{random_file_no}.sqlite"
+        )
+
+        sqlfile = f"{dst}/vcpkg-{random_file_no}.sqlite"
         bins_dir = f"{self.raw_data_dir}/vcpkg"
 
         functions = {}
         with sqlite3.connect(sqlfile) as db:
             logger.info("Connected to SQL database")
             cur = db.cursor()
-
             i = 0
             current_binary = None
             current_binary_id = None
             num_failed_rvas = 0
 
             for row in cur.execute(
-                "SELECT f.id, b.id, b.file_name, b.repo_last_update, b.github_url, b.platform, b.build_mode, b.optimization, b.toolset_version, b.path, f.name, r.start, r.end  FROM functions f INNER JOIN binaries b ON f.binary_id = b.id INNER JOIN rvas r ON f.id = r.function_id ORDER BY b.id;"
-            ):
+                f"SELECT f.id, b.id, b.file_name, b.pushed_at, b.github_url, b.platform, b.build_mode, b.optimization, b.toolset_version, b.path, f.name, r.start, r.end FROM functions f INNER JOIN binaries b ON f.binary_id = b.id INNER JOIN rvas r ON f.id = r.function_id WHERE f.id%{world_size}=={rank} ORDER BY b.id;"
+            ):  # Filter out nth of space based on rank number
                 (
                     f_id,
                     b_id,
                     b_file_name,
-                    b_repo_last_update,
+                    b_pushed_at,
                     b_github_url,
                     b_platform,
                     b_build_mode,
@@ -89,7 +83,7 @@ class AssemblageVcpkgReader(BaseReader):
 
                 if i > 0 and (i % 100000) == 0:
                     logger.info(
-                        f"Progress... {i} functions so far, {float(num_failed_rvas)/i:.7f} with bad rvas"
+                        f"Progress... {i} functions so far, {float(num_failed_rvas) / i:.7f} with bad rvas"
                     )
 
                 if i > 1000000:
@@ -120,7 +114,7 @@ class AssemblageVcpkgReader(BaseReader):
                     f_name,
                     b_file_name,
                     b_path,
-                    b_repo_last_update,
+                    b_pushed_at,
                     b_github_url,
                     b_id,
                 )
@@ -131,6 +125,10 @@ class AssemblageVcpkgReader(BaseReader):
 
         logger.info("Done with sql shenanigans")
         tick()
+        try:
+            os.remove(f"{dst}/vcpkg-{random_file_no}.sqlite")
+        except Exception as e:
+            print(f"Error deleting file {dst}/vcpkg-{random_file_no}.sqlite: {e}")
 
         i = 0
         last_build_mode = None
@@ -155,7 +153,7 @@ class AssemblageVcpkgReader(BaseReader):
                 fun_name,
                 bin_filename,
                 bin_path,
-                bin_repo_last_update,
+                bin_pushed_at,
                 bin_github_url,
                 b_id,
             ) in arr:
@@ -174,7 +172,7 @@ class AssemblageVcpkgReader(BaseReader):
                 fun_name,
                 bin_filename,
                 bin_path,
-                bin_repo_last_update,
+                bin_pushed_at,
                 bin_github_url,
                 b_id,
             ) in arr:
@@ -195,9 +193,7 @@ class AssemblageVcpkgReader(BaseReader):
                     last_fun_name,
                 ) = (rng, platform, build_mode, optimization, compiler, fun_name)
 
-            equiv_class = (
-                f"{bin_github_url}-{bin_repo_last_update}-{bin_filename}-{fun_name}"
-            )
+            equiv_class = f"{bin_github_url}-{bin_pushed_at}-{bin_filename}-{fun_name}"
 
             yield Document(
                 id=f"fid={f_id}",
@@ -219,48 +215,67 @@ class AssemblageVcpkg(Dataset):
     name = "assemblage-vcpkg-dt"
 
     def get_pipeline(self, input, writer, parallelism):
+        from datatrove.utils.logging import logger
 
         if input == "binaries":
-            executor = self.get_executor(0, input)
-            executor.pipeline.append(writer)
+            executor = self.get_my_executor(input)
+            executor.pipeline.append(
+                ParquetWriter(
+                    output_folder=f"{DEFAULT_DATASETS_DIRECTORY}assemblage-vcpkg-dt",
+                    adapter=lambda self, doc: doc.metadata,
+                    max_file_size=50 * 1024 * 1024,
+                )
+            )
+            logger.info("get_pipeline binaries")
             return executor
         elif input == "r2":
-            executor = self.get_executor(0, input)
-            executor.depends.pipeline.append(
+            executor = self.get_my_executor(input)
+            executor.pipeline.append(
                 ParquetWriter(
                     output_folder=f"{DEFAULT_DATASETS_DIRECTORY}assemblage-vcpkg-dt-disassembled",
                     adapter=lambda self, doc: doc.metadata,
-                    max_file_size=100 * 1024 * 1024,
+                    max_file_size=50 * 1024 * 1024,
                 )
             )
-            executor.pipeline.append(writer)
+            return executor
+        elif input == "rz":
+            executor = self.get_my_executor(input)
+            executor.pipeline.append(
+                ParquetWriter(
+                    output_folder=f"{DEFAULT_DATASETS_DIRECTORY}assemblage-vcpkg-dt-disassembled-rz",
+                    adapter=lambda self, doc: doc.metadata,
+                    max_file_size=50 * 1024 * 1024,
+                )
+            )
             return executor
 
         return None
 
-    def get_executor(self, steps, input):
+    def get_my_executor(self, input):
         # Stage 0: Parse function bytes and metadata
+
         slurm_parse = SlurmPipelineExecutor(
             pipeline=[
-                create_directory,
                 AssemblageVcpkgReader(),
             ],
             venv_path=os.path.join(f"{Path.home()}/.conda/envs", "ut"),
             logging_dir="~/undertale/logs",
-            time="12:00:00",
+            time="48:00:00",
             cpus_per_task=2,
-            mem_per_cpu_gb=4,
-            tasks=1,
+            mem_per_cpu_gb=40,
+            tasks=100,
             job_name="parse_vcpkg",
             partition="xeon-p8",
-            sbatch_args={"distribution": "cyclic:cyclic"},
+            sbatch_args={
+                "distribution": "cyclic:cyclic",
+                "chdir": Path.home(),
+            },
         )
 
         # Stage 1: Disassemble binaries in parallel
         slurm_disassemble = SlurmPipelineExecutor(
             depends=slurm_parse,
             pipeline=[
-                create_directory,
                 ParquetReader(
                     data_folder=f"{DEFAULT_DATASETS_DIRECTORY}assemblage-vcpkg-dt",
                     adapter=lambda self, data, path, id_in_file: {
@@ -273,19 +288,52 @@ class AssemblageVcpkg(Dataset):
             ],
             venv_path=os.path.join(f"{Path.home()}/.conda/envs", "ut"),
             logging_dir="~/undertale/logs",
-            time="12:00:00",
+            time="48:00:00",
             cpus_per_task=2,
-            mem_per_cpu_gb=4,
-            tasks=64,
+            mem_per_cpu_gb=40,
+            tasks=100,
             job_name="vcpkg_disassemble_r2",
             partition="xeon-p8",
-            sbatch_args={"distribution": "cyclic:cyclic"},
+            sbatch_args={
+                "distribution": "cyclic:cyclic",
+                "chdir": Path.home(),
+            },
+        )
+
+        # Rizin disassemble
+        slurm_disassemble_rz = SlurmPipelineExecutor(
+            depends=slurm_parse,
+            pipeline=[
+                ParquetReader(
+                    data_folder=f"{DEFAULT_DATASETS_DIRECTORY}assemblage-vcpkg-dt",
+                    adapter=lambda self, data, path, id_in_file: {
+                        "id": id_in_file,
+                        "text": data["binary"],
+                        "metadata": data,
+                    },
+                ),
+                RizinDisassembler(),
+            ],
+            venv_path=os.path.join(f"{Path.home()}/.conda/envs", "ut"),
+            logging_dir="~/undertale/logs",
+            time="48:00:00",
+            cpus_per_task=2,
+            mem_per_cpu_gb=40,
+            tasks=100,
+            job_name="vcpkg_disassemble_rz",
+            partition="xeon-p8",
+            sbatch_args={
+                "distribution": "cyclic:cyclic",
+                "chdir": Path.home(),
+            },
         )
 
         if input == "binaries":
             return slurm_parse
         elif input == "r2":
             return slurm_disassemble
+        elif input == "rz":
+            return slurm_disassemble_rz
         return None
 
 

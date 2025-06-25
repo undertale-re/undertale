@@ -2,12 +2,12 @@ from datatrove.data import DocumentsPipeline
 from datatrove.pipeline.base import PipelineStep
 
 
-class RadareDisassembler(PipelineStep):
+class RizinDisassembler(PipelineStep):
     type = "🔧 - DISASSEMBLER"
-    name = "R - Radare"
+    name = "R - Rizin"
 
     _requires_dependencies = [
-        "r2pipe",
+        "rzpipe",
     ]
 
     def __init__(self):
@@ -19,7 +19,7 @@ class RadareDisassembler(PipelineStep):
 
         import json
 
-        import r2pipe
+        import rzpipe
         from datatrove.utils.logging import logger
 
         def disas_buf(buf):
@@ -43,10 +43,10 @@ class RadareDisassembler(PipelineStep):
         if not data:
             return
 
-        logger.info("beginning r2 disassembly")
+        logger.info("beginning rz disassembly")
 
         code_max = 65536
-        self.r = r2pipe.open(f"malloc://{code_max}", flags=["-2"])
+        self.r = rzpipe.open(f"malloc://{code_max}", flags=["-2"])
 
         ii = 0
         num_too_big = 0
@@ -55,7 +55,6 @@ class RadareDisassembler(PipelineStep):
                 ii += 1
 
                 code = document.text
-                # logger.info(f"ii={ii} -- {len(code)} bytes -- {num_too_big} skipped bc too big")
 
                 if len(code) > code_max:
                     num_too_big += 1
@@ -66,7 +65,8 @@ class RadareDisassembler(PipelineStep):
                 disassembly = []
                 if "ops" in d.keys():
                     for i in range(len(d["ops"])):
-                        disassembly.append(d["ops"][i]["disasm"])
+                        if "disasm" in d["ops"][i].keys():
+                            disassembly.append(d["ops"][i]["disasm"])
 
                 disassembly = "\n".join(disassembly)
 
@@ -75,4 +75,5 @@ class RadareDisassembler(PipelineStep):
                 yield document
                 self.stat_update("disassembled")
 
-        logger.info(f"FYI: {num_too_big} of {ii} skipped bc too big")
+        if num_too_big:
+            logger.warning(f"{num_too_big} of {ii} skipped because they were too large")

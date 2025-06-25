@@ -30,17 +30,17 @@ direct module call.
 To parse and commit a dataset:
 
 ```bash
-python -m undertale.datasets.{dataset-module} parse {input}
+python -m undertale.datasets.{dataset-module} {input} {output}
 ```
 
 Examples:
 
 ```bash
 # Parse the HumanEval-X dataset.
-python -m undertale.datasets.humanevalx parse _
+python -m undertale.datasets.humanevalx _ humanevalx/
 
 # Parse the HumanEval-X dataset with 8 parallel processes.
-python -m undertale.datasets.humanevalx parse _ --parallelism 8
+python -m undertale.datasets.humanevalx _ humanevalx/ --parallelism 8
 ```
 
 > [!NOTE]
@@ -50,13 +50,13 @@ python -m undertale.datasets.humanevalx parse _ --parallelism 8
 To load a given dataset and open a shell for exploration:
 
 ```bash
-python -m undertale.datasets.{dataset-module} shell
+python -m undertale.datasets.scripts.shell {input}
 ```
 
 Example:
 
 ```bash
-python -m undertale.datasets.humanevalx shell
+python -m undertale.datasets.scripts.shell humanevalx/
 ```
 
 The dataset will be available in a variable called `dataset` in the shell.
@@ -65,11 +65,100 @@ To write a script that uses a dataset that has already been parsed and is
 available in the cache directory, you can do something like:
 
 ```python
-from undertale.datasets import humanevalx
+from undertale.datasets import Dataset
 
-dataset = humanevalx.HumanEvalXCompiledDisassembled.fetch()
+dataset = Dataset.load(path)
 
 ...
+```
+
+### Models
+
+#### Pretoken Processing
+
+Before the tokenizer can be trained on a dataset, disassembly must be processed
+into pretokens that the tokenizer can consume. To pretokenize e.g., the
+HumanEvalX dataset (generated above), run:
+
+```python
+python -m undertale.datasets.scripts.pretokenize humanevalx/ humanevalx-pretokenized/
+```
+
+#### Tokenizer Training
+
+Next, you can train a tokenizer on the pretokenized dataset:
+
+```bash
+python -m undertale.models.item.tokenizer \
+    humanevalx-pretokenized/ \
+    item.tokenizer.json
+```
+
+#### Tokenization
+
+With your trained tokenizer, you can now tokenize the whole dataset, writing
+results to a minimal pretraining dataset:
+
+```bash
+python -m undertale.datasets.scripts.tokenize \
+    -t item.tokenizer.json \
+    -w pretraining \
+    humanevalx-pretokenized/ \
+    humanevalx-tokenized/
+```
+
+#### Masked Language Modeling Pre-Training
+
+With a tokenized dataset, you can now proceed with the first phase of
+pre-training:
+
+```bash
+python -m undertale.models.item.pretrain-maskedlm \
+    -t item.tokenizer.json \
+    humanevalx-tokenized/ \
+    pretrain-maskedlm \
+```
+
+#### Masked Language Modeling Inference
+
+With a pre-trained model you can now do masked language modeling inference (for
+a given pretokenized text with a single mask token) with the following script:
+
+```bash
+python -m undertale.models.item.infer-maskedlm \
+    -t item.tokenizer.json \
+    -c pretrain-maskedlm/version_0/checkpoints/model.ckpt \
+    "xor rax [MASK]"
+```
+
+> [!WARNING]
+> This output is pretty useless for the toy dataset used for training in this
+> README. If you want full-sized model checkpoints, contact us.
+
+> [!CAUTION]
+> The following steps have not been tested and are currently in development.
+
+#### Contrastive Embedding Fine-Tuning
+
+```bash
+python -m undertale.models.item.finetune-embedding \
+    <dataset-tbd> \
+    -t item.tokenizer.json \
+    -m pretrain-maskedlm/9 \
+    -o finetune-embedding
+```
+
+#### Summarization Inference
+
+> [!WARNING]
+> This still uses an untrained code-language connector, the output will be
+> gibberish, but it proves that everything is wired up correctly.
+
+```bash
+python -m undertale.models.item.infer-summarization \
+    -t item.tokenizer.json \
+    -m finetune-embedding/9 \
+    "add eax, ebx\nxor ecx, ecx"
 ```
 
 ## Contributing

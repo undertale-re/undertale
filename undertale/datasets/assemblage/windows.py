@@ -24,67 +24,69 @@ Disk space requirements.
    space there.
 """
 
-import logging
 import os
-import sqlite3 as sqlite
 import time
+from pathlib import Path
 
-import pefile
-from datatrove.data import Document
-from datatrove.pipeline.readers.base import BaseReader
+from datatrove.data import DocumentsPipeline
+from datatrove.executor import SlurmPipelineExecutor
+from datatrove.pipeline.base import PipelineStep
+from datatrove.pipeline.readers import ParquetReader
+from datatrove.pipeline.writers import ParquetWriter
 
-from ..base import Dataset, main
-from ..pipeline.disassemblers import RadareDisassembler
-
-logger = logging.getLogger(__name__)
-
-last_time = time.time()
-first_time = last_time
-
-
-def tick():
-    global last_time
-    global first_time
-
-    t = time.time()
-    delta = t - last_time
-    f_delta = t - first_time
-    last_time = t
-    logger.info(f"tick={delta} el={f_delta}")
+from ..base import DEFAULT_DATASETS_DIRECTORY, Dataset, main
+from ..pipeline.disassemblers import RadareDisassembler, RizinDisassembler
+from ..pipeline.pairs import PairwiseContrastive
 
 
-class AssemblageWindowsReader(BaseReader):
+class AssemblageWindowsReader(PipelineStep):
     type = "📖 - READER"
-    name = "A - Assemblage"
+    name = "A - AssemblageWindows"
+
+    _requires_dependencies = ["sqlite3", "pefile", "shutil", "random"]
 
     def __init__(self):
-        self.raw_data_dir = "/data/tleek/undertale_raw_data/assemblage"
+        super().__init__()
+        self.raw_data_dir = f"{Path.home()}/undertale_shared/datasets/raw/assemblage"
+        self.last_time = time.time()
+        self.first_time = self.last_time
 
-    def run(self, data, rank: int = 0, world_size: int = 1):
-        logger.warning("DANGER this dataset may contain malware so be careful with it")
+    def run(self, data, rank: int = 0, world_size: int = 1) -> DocumentsPipeline:
+        import os
+        import random
+        import shutil
+        import sqlite3
+        import time
 
-        bins_zip = "winpe_licensed.zip"
-        sql_zip = "winpe_licensed.sqlite.zip"
+        import pefile
+        from datatrove.data import Document
+        from datatrove.utils.logging import logger
 
-        sqlfile = f"{self.raw_data_dir}/winpe.sqlite"
+        def tick():
+            t = time.time()
+            delta = t - self.last_time
+            f_delta = t - self.first_time
+            self.last_time = t
+            return (delta, f_delta)
+
+        USER = os.environ.get("USER")
+        dst = f"/state/partition1/user/{USER}"
+        os.makedirs(dst, exist_ok=True)
+        random_file_no = random.randint(1, 1000)
+        shutil.copy(
+            f"{self.raw_data_dir}/winpe.sqlite", f"{dst}/winpe-{random_file_no}.sqlite"
+        )
+
+        sqlfile = f"{dst}/winpe-{random_file_no}.sqlite"
         bins_dir = f"{self.raw_data_dir}/winpe"
 
-        if (not os.path.exists(sqlfile)) or (os.path.getsize(sqlfile) == 0):
-            os.system(
-                f"/usr/bin/unzip -o -q -d {self.raw_data_dir} {self.raw_data_dir}/{sql_zip}"
-            )
-        if not os.path.exists(bins_dir):
-            os.system(
-                f"/usr/bin/unzip -o -q -d {self.raw_data_dir} {self.raw_data_dir}/{bins_zip}"
-            )
-
-        logger.info("Unzipping complete")
+        logger.info("Starting sql shenanigans")
         tick()
 
         functions = {}
-        with sqlite.connect(sqlfile) as db:
+        with sqlite3.connect(sqlfile) as db:
+            logger.info("Connected to SQL database")
             cur = db.cursor()
-
             i = 0
             current_binary = None
             current_binary_id = None
@@ -92,7 +94,7 @@ class AssemblageWindowsReader(BaseReader):
             num_failed_rvas = 0
 
             for row in cur.execute(
-                "SELECT f.id, b.id, b.file_name, b.repo_last_update, b.github_url, b.platform, b.build_mode, b.optimization, b.toolset_version, b.path, f.name, f.source_codes, r.start, r.end  FROM functions f INNER JOIN binaries b ON f.binary_id = b.id INNER JOIN rvas r ON f.id = r.function_id ORDER BY b.id;"
+                f"SELECT f.id, b.id, b.file_name, b.repo_last_update, b.github_url, b.platform, b.build_mode, b.optimization, b.toolset_version, b.path, f.name, f.source_codes, r.start, r.end  FROM functions f INNER JOIN binaries b ON f.binary_id = b.id INNER JOIN rvas r ON f.id = r.function_id WHERE f.id%{world_size}=={rank} ORDER BY b.id;"
             ):
                 (
                     f_id,
@@ -116,22 +118,19 @@ class AssemblageWindowsReader(BaseReader):
 
                 if i > 0 and (i % 100000) == 0:
                     logger.info(
-                        f"Progress... {i} functions so far, {float(num_with_source)/i:.4f} have source, {float(num_failed_rvas)/i:.7f} with bad rvas"
+                        f"Progress... {i} functions so far, {float(num_with_source) / i:.4f} have source, {float(num_failed_rvas) / i:.7f} with bad rvas"
                     )
-
-                if i > 1000000:
-                    break
 
                 if (current_binary_id is None) or (current_binary_id != b_id):
                     current_binary_id = b_id
+                    # logger.info(f"opening pefile {bins_dir} {b_path}")
                     current_binary = pefile.PE(os.path.join(bins_dir, b_path))
-
                 try:
                     raw_data = current_binary.get_data(
-                        rva=r_start, length=r_end - r_start + 1
+                        rva=r_start, length=r_end - r_start
                     )
                 except:
-                    logger.warn(
+                    logger.info(
                         f"discarding function {f_id} as rvas for it seem not to make sense with binary: {num_failed_rvas} count"
                     )
                     num_failed_rvas += 1
@@ -167,6 +166,10 @@ class AssemblageWindowsReader(BaseReader):
 
         logger.info("Done with sql shenanigans")
         tick()
+        try:
+            os.remove(f"{dst}/winpe-{random_file_no}.sqlite")
+        except Exception as e:
+            print(f"Error deleting file {dst}/winpe-{random_file_no}.sqlite: {e}")
 
         i = 0
         last_build_mode = None
@@ -199,7 +202,7 @@ class AssemblageWindowsReader(BaseReader):
             ) in arr:
                 min_a = min(rng[0], min_a)
                 max_a = max(rng[1], max_a)
-            all_code = bytearray(b"\x090" * (max_a - min_a + 1))
+            all_code = bytearray(b"\x90" * (max_a - min_a + 1))
             last_platform = None
             all_source = ""
             for (
@@ -247,7 +250,7 @@ class AssemblageWindowsReader(BaseReader):
             # this is the binary code for a single function
             yield Document(
                 id=f"fid={f_id}",
-                text=all_code,  # b64encode(all_code).decode("utf-8"),
+                text=all_code,
                 metadata={
                     "binary": all_code,
                     "architecture": platform,
@@ -261,24 +264,170 @@ class AssemblageWindowsReader(BaseReader):
         tick()
 
 
-class AssemblageWindowsPublicDataset(Dataset):
-    name = "assemblage-windows-public-dataset"
+class AssemblageWindows(Dataset):
+    name = "assemblage-windows"
 
     def get_pipeline(self, input, writer, parallelism):
-        steps = [
-            AssemblageWindowsReader(),
-            RadareDisassembler(),
-        ]
-        steps.extend(writer)
+        from datatrove.utils.logging import logger
 
-        # Note: fails here with `TypeError: cannot pickle '_thread.lock' object`
-        # import copy
-        # sc = copy.deepcopy(steps)
+        if input == "binaries":
+            executor = self.get_my_executor(input)
+            executor.pipeline.append(
+                ParquetWriter(
+                    output_folder=f"{DEFAULT_DATASETS_DIRECTORY}assemblage-windows",
+                    adapter=lambda self, doc: doc.metadata,
+                    max_file_size=50 * 1024 * 1024,
+                )
+            )
+            logger.info("get_pipeline binaries")
+            return executor
+        elif input == "r2":
+            executor = self.get_my_executor(input)
+            executor.pipeline.append(
+                ParquetWriter(
+                    output_folder=f"{DEFAULT_DATASETS_DIRECTORY}assemblage-windows-disassembled",
+                    adapter=lambda self, doc: doc.metadata,
+                    max_file_size=50 * 1024 * 1024,
+                )
+            )
+            return executor
+        elif input == "rz":
+            executor = self.get_my_executor(input)
+            executor.pipeline.append(
+                ParquetWriter(
+                    output_folder=f"{DEFAULT_DATASETS_DIRECTORY}assemblage-windows-disassembled-rz",
+                    adapter=lambda self, doc: doc.metadata,
+                    max_file_size=50 * 1024 * 1024,
+                )
+            )
+            return executor
+        elif input == "contrastive":
+            executor = self.get_my_executor(input)
+            executor.pipeline.append(
+                ParquetWriter(
+                    output_folder=f"{DEFAULT_DATASETS_DIRECTORY}assemblage-windows-disassembled-rz-pairs",
+                    adapter=lambda self, doc: doc.metadata,
+                    max_file_size=50 * 1024 * 1024,
+                )
+            )
+            return executor
 
-        return self.get_executor(steps, tasks=parallelism)
+        return None
+
+    def get_my_executor(self, input):
+        # Stage 0: Parse function bytes and metadata
+
+        slurm_parse = SlurmPipelineExecutor(
+            pipeline=[
+                AssemblageWindowsReader(),
+            ],
+            venv_path=os.path.join(f"{Path.home()}/.conda/envs", "ut"),
+            logging_dir="~/undertale/logs",
+            time="48:00:00",
+            cpus_per_task=2,
+            mem_per_cpu_gb=40,
+            tasks=100,
+            job_name="parse_windows",
+            partition="xeon-p8",
+            sbatch_args={
+                "distribution": "cyclic:cyclic",
+                "chdir": Path.home(),
+            },
+        )
+
+        # Stage 1: Disassemble binaries in parallel
+        slurm_disassemble = SlurmPipelineExecutor(
+            depends=slurm_parse,
+            pipeline=[
+                ParquetReader(
+                    data_folder=f"{DEFAULT_DATASETS_DIRECTORY}assemblage-windows",
+                    adapter=lambda self, data, path, id_in_file: {
+                        "id": id_in_file,
+                        "text": data["binary"],
+                        "metadata": data,
+                    },
+                ),
+                RadareDisassembler(),
+            ],
+            venv_path=os.path.join(f"{Path.home()}/.conda/envs", "ut"),
+            logging_dir="~/undertale/logs",
+            time="48:00:00",
+            cpus_per_task=2,
+            mem_per_cpu_gb=40,
+            tasks=100,
+            job_name="windows_disassemble_r2",
+            partition="xeon-p8",
+            sbatch_args={
+                "distribution": "cyclic:cyclic",
+                "chdir": Path.home(),
+            },
+        )
+
+        # Rizin disassemble
+        slurm_disassemble_rz = SlurmPipelineExecutor(
+            depends=slurm_parse,
+            pipeline=[
+                ParquetReader(
+                    data_folder=f"{DEFAULT_DATASETS_DIRECTORY}assemblage-windows",
+                    adapter=lambda self, data, path, id_in_file: {
+                        "id": id_in_file,
+                        "text": data["binary"],
+                        "metadata": data,
+                    },
+                ),
+                RizinDisassembler(),
+            ],
+            venv_path=os.path.join(f"{Path.home()}/.conda/envs", "ut"),
+            logging_dir="~/undertale/logs",
+            time="48:00:00",
+            cpus_per_task=2,
+            mem_per_cpu_gb=40,
+            tasks=100,
+            job_name="windows_disassemble_rz",
+            partition="xeon-p8",
+            sbatch_args={
+                "distribution": "cyclic:cyclic",
+                "chdir": Path.home(),
+            },
+        )
+
+        slurm_contrastive_pairs = SlurmPipelineExecutor(
+            depends=slurm_disassemble_rz,
+            pipeline=[
+                ParquetReader(
+                    data_folder=f"{DEFAULT_DATASETS_DIRECTORY}assemblage-windows-disassembled-rz",
+                    adapter=lambda self, data, path, id_in_file: {
+                        "id": id_in_file,
+                        "text": data["binary"],
+                        "metadata": data,
+                    },
+                ),
+                PairwiseContrastive(1000000, 1.0),
+            ],
+            venv_path=os.path.join(f"{Path.home()}/.conda/envs", "ut"),
+            logging_dir="~/undertale/logs",
+            time="48:00:00",
+            cpus_per_task=2,
+            mem_per_cpu_gb=40,
+            tasks=5,
+            job_name="assemblage_windows_contrastive_pairs",
+            partition="xeon-p8",
+            sbatch_args={
+                "distribution": "cyclic:cyclic",
+                "chdir": Path.home(),
+            },
+        )
+
+        if input == "binaries":
+            return slurm_parse
+        elif input == "r2":
+            return slurm_disassemble
+        elif input == "rz":
+            return slurm_disassemble_rz
+        elif input == "contrastive":
+            return slurm_contrastive_pairs
+        return None
 
 
 if __name__ == "__main__":
-    # import pdb
-    # pdb.set_trace()
-    main(AssemblageWindowsPublicDataset)
+    main(AssemblageWindows)
