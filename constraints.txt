@@ -8,10 +8,8 @@ absl-py==2.3.0
     # via tensorboard
 aiohappyeyeballs==2.6.1
     # via aiohttp
-aiohttp==3.11.18
-    # via
-    #   fsspec
-    #   lightning
+aiohttp==3.12.13
+    # via fsspec
 aiosignal==1.3.2
     # via aiohttp
 annotated-types==0.7.0
@@ -20,34 +18,21 @@ anyio==4.9.0
     # via
     #   httpx
     #   openai
-    #   starlette
-arrow==1.3.0
-    # via lightning
 async-timeout==5.0.1
     # via aiohttp
 attrs==25.3.0
     # via aiohttp
 beautifulsoup4==4.13.4
-    # via
-    #   bs4
-    #   lightning
+    # via bs4
 black==25.1.0
     # via undertale (setup.py)
-blessed==1.21.0
-    # via inquirer
-boto3==1.38.26
-    # via lightning-cloud
-botocore==1.38.26
-    # via
-    #   boto3
-    #   s3transfer
 bs4==0.0.2
     # via undertale (setup.py)
 build==1.2.2.post1
     # via pip-tools
 capstone==5.0.6
     # via undertale (setup.py)
-certifi==2025.4.26
+certifi==2025.6.15
     # via
     #   httpcore
     #   httpx
@@ -56,23 +41,16 @@ cfgv==3.4.0
     # via pre-commit
 charset-normalizer==3.4.2
     # via requests
-click==8.2.0
+click==8.2.1
     # via
     #   black
-    #   lightning
-    #   lightning-cloud
     #   pip-tools
-    #   uvicorn
 cpp-demangle==0.1.2
     # via undertale (setup.py)
-croniter==1.3.15
-    # via lightning
 datasets==3.6.0
     # via undertale (setup.py)
 datatrove==0.5.0
     # via undertale (setup.py)
-deepdiff==8.5.0
-    # via lightning
 dill==0.3.8
     # via
     #   datasets
@@ -82,12 +60,8 @@ distlib==0.3.9
     # via virtualenv
 distro==1.9.0
     # via openai
-editor==1.6.6
-    # via inquirer
 exceptiongroup==1.3.0
     # via anyio
-fastapi==0.115.12
-    # via lightning-cloud
 filelock==3.18.0
     # via
     #   datasets
@@ -96,9 +70,9 @@ filelock==3.18.0
     #   transformers
     #   undertale (setup.py)
     #   virtualenv
-flake8==7.2.0
+flake8==7.3.0
     # via undertale (setup.py)
-frozenlist==1.6.0
+frozenlist==1.7.0
     # via
     #   aiohttp
     #   aiosignal
@@ -108,18 +82,19 @@ fsspec==2025.3.0
     #   datatrove
     #   huggingface-hub
     #   lightning
+    #   pytorch-lightning
     #   torch
-grpcio==1.72.1
+grpcio==1.73.1
     # via tensorboard
 h11==0.16.0
-    # via
-    #   httpcore
-    #   uvicorn
+    # via httpcore
+hf-xet==1.1.5
+    # via huggingface-hub
 httpcore==1.0.9
     # via httpx
 httpx==0.28.1
     # via openai
-huggingface-hub==0.31.2
+huggingface-hub==0.33.2
     # via
     #   datasets
     #   datatrove
@@ -127,7 +102,7 @@ huggingface-hub==0.31.2
     #   transformers
 humanize==4.12.3
     # via datatrove
-identify==2.6.10
+identify==2.6.12
     # via pre-commit
 idna==3.10
     # via
@@ -135,53 +110,40 @@ idna==3.10
     #   httpx
     #   requests
     #   yarl
-inquirer==3.4.0
-    # via lightning
 isort==6.0.1
     # via undertale (setup.py)
 itanium-demangler==1.1
     # via undertale (setup.py)
-itsdangerous==2.2.0
-    # via starsessions
 jinja2==3.1.6
     # via torch
-jiter==0.9.0
+jiter==0.10.0
     # via openai
-jmespath==1.0.1
-    # via
-    #   boto3
-    #   botocore
-joblib==1.5.0
+joblib==1.5.1
     # via scikit-learn
 jpype1==1.5.2
     # via pyhidra
-lief==0.16.5
+lief==0.16.6
     # via undertale (setup.py)
-lightning==1.8.6
+lightning==2.5.2
     # via undertale (setup.py)
-lightning-cloud==0.5.70
-    # via lightning
 lightning-utilities==0.14.3
     # via
     #   lightning
+    #   pytorch-lightning
     #   torchmetrics
 loguru==0.7.3
     # via datatrove
-markdown==3.8
+markdown==3.8.2
     # via tensorboard
-markdown-it-py==3.0.0
-    # via rich
 markupsafe==3.0.2
     # via
     #   jinja2
     #   werkzeug
 mccabe==0.7.0
     # via flake8
-mdurl==0.1.2
-    # via markdown-it-py
 mpmath==1.3.0
     # via sympy
-multidict==6.4.3
+multidict==6.6.3
     # via
     #   aiohttp
     #   yarl
@@ -197,16 +159,14 @@ networkx==3.4.2
     #   undertale (setup.py)
 nodeenv==1.9.1
     # via pre-commit
-numpy==2.2.5
+numpy==2.2.6
     # via
     #   datasets
     #   datatrove
-    #   lightning
     #   pandas
     #   scikit-learn
     #   scipy
     #   tensorboard
-    #   tensorboardx
     #   torchmetrics
     #   transformers
 nvidia-cublas-cu12==12.6.4.1
@@ -246,10 +206,8 @@ nvidia-nvjitlink-cu12==12.6.85
     #   torch
 nvidia-nvtx-cu12==12.6.77
     # via torch
-openai==1.78.1
+openai==1.93.0
     # via undertale (setup.py)
-orderly-set==5.4.1
-    # via deepdiff
 packaging==25.0
     # via
     #   black
@@ -260,11 +218,11 @@ packaging==25.0
     #   lightning
     #   lightning-utilities
     #   pyhidra
+    #   pytorch-lightning
     #   tensorboard
-    #   tensorboardx
     #   torchmetrics
     #   transformers
-pandas==2.2.3
+pandas==2.3.0
     # via datasets
 pathspec==0.12.1
     # via black
@@ -276,51 +234,36 @@ platformdirs==4.3.8
     # via
     #   black
     #   virtualenv
-polars==1.29.0
+polars==1.31.0
     # via undertale (setup.py)
 pre-commit==4.2.0
     # via undertale (setup.py)
-propcache==0.3.1
+propcache==0.3.2
     # via
     #   aiohttp
     #   yarl
 protobuf==6.31.1
-    # via
-    #   lightning-cloud
-    #   tensorboard
-    #   tensorboardx
-psutil==7.0.0
-    # via lightning
+    # via tensorboard
 pyarrow==20.0.0
     # via datasets
-pycodestyle==2.13.0
+pycodestyle==2.14.0
     # via flake8
-pydantic==2.11.4
-    # via
-    #   fastapi
-    #   openai
+pydantic==2.11.7
+    # via openai
 pydantic-core==2.33.2
     # via pydantic
-pyflakes==3.3.2
+pyflakes==3.4.0
     # via flake8
-pygments==2.19.1
-    # via rich
 pyhidra==1.3.0
     # via undertale (setup.py)
-pyjwt==2.10.1
-    # via lightning-cloud
 pyproject-hooks==1.2.0
     # via
     #   build
     #   pip-tools
 python-dateutil==2.9.0.post0
-    # via
-    #   arrow
-    #   botocore
-    #   croniter
-    #   pandas
-python-multipart==0.0.20
-    # via lightning-cloud
+    # via pandas
+pytorch-lightning==2.5.2
+    # via lightning
 pytz==2025.2
     # via pandas
 pyyaml==6.0.2
@@ -329,39 +272,30 @@ pyyaml==6.0.2
     #   huggingface-hub
     #   lightning
     #   pre-commit
+    #   pytorch-lightning
     #   transformers
-r2pipe==1.9.4
+r2pipe==1.9.6
     # via undertale (setup.py)
-readchar==4.2.1
-    # via inquirer
 regex==2024.11.6
     # via transformers
-requests==2.32.3
+requests==2.32.4
     # via
     #   datasets
     #   huggingface-hub
-    #   lightning-cloud
     #   transformers
     #   undertale (setup.py)
-rich==14.0.0
-    # via lightning-cloud
-runs==1.2.2
-    # via editor
 rust-demangler==1.0
     # via undertale (setup.py)
 rzpipe==0.6.2
     # via undertale (setup.py)
-s3transfer==0.13.0
-    # via boto3
 safetensors==0.5.3
     # via transformers
-scikit-learn==1.6.1
+scikit-learn==1.7.0
     # via undertale (setup.py)
 scipy==1.15.3
     # via scikit-learn
 six==1.17.0
     # via
-    #   lightning-cloud
     #   python-dateutil
     #   tensorboard
 sniffio==1.3.1
@@ -370,36 +304,31 @@ sniffio==1.3.1
     #   openai
 soupsieve==2.7
     # via beautifulsoup4
-starlette==0.46.2
-    # via
-    #   fastapi
-    #   starsessions
-starsessions==1.3.0
-    # via lightning
 sympy==1.14.0
     # via torch
 tensorboard==2.19.0
     # via undertale (setup.py)
 tensorboard-data-server==0.7.2
     # via tensorboard
-tensorboardx==2.6.2.2
-    # via lightning
 threadpoolctl==3.6.0
     # via scikit-learn
-tokenizers==0.21.1
+tokenizers==0.21.2
     # via transformers
 tomli==2.2.1
     # via
     #   black
     #   build
     #   pip-tools
-torch==2.7.0
+torch==2.7.1
     # via
     #   lightning
+    #   pytorch-lightning
     #   torchmetrics
     #   undertale (setup.py)
-torchmetrics==1.7.2
-    # via lightning
+torchmetrics==1.7.3
+    # via
+    #   lightning
+    #   pytorch-lightning
 tqdm==4.67.1
     # via
     #   datasets
@@ -407,22 +336,18 @@ tqdm==4.67.1
     #   huggingface-hub
     #   lightning
     #   openai
+    #   pytorch-lightning
     #   transformers
-traitlets==5.14.3
-    # via lightning
-transformers==4.51.3
+transformers==4.53.0
     # via undertale (setup.py)
-triton==3.3.0
+triton==3.3.1
     # via torch
-types-python-dateutil==2.9.0.20250516
-    # via arrow
-typing-extensions==4.13.2
+typing-extensions==4.14.0
     # via
     #   anyio
     #   beautifulsoup4
     #   black
     #   exceptiongroup
-    #   fastapi
     #   huggingface-hub
     #   lightning
     #   lightning-utilities
@@ -430,40 +355,26 @@ typing-extensions==4.13.2
     #   openai
     #   pydantic
     #   pydantic-core
-    #   rich
+    #   pytorch-lightning
     #   torch
     #   typing-inspection
-    #   uvicorn
-typing-inspection==0.4.0
+typing-inspection==0.4.1
     # via pydantic
 tzdata==2025.2
     # via pandas
 unix-ar==0.2.1
     # via undertale (setup.py)
-urllib3==2.4.0
-    # via
-    #   botocore
-    #   lightning-cloud
-    #   requests
-uvicorn==0.34.2
-    # via lightning-cloud
+urllib3==2.5.0
+    # via requests
 virtualenv==20.31.2
     # via pre-commit
-wcwidth==0.2.13
-    # via blessed
-websocket-client==1.8.0
-    # via lightning-cloud
 werkzeug==3.1.3
     # via tensorboard
 wheel==0.45.1
     # via pip-tools
-xmod==1.8.1
-    # via
-    #   editor
-    #   runs
 xxhash==3.5.0
     # via datasets
-yarl==1.20.0
+yarl==1.20.1
     # via aiohttp
 
 # The following packages are considered to be unsafe in a requirements file:
