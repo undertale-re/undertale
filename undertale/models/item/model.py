@@ -244,7 +244,7 @@ class TransformerEncoderForMaskedLM(LightningModule, Module):
         eps: float,
         lr: float,
         warmup: float,
-        tokenizer_loc: str = "/data2/groups/undertale_shared/models/item/item.tokenizer.nixpkgs.json",
+        tokenizer_loc: str = "",
         val_example_count: int = 5
     ):
         super().__init__()
@@ -261,7 +261,10 @@ class TransformerEncoderForMaskedLM(LightningModule, Module):
             eps,
         )
         self.head = MaskedLMHead(hidden_dimensions, vocab_size, eps)
-        self.tok = tokenizer.load(tokenizer_loc)
+        if tokenizer_loc != "":
+            self.tok = tokenizer.load(tokenizer_loc)
+        else:
+            self.tok = None
         self.val_example_count = val_example_count
 
         self.lr = lr
@@ -318,16 +321,17 @@ class TransformerEncoderForMaskedLM(LightningModule, Module):
 
         f1 = f1_score(references.tolist(), predictions.tolist(), average="micro")
 
-        self.log("valid_f1", f1, prog_bar=True, sync_dist=True)  
-        if int(index) < self.val_example_count:
-            filled = where(
-            batch.input_ids == self.tok.token_to_id(tokenizer.TOKEN_MASK), argmax(output, dim=-1), batch.input_ids
-            )
-            input_seq = self.tok.decode(batch.input_ids[0].tolist(), skip_special_tokens=False).replace("[NEXT]", "\n").replace("[PAD]", "").strip()
-            predicted = self.tok.decode(filled[0].tolist(), skip_special_tokens=False)
-            predicted = predicted.replace(tokenizer.TOKEN_PAD, "").replace("[NEXT]", "\n").strip()
-            if isinstance(self.logger.experiment, SummaryWriter):
-                self.logger.experiment.add_text("mask prediction", f"index: {index}\ninput: {input_seq}\n\noutput:{predicted}")
+        self.log("valid_f1", f1, prog_bar=True, sync_dist=True)
+        if self.tok is not None:
+            if int(index) < self.val_example_count:
+                filled = where(
+                batch.input_ids == self.tok.token_to_id(tokenizer.TOKEN_MASK), argmax(output, dim=-1), batch.input_ids
+                )
+                input_seq = self.tok.decode(batch.input_ids[0].tolist(), skip_special_tokens=False).replace("[NEXT]", "\n").replace("[PAD]", "").strip()
+                predicted = self.tok.decode(filled[0].tolist(), skip_special_tokens=False)
+                predicted = predicted.replace(tokenizer.TOKEN_PAD, "").replace("[NEXT]", "\n").strip()
+                if isinstance(self.logger.experiment, SummaryWriter):
+                    self.logger.experiment.add_text("mask prediction", f"index: {index}\ninput: {input_seq}\n\noutput:{predicted}")
 
 
 

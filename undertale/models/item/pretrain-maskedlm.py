@@ -81,6 +81,7 @@ if __name__ == "__main__":
         eps=Defaults.eps,
         lr=Defaults.lr,
         warmup=Defaults.warmup,
+        tokenizer_loc=arguments.tokenizer,
     )
 
     try:
