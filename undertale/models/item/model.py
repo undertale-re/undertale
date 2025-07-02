@@ -15,14 +15,14 @@ from torch import (
     roll,
     softmax,
     stack,
-    zeros,
     where,
+    zeros,
 )
-from torch.utils.tensorboard import SummaryWriter
 from torch.nn import GELU, Dropout, Embedding, LayerNorm, Linear, Module, ModuleList
 from torch.nn.functional import cross_entropy
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import LambdaLR
+from torch.utils.tensorboard import SummaryWriter
 
 from . import tokenizer
 from .tokenizer import SPECIAL_TOKENS, TOKEN_NEXT
