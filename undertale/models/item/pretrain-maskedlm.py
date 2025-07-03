@@ -179,12 +179,13 @@ if __name__ == "__main__":
             sampler=random_sampler,
             batch_size=1,
             collate_fn=collator,
-            num_workers=8,
+            num_workers=1,
         )
         validation_check = ValidationCallback(random_validation, tok)
         callbacks = [progress, checkpoint, stop, validation_check]
     else:
         callbacks = [progress, checkpoint, stop]
+
     trainer = Trainer(
         callbacks=callbacks,
         logger=logger,
