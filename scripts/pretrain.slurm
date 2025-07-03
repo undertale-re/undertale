@@ -33,4 +33,5 @@ srun python -m undertale.models.item.pretrain-maskedlm \
     --nodes $SLURM_JOB_NUM_NODES \
     --devices $SLURM_NTASKS_PER_NODE \
     --version $SLURM_JOB_ID \
-    --batch-size 184
+    --batch-size 184 \
+    --validation

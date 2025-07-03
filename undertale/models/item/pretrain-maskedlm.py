@@ -27,9 +27,10 @@ class ProgressBar(TQDMProgressBar):
 
 
 class ValidationCallback(Callback):
-    def __init__(self, dataloader):
+    def __init__(self, dataloader, tok):
         super().__init__()
         self.dataloader = dataloader
+        self.tokenizer = tok
 
     def on_validation_end(self, trainer, pl_module):
         for batch in self.dataloader:
@@ -37,17 +38,17 @@ class ValidationCallback(Callback):
             attention_mask = batch.attention_mask.to(pl_module.device)
             output = pl_module(input_ids, attention_mask)
             filled = torch.where(
-                input_ids == pl_module.tok.token_to_id(tokenizer.TOKEN_MASK),
+                input_ids == self.tokenizer.token_to_id(tokenizer.TOKEN_MASK),
                 torch.argmax(output, dim=-1),
                 input_ids,
             )
             input_seq = (
-                pl_module.tok.decode(input_ids[0].tolist(), skip_special_tokens=False)
+                self.tokenizer.decode(input_ids[0].tolist(), skip_special_tokens=False)
                 .replace("[NEXT]", "\n")
                 .replace("[PAD]", "")
                 .strip()
             )
-            predicted = pl_module.tok.decode(
+            predicted = self.tokenizer.decode(
                 filled[0].tolist(), skip_special_tokens=False
             )
             predicted = (
@@ -122,7 +123,6 @@ if __name__ == "__main__":
         eps=Defaults.eps,
         lr=Defaults.lr,
         warmup=Defaults.warmup,
-        tokenizer_loc=arguments.tokenizer,
     )
 
     try:
@@ -132,7 +132,6 @@ if __name__ == "__main__":
         exit(1)
 
     dataset = dataset.train_test_split(test_size=0.1)
-
     collator = transformers.DataCollatorForLanguageModeling(
         tokenizer=transformers.PreTrainedTokenizerFast(
             tokenizer_file=arguments.tokenizer,
@@ -182,7 +181,7 @@ if __name__ == "__main__":
             collate_fn=collator,
             num_workers=8,
         )
-        validation_check = ValidationCallback(random_validation)
+        validation_check = ValidationCallback(random_validation, tok)
         callbacks = [progress, checkpoint, stop, validation_check]
     else:
         callbacks = [progress, checkpoint, stop]
