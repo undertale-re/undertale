@@ -12,7 +12,8 @@ def adapt_dataset_from_parquet(
 ) -> dict:
     return {
         "id": data.pop("id", id_in_file),
-        "text": data.pop("code"),
+        #"text": data.pop("code"),
+        "text": data.pop("binary"),
         "metadata": data,
     }
 
@@ -30,7 +31,8 @@ class Pretokenizer(Dataset):
 
         return self.get_executor(
             steps,
-            venv_path=os.path.join(f"{Path.home()}/.conda/envs", "undertale"),
+            #venv_path=os.path.join(f"{Path.home()}/.conda/envs", "undertale"),
+            venv_path=os.path.join(f"{Path.home()}/venv", "undertale"),
             time="48:00:00",
             cpus_per_task=1,
             mem_per_cpu_gb=8,

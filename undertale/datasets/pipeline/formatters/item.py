@@ -51,16 +51,18 @@ class ITEMTokenizer(PipelineStep):
 
     Input:
         Disassembled code with a `disassembly` field that has already been pre-tokenized.
+        equiv_classes is true iff we have an 'equiv_class' field for each document that we'd like to feed through
 
     Output:
         Adds a `tokens` field with disassembly tokens.
     """
 
-    def __init__(self, tokenizer: str):
+    def __init__(self, tokenizer: str, equiv_classes: bool):
         super().__init__()
 
         self.tokenizer = tokenizer
-
+        self.equiv_classes = equiv_classes
+        
     type = "✂️ - FORMATTER"
     name = "🎟️ ITEM Tokenizer"
 
@@ -75,12 +77,20 @@ class ITEMTokenizer(PipelineStep):
         tok = tokenizer.load(self.tokenizer)
 
         for document in data:
+
             with self.track_time():
                 encoding = tok.encode(document.metadata["disassembly"])
 
-                document.metadata["tokens"] = {
-                    "input_ids": encoding.ids,
-                    "attention_mask": encoding.attention_mask,
-                }
-
+                if self.equiv_classes:                    
+                    document.metadata["tokens"] = {
+                        "input_ids": encoding.ids,
+                        "attention_mask": encoding.attention_mask,
+                        "equiv_class": document.metadata['equiv_class']                        
+                    }
+                else:                
+                    document.metadata["tokens"] = {
+                        "input_ids": encoding.ids,
+                        "attention_mask": encoding.attention_mask
+                    }
+                
                 yield document
