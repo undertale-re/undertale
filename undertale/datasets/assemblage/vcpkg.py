@@ -90,9 +90,6 @@ class AssemblageVcpkgReader(PipelineStep):
                         f"Progress... {i} functions so far, {float(num_failed_rvas) / i:.7f} with bad rvas"
                     )
 
-                if i > 1000000:
-                    break
-
                 if (current_binary_id is None) or (current_binary_id != b_id):
                     current_binary_id = b_id
                     current_binary = pefile.PE(os.path.join(bins_dir, b_path))
@@ -360,8 +357,8 @@ class AssemblageVcpkg(Dataset):
             venv_path=os.path.join(f"{Path.home()}/.conda/envs", "ut"),
             logging_dir="~/undertale/logs",
             time="48:00:00",
-            cpus_per_task=2,
-            mem_per_cpu_gb=40,
+            cpus_per_task=3,
+            mem_per_cpu_gb=60,
             tasks=300,
             job_name="vcpkg_disassemble_binja",
             partition="xeon-p8",

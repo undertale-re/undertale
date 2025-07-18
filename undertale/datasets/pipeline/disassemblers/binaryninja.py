@@ -81,9 +81,10 @@ class BinaryNinjaDisassembler(PipelineStep):
             disassembly = "\n".join(disassembly)
 
             decompilation = []
-            for block in fn.hlil:
-                for instr in block:
-                    decompilation.append(str(instr))
+            if fn.hlil is not None:
+                for block in fn.hlil:
+                    for instr in block:
+                        decompilation.append(str(instr))
 
             decompilation = "\n".join(decompilation)
 
