@@ -14,7 +14,7 @@ def adapt_dataset_from_parquet(
 ) -> dict:
     return {
         "id": data.pop("id", id_in_file),
-        "text": data.pop("code"),
+        "text": "PAIRWISE", #TODO needed this hardcoded value for the adapter to work
         "metadata": data,
     }
  
