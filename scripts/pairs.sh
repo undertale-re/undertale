@@ -33,14 +33,14 @@ fi
 
 if [ "$1" == "local" ]; then
     python -m undertale.datasets.scripts.pairs \
-           $2-pretokenized/ \
+           $2-pretraining/ \
            $2-pairs/ \
            -s $3 \
            -m $4 \
            -e local 
 else
     python -m undertale.datasets.scripts.pairs \
-           $2-pretokenized/ \
+           $2-pretraining/ \
            $2-pairs/ \
            -s $3 \
            -m $4 \
