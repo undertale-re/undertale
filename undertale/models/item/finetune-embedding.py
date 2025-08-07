@@ -4,16 +4,17 @@ import os
 
 import torch
 import transformers
-from lightning import Trainer
+from lightning.pytorch import Trainer
 from lightning.pytorch.callbacks import ModelCheckpoint, TQDMProgressBar
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 from lightning.pytorch.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
+from lightning.pytorch.utilities.model_summary import ModelSummary
 
 from ... import logging as undertale_logging
 from ...datasets.base import Dataset
 from . import tokenizer
-from .model import Defaults, TransformerEncoderForSequenceSimilarity
+from .model import Defaults, TransformerEncoderForSequenceSimilarity,TransformerEncoderForMaskedLM
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,10 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
+        "-v", "--version", default=1.0, type=int, help="Tensorboard logger"
+    )
+
+    parser.add_argument(
         "-e",
         "--epochs",
         type=int,
@@ -77,7 +82,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "--start-epoch", type=int, default=0, help="starting epoch number"
     )
-    parser.add_argument("-b", "--batch-size", type=int, default=8, help="batch size")
 
     arguments = parser.parse_args()
 
@@ -101,10 +105,12 @@ if __name__ == "__main__":
         eps=Defaults.eps,
         lr=Defaults.lr,
         warmup=Defaults.warmup,
-        embedding_size=Defaults.embedding_size,
-        embedding_dropout_prob=Defaults.dropout
+        #embedding_size=128, #ASK TODO REVISIT
+        #embedding_dropout_prob=Defaults.dropout
     )
 
+
+    
     if (arguments.model):
         # Seems like I want to load the previously trained
         # TransformerEncoderForMaskedLM and then pull out its
@@ -114,10 +120,20 @@ if __name__ == "__main__":
         # Presumably, arguments.model is meant to point to that pre-trained mlm.
         #
         mlm = TransformerEncoderForMaskedLM.load_from_checkpoint(arguments.model)
-        model.encoder = mlm.encoder
+        #ASK
+        print("###################################@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ MASKED")
+        summary1 = ModelSummary(model, max_depth=-1) # Use -1 to show all modules
+        print(summary1)
+        #summary = ModelSummary(mlm, max_depth=-1) # Use -1 to show all modules
+        #print(summary)
+        model.encoder.encoder = mlm.encoder
+        print("###################################@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@################")
+        summary2 = ModelSummary(model, max_depth=-1) # Use -1 to show all modules
+        print(summary2)
+
     elif arguments.checkpoint:
         model = model.from_pretrained(arguments.checkpoint, local_files_only=True)
-            
+        print("CHECKPOINT")
     try:
         dataset = Dataset.load(arguments.dataset)
     except ValueError as e:
@@ -126,6 +142,7 @@ if __name__ == "__main__":
 
     dataset = dataset.train_test_split(test_size=0.1)
     
+    '''
     def tokenize(batch):
         preprocessed = tokenizer.preprocess_batch(batch)
         encoded = tok.encode_batch(preprocessed["preprocessed"])
@@ -147,15 +164,19 @@ if __name__ == "__main__":
         batch["labels"] = batch["similarity"]
 
         return batch
+ 
 
     dataset = dataset.map(
-        tokenize_pair,
+        #tokenize_pair,
+        dataset,
         batched=True,
         remove_columns=dataset.column_names,
         desc="tokenizing",
     )
+'''
 
-    dataset = dataset.train_test_split(test_size=0.1)
+    print(dataset.column_names)
+
 
     collator = transformers.DefaultDataCollator()
 
@@ -175,7 +196,7 @@ if __name__ == "__main__":
 
     output = os.path.abspath(os.path.expanduser(arguments.output))
     
-    progress = ProgressBar(leave=True)
+    progress = ProgressBar()
     checkpoint = ModelCheckpoint(
         filename="{epoch}-{train_loss:.2f}-{valid_f1:.2f}",
         save_top_k=-1,
