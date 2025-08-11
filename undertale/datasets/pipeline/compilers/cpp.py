@@ -49,7 +49,7 @@ class CppCompiler(PipelineStep):
                 objectfile = os.path.join(working.name, "source.o")
 
                 process = subprocess.run(
-                    f"g++ -c {sourcefile} -o {objectfile}",
+                    f"g++ -g -c {sourcefile} -o {objectfile}",
                     cwd=working.name,
                     shell=True,
                     stdout=subprocess.PIPE,
