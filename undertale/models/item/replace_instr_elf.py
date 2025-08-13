@@ -192,7 +192,7 @@ def anomoly_map(pretok_disas_str):
 
         # replace tokens for just instruction i using the MLM
         (tokens_replaced, prob_repl) = replace_toks(tokens, attn, inds)
-        #predicted = decode(tokens_replaced)
+        # predicted = decode(tokens_replaced)
         lpr = pp(inds, tokens, tokens_replaced, prob_repl)
         new_instr_txt = instr_dec(tokens_replaced, inds)
 
