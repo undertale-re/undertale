@@ -10,7 +10,6 @@ from .pipeline.disassemblers import GhidraDisassembler
 def adapt_xlcost_from_huggingface(
     self, data: dict, path: str, id_in_file: int | str
 ) -> dict:
-
     source = data["code"]
     identifier = hashlib.sha256(source.encode("utf-8")).hexdigest()
 
