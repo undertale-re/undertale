@@ -1,11 +1,8 @@
 from datatrove.pipeline.readers import HuggingFaceDatasetReader
-from datatrove.pipeline.writers import ParquetWriter
 
-from .base import DEFAULT_DATASETS_DIRECTORY, Dataset, main
+from .base import Dataset, main
 from .pipeline.compilers import CppCompiler
-
-# from .pipeline.disassemblers import GhidraDisassembler
-from .pipeline.segmenters.rizin import RizinFunctionSegmentAndDisassemble
+from .pipeline.disassemblers import GhidraDisassembler
 
 
 def adapt_humanevalx_from_huggingface(
@@ -27,12 +24,7 @@ class HumanEvalX(Dataset):
                 adapter=adapt_humanevalx_from_huggingface,
             ),
             CppCompiler(),
-            RizinFunctionSegmentAndDisassemble(),
-            ParquetWriter(
-                output_folder=f"{DEFAULT_DATASETS_DIRECTORY}humaneval-x-dt-segmented-disassembled-rz",
-                adapter=lambda self, doc: doc.metadata,
-                max_file_size=50 * 1024 * 1024,
-            ),
+            GhidraDisassembler(),
         ]
         steps.extend(writer)
 

@@ -1,7 +1,8 @@
 import argparse
+import inspect
 import logging
 from abc import ABCMeta, abstractmethod
-from typing import List, Optional
+from typing import List, Optional, Type
 
 import datasets
 from datatrove.data import Document
@@ -34,8 +35,24 @@ def adapt_to_flatten(self, document: Document) -> dict:
     return sample
 
 
+def adapt_to_flatten_for_pretraining(self, document: Document) -> dict:
+    return {
+        "input_ids": document.metadata["tokens"]["input_ids"],
+        "attention_mask": document.metadata["tokens"]["attention_mask"],
+    }
+
+
 writers = {
-    "parquet": lambda output: [ParquetWriter(output, adapter=adapt_to_flatten)],
+    "parquet": lambda output: [
+        ParquetWriter(output, adapter=adapt_to_flatten, max_file_size=100 * 1024 * 1024)
+    ],
+    "pretraining": lambda output: [
+        ParquetWriter(
+            output,
+            adapter=adapt_to_flatten_for_pretraining,
+            max_file_size=100 * 1024 * 1024,
+        )
+    ],
 }
 
 default_writer = "parquet"
@@ -82,8 +99,12 @@ class Dataset(metaclass=ABCMeta):
             pipeline: A list of pipeline steps.
         """
 
-        return executors[self.executor](
-            pipeline, logging_dir=self.logging_directory, **kwargs
+        Executor = executors[self.executor]
+        arguments = inspect.getfullargspec(Executor).args
+        return Executor(
+            pipeline,
+            logging_dir=kwargs.get("logging_dir", self.logging_directory),
+            **{k: kwargs[k] for k in arguments if k in kwargs},
         )
 
     @abstractmethod
@@ -136,21 +157,12 @@ class Dataset(metaclass=ABCMeta):
         logger.debug(f"wrote dataset to {path!r}")
 
 
-def main(dataset_class: Dataset) -> None:
-    """The CLI entrypoint for parsing a dataset.
-
-    This should be called in `__main__` for dataset modules.
+def build_parser(parser: argparse.ArgumentParser) -> None:
+    """Build an argument parser for processing a dataset.
 
     Arguments:
-        dataset_class: A dataset class to interact with.
+        parser: An argument parser to which arguments should be added.
     """
-
-    undertale_logging.setup_logging()
-
-    parser = argparse.ArgumentParser(
-        description=f"parsing utilities for {dataset_class.__name__}",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
 
     parser.add_argument(
         "-e",
@@ -182,6 +194,25 @@ def main(dataset_class: Dataset) -> None:
 
     parser.add_argument("input", help="input location")
     parser.add_argument("output", help="output location")
+
+
+def main(dataset_class: Type[Dataset]) -> None:
+    """The CLI entrypoint for parsing a dataset.
+
+    This should be called in `__main__` for dataset modules.
+
+    Arguments:
+        dataset_class: A dataset class to interact with.
+    """
+
+    undertale_logging.setup_logging()
+
+    parser = argparse.ArgumentParser(
+        description=f"parsing utilities for {dataset_class.__name__}",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+
+    build_parser(parser)
 
     arguments = parser.parse_args()
 

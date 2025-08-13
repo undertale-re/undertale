@@ -1,8 +1,9 @@
 import argparse
 
-import torch
+from torch import argmax, tensor, where
 
-from undertale.models import item
+from . import tokenizer
+from .model import TransformerEncoderForMaskedLM
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -12,31 +13,32 @@ if __name__ == "__main__":
     parser.add_argument(
         "-t", "--tokenizer", required=True, help="trained tokenizer file"
     )
-    parser.add_argument("-m", "--model", required=True, help="trained model file(s)")
+    parser.add_argument(
+        "-c", "--checkpoint", required=True, help="trained model checkpoint"
+    )
 
-    parser.add_argument("input", help="masked disassembly input to fill in")
+    parser.add_argument(
+        "input", help="masked disassembly input to fill in (in pretokenized form)"
+    )
 
     arguments = parser.parse_args()
 
-    tokenizer = item.tokenizer.load(arguments.tokenizer)
-    config = item.InstructionTraceConfig.from_tokenizer(tokenizer)
-    model = item.InstructionTraceEncoderTransformerForMaskedLM(config)
+    tok = tokenizer.load(arguments.tokenizer)
+    model = TransformerEncoderForMaskedLM.load_from_checkpoint(arguments.checkpoint)
 
-    model = model.from_pretrained(arguments.model, local_files_only=True)
-    model.eval()
+    encoded = tok.encode(arguments.input)
+    tokens, mask = tensor(encoded.ids), tensor(encoded.attention_mask)
 
-    pretokens = item.tokenizer.preprocess({"disassembly": arguments.input})[
-        "preprocessed"
-    ]
-    encoded = tokenizer.encode(pretokens)
-    input_ids = torch.tensor((encoded.ids,), dtype=torch.long)
-    attention_mask = torch.tensor((encoded.attention_mask,), dtype=torch.long)
+    output = model(tokens.unsqueeze(0), mask.unsqueeze(0)).squeeze()
 
-    with torch.no_grad():
-        output = model(input_ids, attention_mask)
+    # TODO explore Top-K prediction with confidence scores from softmax logits.
+    # top = topk(softmax(output, dim=-1), k=5)
 
-    tokens = torch.argmax(output.logits[0], dim=-1)
+    filled = where(
+        tokens == tok.token_to_id(tokenizer.TOKEN_MASK), argmax(output, dim=-1), tokens
+    )
 
-    decoded = tokenizer.decode(list(tokens))
+    predicted = tok.decode(filled.tolist(), skip_special_tokens=False)
+    predicted = predicted.replace(tokenizer.TOKEN_PAD, "").strip()
 
-    print(decoded)
+    print(predicted)
