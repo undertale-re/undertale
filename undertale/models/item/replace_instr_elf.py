@@ -46,18 +46,15 @@
 
 
 import argparse
-import math
 import json
-import sys
+import math
+
 import r2pipe
-
-from .tokenizer import pretokenize
-
-
-from torch import argmax, tensor, where, topk, softmax
+from torch import argmax, softmax, tensor, where
 
 from . import tokenizer
 from .model import TransformerEncoderForMaskedLM
+from .tokenizer import pretokenize
 
 
 def get_insn_inds_pretokens(pretokens, insn_num_desired):
@@ -69,11 +66,11 @@ def get_insn_inds_pretokens(pretokens, insn_num_desired):
         if insn_num > insn_num_desired:
             break
         if insn_num == insn_num_desired and pretokens[i] != next_token:
-            inds.append(i)        
+            inds.append(i)
     return inds
 
 
-def get_insn_inds_tokens(tokens,  insn_num_desired):
+def get_insn_inds_tokens(tokens, insn_num_desired):
     inds = []
     insn_num = 0
     for i in range(len(tokens)):
@@ -96,7 +93,7 @@ def get_insn_inds_tokens(tokens,  insn_num_desired):
 # we also print out the lr for each new/old pair
 def pp(inds, old_tokens, new_tokens, probs):
     # for these inds
-    # compute probs and multiply them 
+    # compute probs and multiply them
     lpo = 0.0
     lpn = 0.0
     for ind in inds:
@@ -107,26 +104,30 @@ def pp(inds, old_tokens, new_tokens, probs):
         op = probs[ind][oid]
         lpo += math.log(op)
         np = probs[ind][nid]
-        lpn += math.log(np)                
+        lpn += math.log(np)
         # likelihood ratio for new token vs old one
-        lr = np/op
-        print(f"({ot},{nt},{lr:.2f}) ", end="")            
+        lr = np / op
+        print(f"({ot},{nt},{lr:.2f}) ", end="")
         print("")
         # in log domain, this corresponds to p(new token seq) / p(old token seq)
     return lpn - lpo
 
+
 # Use MLM to fill in all masked tokens with highest prob token.
 # Also return probs for (all?) tok in the sequence.
-# Note: Probably only the probs for originally masked tokens will be meaningful        
+# Note: Probably only the probs for originally masked tokens will be meaningful
 def fill_in_masked(tokens_masked, attn):
     # and compute output
     output = model(tokens_masked.unsqueeze(0), attn.unsqueeze(0)).squeeze()
     # now get predicted tokens
     filled = where(
-        tokens_masked == tok.token_to_id(tokenizer.TOKEN_MASK), argmax(output, dim=-1), tokens_masked
+        tokens_masked == tok.token_to_id(tokenizer.TOKEN_MASK),
+        argmax(output, dim=-1),
+        tokens_masked,
     )
     probs = softmax(output, dim=-1)
     return (filled, probs)
+
 
 # Use the MLM to replace an entire instruction.  Note that we
 # have already figured out which token inds correspond to each
@@ -136,8 +137,9 @@ def replace_toks(tokens, attn, inds):
     tokens_masked = tokens.clone().detach()
     for ind in inds:
         tokens_masked[ind] = mask_token_id
-    #breakpoint()
+    # breakpoint()
     return fill_in_masked(tokens_masked, attn)
+
 
 # Use the MLM to replace token @ ind. Mask it, use MLM to
 # predict most likely replacement, and replace.
@@ -146,31 +148,30 @@ def replace_tok(tokens, attn, ind):
     tokens_masked[ind] = mask_token_id
     return fill_in_masked(tokens_masked, attn)
 
+
 # just translate tokens seq into string
 def decode(tokens):
     dec = tok.decode(tokens.tolist(), skip_special_tokens=False)
-    return dec.replace(tokenizer.TOKEN_PAD, "").strip()            
+    return dec.replace(tokenizer.TOKEN_PAD, "").strip()
 
 
 def anomoly_map(pretok_disas_str):
-
-    encoded = tok.encode(pretok_disas_str)        
+    encoded = tok.encode(pretok_disas_str)
     tokens, attn = tensor(encoded.ids), tensor(encoded.attention_mask)
-        
-    num_insns = 1                
+
+    num_insns = 1
     for x in tokens:
-        if x==next_token_id:
+        if x == next_token_id:
             num_insns += 1
     instr_to_inds = {}
     for i in range(num_insns):
         instr_to_inds[i] = get_insn_inds_tokens(tokens, i)
         for ind in instr_to_inds[i]:
-            assert (ind < 512)
-                
+            assert ind < 512
+
     # iterate over instructions in the input
     lpri = []
     for instr in range(num_insns):
-
         print(f"\ninstruction {instr}: ", end="")
         inds = instr_to_inds[instr]
 
@@ -191,19 +192,18 @@ def anomoly_map(pretok_disas_str):
 
         # replace tokens for just instruction i using the MLM
         (tokens_replaced, prob_repl) = replace_toks(tokens, attn, inds)
-        predicted = decode(tokens_replaced)
+        #predicted = decode(tokens_replaced)
         lpr = pp(inds, tokens, tokens_replaced, prob_repl)
         new_instr_txt = instr_dec(tokens_replaced, inds)
 
         print(f"log(p(new)/p(old)) = {lpr:.2f}\n")
         print(new_instr_txt)
-            
+
         print(f"original:  {instr_txt}")
         print(f"predicted: {new_instr_txt}")
 
-        
         # print(f"Considering replacing each of {inds}")
-        
+
         # for ind in inds:
         #     # try replacing just this ind, starting with tokens_replaced
         #     (new_tokens_replaced, new_prob_repl) = replace_tok(tokens_replaced, attn, ind)
@@ -219,7 +219,7 @@ def anomoly_map(pretok_disas_str):
         #     assert (new_p > old_p)
         #     new_predicted = decode(new_tokens_replaced)
         #     print(f"with tok {ind} replaced: {new_p/old_p} improvement")
-        #     lpr = pp(inds, tokens_replaced, new_tokens_replaced, new_prob_repl)                
+        #     lpr = pp(inds, tokens_replaced, new_tokens_replaced, new_prob_repl)
         #     print(f"log(p(new)/p(old)) = {lpr:.2f}")
         #     print(f"better:    {new_predicted}")
         #     tokens_replaced = new_tokens_replaced
@@ -229,6 +229,7 @@ def anomoly_map(pretok_disas_str):
         print(f"FINAL log(p(new)/p(old)) = {lpr:.2f}")
         lpri.append((instr_txt, new_instr_txt, lpr))
     return lpri
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -242,14 +243,14 @@ if __name__ == "__main__":
         "-c", "--checkpoint", required=True, help="trained model checkpoint"
     )
     parser.add_argument("elf", help="its an elf filename")
-    parser.add_argument("fn", help="its a function name")                        
-    
-    #parser.add_argument(
+    parser.add_argument("fn", help="its a function name")
+
+    # parser.add_argument(
     #    "input", help="masked disassembly input to fill in (in pretokenized form)"
-    #)
-    
+    # )
+
     arguments = parser.parse_args()
-    
+
     tok = tokenizer.load(arguments.tokenizer)
     model = TransformerEncoderForMaskedLM.load_from_checkpoint(arguments.checkpoint)
 
@@ -258,7 +259,7 @@ if __name__ == "__main__":
     next_token = "[NEXT]"
     pad_token_id = tok.token_to_id(pad_token)
     mask_token_id = tok.token_to_id(mask_token)
-    next_token_id = tok.token_to_id(next_token)    
+    next_token_id = tok.token_to_id(next_token)
 
     # this is the context window (number of tokens)
     window = 512
@@ -269,8 +270,8 @@ if __name__ == "__main__":
     d = json.loads(r.cmd(f"pdfj @ {arguments.fn}"))
 
     buf = None
-    for op in d['ops']:
-        byts = bytes.fromhex(op['bytes'])
+    for op in d["ops"]:
+        byts = bytes.fromhex(op["bytes"])
         if buf is None:
             buf = byts
         else:
@@ -283,7 +284,7 @@ if __name__ == "__main__":
     r.cmd("wx " + (" ".join([f"{i:02x}" for i in buf])))
     r.cmd("aa")
     d = json.loads(r.cmd("pdfj"))
-    
+
     disassembly = []
     print("ORIGINAL DISASSEMBLY FROM R2")
     if "ops" in d.keys():
@@ -303,43 +304,42 @@ if __name__ == "__main__":
     for pret in pretokens:
         print(f"{pret} ", end="")
     print("\n\n")
-        
-    #num_tokens = sum(encoded.attention_mask)
+
+    # num_tokens = sum(encoded.attention_mask)
 
     instr_to_inds = {}
     for i in range(num_insns):
         instr_to_inds[i] = get_insn_inds_pretokens(pretokens, i)
 
-    for i in range(0,num_insns,20):
-    #for i in range(240,num_insns,20):
+    for i in range(0, num_insns, 20):
+        # for i in range(240,num_insns,20):
 
         nt = 0
         instrs = []
         j = i
         pt_txt = ""
-        # grab instructions until we fill the context window 
+        # grab instructions until we fill the context window
         while True:
             if j == num_insns:
                 break
-            l = len(instr_to_inds[j]) + 1
-            if nt + l > window-5:
+            il = len(instr_to_inds[j]) + 1
+            if nt + il > window - 5:
                 break
             ind1 = instr_to_inds[j][0]
             ind2 = instr_to_inds[j][-1]
-            this_instr = " ".join(pretokens[ind1:ind2+1])
+            this_instr = " ".join(pretokens[ind1 : ind2 + 1])
             pt_txt += this_instr + " [NEXT] "
-            nt += l
+            nt += il
             j += 1
 
-        pt_txt = pt_txt[:-8] 
+        pt_txt = pt_txt[:-8]
         print("\n-----------------------------------------------------------------")
         print(f"WINDOW is {i}..{j} instructions which is {nt} tokens")
-        # print(i, j, nt)    
+        # print(i, j, nt)
         print(pt_txt)
-        #breakpoint()
-    
+        # breakpoint()
+
         lpri = anomoly_map(pt_txt)
         with open(f"window-{i}-{j}", "w") as w:
-            for (instr, new_instr, lpr) in lpri:
+            for instr, new_instr, lpr in lpri:
                 w.write(f"{lpr:.3f}: {instr} XXX {new_instr}\n")
-
