@@ -12,7 +12,7 @@ readme = "README.md"
 license-files = ["LICENSE.txt"]
 requires-python = ">=3.12"
 dependencies = [
-    "openai",
+    "bs4",
     "capstone",
     "datasets",
     "datatrove",
@@ -20,11 +20,11 @@ dependencies = [
     "lief",
     "lightning",
     "networkx",
-    "pyghidra",
+    "openai",
     "pefile", # FIXME remove
-    "bs4",
-    "requests",
     "polars",
+    "pyghidra",
+    "requests",
     "scikit-learn",
     "tensorboard",
     "torch",
