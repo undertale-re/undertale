@@ -190,14 +190,14 @@ pre-commit install
 
 DISTRIBUTION STATEMENT A. Approved for public release: distribution unlimited.
 
-© 2025 Massachusetts Institute of Technology
+© 2023 Massachusetts Institute of Technology
 
 This material is based upon work supported by the Under Secretary of
 Defense for Research and Engineering under Air Force Contract
 No. FA8702-15-D-0001. Any opinions, findings, conclusions or
 recommendations expressed in this material are those of the author(s)
 and do not necessarily reflect the views of the Under Secretary of
-Defense for Research and Engineering.  © 2025 Massachusetts Institute
+Defense for Research and Engineering.  © 2023 Massachusetts Institute
 of Technology.  The software/firmware is provided to you on an As-Is
 basis Delivered to the U.S. Government with Unlimited Rights, as
 defined in DFARS Part 252.227-7013 or 7014 (Feb 2014). Notwithstanding

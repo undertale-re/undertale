@@ -5,6 +5,8 @@
 *.parquet
 *.safetensors
 
+*.DS_Store
+
 *.egg-info/
 dist/
 

@@ -42,6 +42,7 @@ development = [
     "pip-tools",
     "pre-commit",
     "pyinstrument",
+    "sphinx",
     "toml-sort"
 ]
 
