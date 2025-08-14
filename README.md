@@ -2,6 +2,7 @@
 
 [![commit-style-image]][conventional]
 [![code-style-image]][black]
+[![documentation-image]][pages]
 [![license-image]][mitll]
 
 Large language models (LLMs) for binary program understanding.
@@ -210,5 +211,7 @@ may violate any copyrights that exist in this work.
 [conventional]: https://www.conventionalcommits.org/en/v1.0.0/
 [code-style-image]: https://img.shields.io/badge/code%20style-black-000000.svg
 [black]: https://github.com/psf/black
+[documentation-image]: https://img.shields.io/badge/docs-latest-green.svg
+[pages]: https://undertale-re.github.io/undertale/
 [license-image]: https://img.shields.io/badge/license-MIT%20LL-002240.svg
 [mitll]: ./LICENSE.txt
