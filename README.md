@@ -213,5 +213,5 @@ may violate any copyrights that exist in this work.
 [black]: https://github.com/psf/black
 [documentation-image]: https://img.shields.io/badge/docs-latest-green.svg
 [pages]: https://undertale-re.github.io/undertale/
-[license-image]: https://img.shields.io/badge/license-MIT%20LL-002240.svg
+[license-image]: https://img.shields.io/badge/license-MIT-green.svg
 [mitll]: ./LICENSE.txt
