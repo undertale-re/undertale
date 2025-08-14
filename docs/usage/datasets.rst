@@ -6,14 +6,14 @@ Build a Dataset
 
 To build a dataset, call the dataset module directly:
 
-.. code:: bash
+.. code-block:: bash
 
     python -m undertale.datasets.{dataset} {input} {output}
 
 For example, to build the HumanEval-X dataset from the raw dataset at
 ``humanevalx-raw/`` and save it to a directory called ``humanevalx/``, run:
 
-.. code:: bash
+.. code-block:: bash
 
     # Parse the HumanEvalX dataset.
     python -m undertale.datasets.humanevalx humanevalx-raw/ humanevalx/
@@ -27,7 +27,7 @@ Explore a Dataset with a Shell
 
 To load a dataset into a Python shell, run:
 
-.. code:: bash
+.. code-block:: bash
 
     python -m undertale.datasets.scripts.shell {path}
 
@@ -41,7 +41,7 @@ Use a Dataset in a Script
 To write a scirpt that uses a dataset that has already been parsed, you can do
 something like:
 
-.. code:: python
+.. code-block:: python
 
     from undertale.datasets.base import Dataset
 

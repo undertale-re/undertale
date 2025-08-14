@@ -172,7 +172,7 @@ class GhidraDisassembler(PipelineStep):
         import pickle
         import tempfile
 
-        import pyhidra
+        import pyghidra
 
         if not data:
             return
@@ -188,7 +188,7 @@ class GhidraDisassembler(PipelineStep):
                 with open(binary, "wb") as f:
                     f.write(code)
 
-                with pyhidra.open_program(
+                with pyghidra.open_program(
                     binary, language=self.language, analyze=False
                 ) as api:
                     program = api.getCurrentProgram()

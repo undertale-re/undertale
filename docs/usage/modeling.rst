@@ -8,7 +8,7 @@ Before a tokenizer can be trained on a dataset, disassembly must be processed
 into pretokens that the tokenizer can consume. To pretokenize e.g., the
 HumanEval-X dataset, run:
 
-.. code:: bash
+.. code-block:: bash
 
     python -m undertale.datasets.scripts.pretokenize humanevalx/ humanevalx-pretokenized/
 
@@ -17,7 +17,7 @@ Tokenizer Training
 
 Next, you can train a tokenizer on the pretokenized dataset:
 
-.. code:: bash
+.. code-block:: bash
 
     python -m undertale.models.item.tokenizer \
         humanevalx-pretokenized/ \
@@ -28,7 +28,7 @@ Tokenization
 
 With your trained tokenizer you can now tokenize an entire dataset:
 
-.. code:: bash
+.. code-block:: bash
 
     python -m undertale.datasets.scripts.tokenize \
         -t item.tokenizer.json \
@@ -42,7 +42,7 @@ Pre-Training (Maked Language Modeling)
 With a trained tokenizer and a tokenized dataset, you can now proceed with the
 first phase of training:
 
-.. code:: bash
+.. code-block:: bash
 
     python -m undertale.models.item.pretrain-maskedlm \
         -t item.tokenizer.json \
@@ -55,7 +55,7 @@ Inference
 With a pre-trained model you can now do masked language modeling inference (for
 a given pretokenized text):
 
-.. code:: bash
+.. code-block:: bash
 
     python -m undertale.models.item.infer-maskedlm \
         -t item.tokenizer.json \

@@ -68,3 +68,37 @@ directory run:
 
 Or other `supported sphinx output formats
 <https://www.sphinx-doc.org/en/master/usage/builders/index.html>`_.
+
+Extras
+^^^^^^
+
+Installing Ghidra on MacOS
+""""""""""""""""""""""""""
+
+In general, you should follow `Ghidra's installation instructions
+<https://github.com/NationalSecurityAgency/ghidra?tab=readme-ov-file#install>`_,
+but here are a few tips.
+
+#. Install OpenJDK with Homebrew
+
+    .. code-block:: bash
+
+        brew install openjdk
+
+#. Download and extract a Ghidra release directly from GitHub. The directory
+   scheme ``/opt/ghidra/{version}/`` works well.
+
+#. Disable MacOS code verification for Ghidra, otherwise you will have to auth
+   every time you want to run it.
+
+    .. code-block:: bash
+
+        xattr -dr com.apple.quarantine /opt/ghidra/
+
+#. Make sure you set the ``GHIDRA_INSTALL_DIR`` environment variable when
+   running scripts that use Ghidra.
+
+    .. code-block:: bash
+
+        GHIDRA_INSTALL_DIR=/opt/ghidra/11.4.1/ \
+            python -m undertale ...
