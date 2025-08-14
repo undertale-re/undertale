@@ -2,7 +2,7 @@
 
 [![commit-style-image]][conventional]
 [![code-style-image]][black]
-[![license-image]][mit]
+[![license-image]][mitll]
 
 Large language models (LLMs) for binary program understanding.
 
@@ -210,5 +210,5 @@ may violate any copyrights that exist in this work.
 [conventional]: https://www.conventionalcommits.org/en/v1.0.0/
 [code-style-image]: https://img.shields.io/badge/code%20style-black-000000.svg
 [black]: https://github.com/psf/black
-[license-image]: https://img.shields.io/badge/license-MIT-green.svg
-[mit]: ./LICENSE.txt
+[license-image]: https://img.shields.io/badge/license-MIT%20LL-002240.svg
+[mitll]: ./LICENSE.txt
