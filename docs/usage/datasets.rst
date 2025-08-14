@@ -10,20 +10,16 @@ To build a dataset, call the dataset module directly:
 
     python -m undertale.datasets.{dataset} {input} {output}
 
-For example, to build the HumanEval-X dataset and save it to a directory called
-``humanevalx/``, run:
+For example, to build the HumanEval-X dataset from the raw dataset at
+``humanevalx-raw/`` and save it to a directory called ``humanevalx/``, run:
 
 .. code:: bash
 
     # Parse the HumanEvalX dataset.
-    python -m undertale.datasets.humanevalx _ humanevalx/
+    python -m undertale.datasets.humanevalx humanevalx-raw/ humanevalx/
 
     # Parse the HumanEvalX dataset with 8 parallel processes.
-    python -m undertale.datasets.humanevalx _ humanevalx/ --parallelism 8
-
-
-.. note:: The HumanEval-X dataset does not take any input - we use the ``_``
-    input here, but the input value is simply ignored by this dataset.
+    python -m undertale.datasets.humanevalx humanevalx-raw/ humanevalx/ --parallelism 8
 
 
 Explore a Dataset with a Shell

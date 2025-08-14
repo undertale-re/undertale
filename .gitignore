@@ -1,6 +1,7 @@
 *.swp
 *.pyc
 *.json
+*.jsonl
 *.log
 *.parquet
 *.safetensors
