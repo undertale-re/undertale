@@ -11,8 +11,6 @@
 
 import os
 import sys
-import tarfile
-from inspect import isclass
 
 sys.path.insert(0, os.path.abspath(".."))
 
