@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Conventions &#8212; Undertale 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="icon" href="../_static/favicon.png"/>
+    <link rel="author" title="About these documents" href="../about.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Workflows" href="workflows.html" />
+    <link rel="prev" title="Recommended Reading" href="recommended-reading.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="conventions">
+<h1>Conventions<a class="headerlink" href="#conventions" title="Link to this heading">¶</a></h1>
+<section id="code-style">
+<h2>Code Style<a class="headerlink" href="#code-style" title="Link to this heading">¶</a></h2>
+<p>Clean, highly-readable code is important, especially for open-source projects
+with several developers and contributors.</p>
+<p>But you and I might have different opinions about the best way to format our
+code. You might like separating function arguments on new lines, while I might
+like keeping them all on the same line. Or you might like two lines between
+class definitions while I prefer one.</p>
+<p>It’s a waste of our time to fight about code style - or even to think about it
+at all during development - so we give up style control and use an
+autoformatter.</p>
+<p><a class="reference external" href="https://github.com/psf/black">Black</a> is an opinionated autoformatter for
+Python code with few configuration options. We use it on all code, every
+commit.</p>
+<p>We also use <a class="reference external" href="https://pycqa.github.io/isort/">isort</a> for automatic import
+sorting.</p>
+</section>
+<section id="linting">
+<h2>Linting<a class="headerlink" href="#linting" title="Link to this heading">¶</a></h2>
+<p>Code linting helps catch errors, clean up dead code, and anticipate edge cases
+early.</p>
+<p><a class="reference external" href="https://flake8.pycqa.org/en/latest/">Flake8</a> is a popular python linter.
+We use it on all code, every commit.</p>
+</section>
+<section id="pre-commit-hooks">
+<h2>Pre-Commit Hooks<a class="headerlink" href="#pre-commit-hooks" title="Link to this heading">¶</a></h2>
+<blockquote>
+<div><p>Wow, as a developer that’s a lot of stuff I have to do before I push any
+code… What a pain.</p>
+</div></blockquote>
+<p>Luckily, we have <a class="reference external" href="https://pre-commit.com/">Pre-Commit</a> hooks for code style,
+linting, and type checking that you can install in your development
+environment (see <a class="reference internal" href="setup.html#development-setup"><span class="std std-ref">Setup</span></a>).</p>
+<p>We also have CI set up to run these on every commit and send you angry emails
+if they don’t pass - so you should probably use the Pre-Commit hooks. Pull
+requests not passing CI checks will be ignored until they do.</p>
+</section>
+<section id="code-comments">
+<h2>Code Comments<a class="headerlink" href="#code-comments" title="Link to this heading">¶</a></h2>
+<p>We don’t require documents on all code, all of the time. If you’re going to add
+comments to your code, it’s nice to do them in a machine-readable style so we
+can generate documentation from them later.</p>
+<p>We use <a class="reference external" href="https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html">Google style python docstrings</a>
+for commenting/documenting code</p>
+<p>It’s a very human and machine readable comment style that sphinx autodoc
+supports out of the box.</p>
+</section>
+<section id="feature-branching">
+<h2>Feature Branching<a class="headerlink" href="#feature-branching" title="Link to this heading">¶</a></h2>
+<blockquote>
+<div><p>Okay cool, now I can write a bunch of code and push it directly to the
+<code class="docutils literal notranslate"><span class="pre">main</span></code> branch, right?</p>
+</div></blockquote>
+<p>No - don’t push directly to <code class="docutils literal notranslate"><span class="pre">main</span></code>. We don’t want to see all your gross, work
+in progress code.</p>
+<p>Create your own branch, do whatever you want there - break style conventions,
+create a disgusting hairball of commit history and merges, push half-baked
+ideas, whatever you want.</p>
+<p>Just don’t push directly to <code class="docutils literal notranslate"><span class="pre">main</span></code>.</p>
+<blockquote>
+<div><p>What if I need to fix something urgently?</p>
+</div></blockquote>
+<p>What if you break something else by trying to fix it? Then you have to push
+another urgent fix and we have two commits when we should only have one. One of
+those commits also probably contains the word “oops”.</p>
+<p>It’s really not that hard to put it in a branch and open a pull request.</p>
+</section>
+<section id="linear-history-squash-merging">
+<h2>Linear History &amp; Squash Merging<a class="headerlink" href="#linear-history-squash-merging" title="Link to this heading">¶</a></h2>
+<blockquote>
+<div><p>Okay my feature is complete and I’m ready to put it in <code class="docutils literal notranslate"><span class="pre">main</span></code>.</p>
+</div></blockquote>
+<p>Great! Open a pull request, if you want review or think anyone will want to
+review it, get review.</p>
+<p>You probably did a lot of work on your feature branch, maybe in a bunch of
+different commits as you made progress. You might have even gone back an forth
+on the design a bit, or fixed some things during review.</p>
+<p>No one needs to see all those commits on <code class="docutils literal notranslate"><span class="pre">main</span></code>. It clutters the history. And
+we especially don’t want to see a merge commit - gross.</p>
+<p>Squash merge - that way we keep a clean linear history on main that is easy to
+follow. There’s a nice easy button for this on GitHub so you don’t have to know
+how to do it in git if you don’t want.</p>
+<p>One single feature or fix from a branch means one commit to main no matter how
+many commits on your feature branch it took you to get right.</p>
+</section>
+<section id="conventional-commits">
+<h2>Conventional Commits<a class="headerlink" href="#conventional-commits" title="Link to this heading">¶</a></h2>
+<blockquote>
+<div><p>Okay, I’ll squash my feature when I merge. What should I make the commit
+message?</p>
+</div></blockquote>
+<p>There’s actually a standard for this too that we follow - it’s called
+<a class="reference external" href="https://www.conventionalcommits.org/en/v1.0.0/">Conventional Commits</a>. It
+looks like this:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="nb">type</span><span class="o">&gt;</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">description</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+<p>Where <code class="docutils literal notranslate"><span class="pre">&lt;type&gt;</span></code> can be any of <code class="docutils literal notranslate"><span class="pre">feat</span></code>, <code class="docutils literal notranslate"><span class="pre">fix</span></code>, <code class="docutils literal notranslate"><span class="pre">build</span></code>, <code class="docutils literal notranslate"><span class="pre">chore</span></code>, <code class="docutils literal notranslate"><span class="pre">ci</span></code>,
+<code class="docutils literal notranslate"><span class="pre">docs</span></code>, <code class="docutils literal notranslate"><span class="pre">style</span></code>, <code class="docutils literal notranslate"><span class="pre">refactor</span></code>, <code class="docutils literal notranslate"><span class="pre">perf</span></code>, or <code class="docutils literal notranslate"><span class="pre">test</span></code>.</p>
+<p>Here’s an example for your feature branch:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">feat</span><span class="p">:</span> <span class="n">add</span> <span class="n">a</span> <span class="n">new</span> <span class="n">widget</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>We currently don’t use feature scopes or breaking change markers.</p>
+</div>
+</section>
+</section>
+
+
+          </div>
+              <div class="related bottom">
+                &nbsp;
+  <nav id="rellinks">
+    <ul>
+        <li>
+          &larr;
+          <a href="recommended-reading.html" title="Previous document">Recommended Reading</a>
+        </li>
+        <li>
+          <a href="workflows.html" title="Next document">Workflows</a>
+          &rarr;
+        </li>
+    </ul>
+  </nav>
+              </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Undertale</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Development</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="architecture.html">Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="recommended-reading.html">Recommended Reading</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Conventions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#code-style">Code Style</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#linting">Linting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#pre-commit-hooks">Pre-Commit Hooks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#code-comments">Code Comments</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#feature-branching">Feature Branching</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#linear-history-squash-merging">Linear History &amp; Squash Merging</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#conventional-commits">Conventional Commits</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="workflows.html">Workflows</a></li>
+<li class="toctree-l2"><a class="reference internal" href="setup.html">Setup</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Development</a><ul>
+      <li>Previous: <a href="recommended-reading.html" title="previous chapter">Recommended Reading</a></li>
+      <li>Next: <a href="workflows.html" title="next chapter">Workflows</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, MIT Lincoln Laboratory.
+      
+      |
+      <a href="../_sources/development/conventions.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

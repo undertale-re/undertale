@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Workflows &#8212; Undertale 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="icon" href="../_static/favicon.png"/>
+    <link rel="author" title="About these documents" href="../about.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Setup" href="setup.html" />
+    <link rel="prev" title="Conventions" href="conventions.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="workflows">
+<h1>Workflows<a class="headerlink" href="#workflows" title="Link to this heading">¶</a></h1>
+<section id="clone-the-repository">
+<span id="development-workflows-clone"></span><h2>Clone the Repository<a class="headerlink" href="#clone-the-repository" title="Link to this heading">¶</a></h2>
+<p>The first step of contributing to Undertale is to clone the source code
+repository! Run:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span><span class="o">{</span>repository<span class="o">}</span>
+</pre></div>
+</div>
+<p>Where <code class="docutils literal notranslate"><span class="pre">{repository}</span></code> is the URL for the Undertale repository. See <a class="reference external" href="https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository">Cloning a
+Repository</a>.</p>
+</section>
+<section id="start-developing-a-new-feature-or-fix">
+<span id="development-workflows-start-feature"></span><h2>Start Developing a New Feature or Fix<a class="headerlink" href="#start-developing-a-new-feature-or-fix" title="Link to this heading">¶</a></h2>
+<p>Check out the base branch where you want to start developing your feature
+(usually this is <code class="docutils literal notranslate"><span class="pre">main</span></code>) and pull the latest updates.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>checkout<span class="w"> </span>main
+git<span class="w"> </span>pull
+</pre></div>
+</div>
+<p>Create a new branch for your feature - name it whatever you want.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>checkout<span class="w"> </span>-b<span class="w"> </span>feature-branch-name
+</pre></div>
+</div>
+<p>Do some development, make some commits, fix some stuff.</p>
+<p>Push your code to a branch on GitHub (and set your local branch up to track it).</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>push<span class="w"> </span>origin<span class="w"> </span>feature-branch-name<span class="w"> </span>-u
+</pre></div>
+</div>
+<p>Continue development, push more commits, etc.</p>
+<p>When you’re finished with your feature or fix…</p>
+</section>
+<section id="open-a-pull-request">
+<h2>Open a Pull Request<a class="headerlink" href="#open-a-pull-request" title="Link to this heading">¶</a></h2>
+<p>Navigate to the GitHub repo in a browser.</p>
+<p>If you recently pushed commits to your feature branch, there will likely be a
+yellow box at the top guiding you to open an pull request. If not, switch to
+your branch with the branch selector.</p>
+<img alt="../_images/branch-selector.png" src="../_images/branch-selector.png" />
+<p>Then select Contribute &gt; Open Pull Request on the right.</p>
+<img alt="../_images/open-pull-request.png" src="../_images/open-pull-request.png" />
+<p>Add a title for your PR (in Conventional Commit format) and some human-readable
+notes about what it does to make life easier for your reviewers, if you want
+any (you can also tag reviewers here and they’ll get an email).</p>
+<img alt="../_images/pull-request-dialog.png" src="../_images/pull-request-dialog.png" />
+<p>Create the pull request and you’re done!</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>GitHub has a <a class="reference external" href="https://cli.github.com/">nice CLI tool</a> you
+can use for this if you don’t like using a mouse.</p>
+</div>
+</section>
+<section id="update-your-feature-branch-with-upstream-changes">
+<h2>Update Your Feature Branch with Upstream Changes<a class="headerlink" href="#update-your-feature-branch-with-upstream-changes" title="Link to this heading">¶</a></h2>
+<p>You’ve been taking your time developing a super cool new feature - great. But
+there are other people contributing code to this repo too, and their code gets
+merged into your base branch before you - oh no, conflict!</p>
+<p>Luckily, pulling those upstream changes back into your feature branch is easy
+with squash merging - just merge their branch into yours. Who cares how messy
+the git try gets on individual feature branches, it’ll all be squashed when it
+gets to <code class="docutils literal notranslate"><span class="pre">main</span></code>.</p>
+<p>First, fetch the latest updates from GitHub - our GitHub remote is called
+<code class="docutils literal notranslate"><span class="pre">origin</span></code> by default if you checked out the code from GitHub originally:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="n">fetch</span> <span class="n">origin</span>
+</pre></div>
+</div>
+<p>Next, make sure you have your feature branch checked out:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="n">checkout</span> <span class="n">feature</span><span class="o">-</span><span class="n">branch</span><span class="o">-</span><span class="n">name</span>
+</pre></div>
+</div>
+<p>Finally, merge the remote version of your base branch (usually <code class="docutils literal notranslate"><span class="pre">main</span></code>) into
+your current feature branch:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="n">merge</span> <span class="n">main</span>
+</pre></div>
+</div>
+<p>If everything goes smoothly, great! Push your changes and continue with your
+day.</p>
+<p>If there are merge conflicts, you might have to manually decide how to handle
+them - git will tell you this and put you into a nice interactive state where
+you can resolve each of the conflicts one at a time.</p>
+<p>To see files with conflicts, check the git status:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="n">status</span>
+</pre></div>
+</div>
+<p>Edit those files and resolve the conflicts. When you’re done editing a file,
+add it to the index to commit:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="n">add</span> <span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">merge</span><span class="o">-</span><span class="n">conflict</span><span class="o">-</span><span class="n">file</span><span class="o">-</span><span class="n">fixed</span>
+</pre></div>
+</div>
+<p>When you’ve addressed all the merge conflicts, commit your merge - git will
+helpfully create a commit message for you:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="n">commit</span>
+</pre></div>
+</div>
+<p>Now you’re up to date. At this point you can push your changes to your remote
+feature branch and continue developing.</p>
+</section>
+<section id="merge-a-pull-request">
+<h2>Merge a Pull Request<a class="headerlink" href="#merge-a-pull-request" title="Link to this heading">¶</a></h2>
+<p>We use squash merging to keep a clean, linear git history on main. You can do
+this right in the GitHub UI (it should be the only option to merge from the UI
+in the GitHub repo).</p>
+<p>Navigate to your PR in a browser - at the bottom of the discussion there is a
+button to merge (the default should be Squash and Merge).</p>
+<img alt="../_images/pull-request-merge.png" src="../_images/pull-request-merge.png" />
+<p>Click squash and merge, or select it from the dropdown if it’s not the default.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>WAIT! Don’t merge it yet. The content of the text you merge
+becomes the commit message on your base branch.</p>
+</div>
+<p>Edit the commit message - to something in Conventional Commit style.</p>
+<img alt="../_images/pull-request-title.png" src="../_images/pull-request-title.png" />
+<p>You should leave the pull request reference that GitHub generates for you at
+the end of your commit message - this links the commit on the base branch to
+the PR that created it nicely in the GitHub UI.</p>
+<p>Confirm the merge. GitHub should delete your feature branch on the remote after
+merge automatically. Nice, you merged some code into your base branch.</p>
+<p>The last thing we need to do is pull changes into our development environment.
+We can check out the base branch (usually main) and pull changes:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="n">checkout</span> <span class="n">main</span>
+<span class="n">git</span> <span class="n">pull</span>
+</pre></div>
+</div>
+<p>Finally, we can delete our feature branch locally now that it’s merged:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="n">branch</span> <span class="o">-</span><span class="n">D</span> <span class="n">feature</span><span class="o">-</span><span class="n">branch</span><span class="o">-</span><span class="n">name</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>squash merging is slightly more complicated to do on the CLI, but
+we’ll leave that as an exercise for the reader.</p>
+</div>
+</section>
+<section id="start-developing-a-new-feature-or-fix-that-depends-on-another-unmerged-pull-request">
+<h2>Start Developing a New Feature or Fix That Depends on Another Unmerged Pull Request<a class="headerlink" href="#start-developing-a-new-feature-or-fix-that-depends-on-another-unmerged-pull-request" title="Link to this heading">¶</a></h2>
+<p>Easy, just use a different base branch (i.e., not <code class="docutils literal notranslate"><span class="pre">main</span></code>) with the
+instructions in <a class="reference internal" href="#development-workflows-start-feature"><span class="std std-ref">Start Developing a New Feature or Fix</span></a>.</p>
+</section>
+</section>
+
+
+          </div>
+              <div class="related bottom">
+                &nbsp;
+  <nav id="rellinks">
+    <ul>
+        <li>
+          &larr;
+          <a href="conventions.html" title="Previous document">Conventions</a>
+        </li>
+        <li>
+          <a href="setup.html" title="Next document">Setup</a>
+          &rarr;
+        </li>
+    </ul>
+  </nav>
+              </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Undertale</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Development</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="architecture.html">Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="recommended-reading.html">Recommended Reading</a></li>
+<li class="toctree-l2"><a class="reference internal" href="conventions.html">Conventions</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Workflows</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#clone-the-repository">Clone the Repository</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#start-developing-a-new-feature-or-fix">Start Developing a New Feature or Fix</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#open-a-pull-request">Open a Pull Request</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#update-your-feature-branch-with-upstream-changes">Update Your Feature Branch with Upstream Changes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#merge-a-pull-request">Merge a Pull Request</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#start-developing-a-new-feature-or-fix-that-depends-on-another-unmerged-pull-request">Start Developing a New Feature or Fix That Depends on Another Unmerged Pull Request</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="setup.html">Setup</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Development</a><ul>
+      <li>Previous: <a href="conventions.html" title="previous chapter">Conventions</a></li>
+      <li>Next: <a href="setup.html" title="next chapter">Setup</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, MIT Lincoln Laboratory.
+      
+      |
+      <a href="../_sources/development/workflows.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
