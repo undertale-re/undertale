@@ -24,9 +24,9 @@ from torch.optim.lr_scheduler import LambdaLR
 
 from .tokenizer import SPECIAL_TOKENS, TOKEN_NEXT
 
-from transformers import GPT2LMHeadModel, GPT2Tokenizer
+from transformers import GPT2LMHeadModel
 import torch
-
+from model_connector import MLP, TransformerConnector
 
 class Defaults:
     input_size = 512
@@ -356,37 +356,6 @@ class TransformerEncoderForSequenceClassification(Module):
         return output
 
 
-class MLPLanguageConnector(Module):
-    def __init__(self, embed_size, output_size, hidden_size=128, num_layers=2,act=nn.ReLU):
-        super().__init__()
-        
-        #if only one layer, then set hidden size to output size. 
-        #likely wont want only one layer but simple projection is accepted
-        if num_layers==1:
-            hidden_size=output_size
-        
-        connectors=[]
-        for i in range(num_layers):
-            if i==num_layers-1:
-                layer=(f'layer{i}',nn.Linear(hidden_size, output_size))
-                connectors.append(layer)
-            elif i==0:
-                layer=(f'layer{i}',nn.Linear(input_size, hidden_size))
-                activation=(f'act{i}',act())
-                connectors.append(layer)
-                connectors.append(activation) 
-            else:
-                layer=(f'layer{i}',nn.Linear(hidden_size, hidden_size))
-                activation=(f'act{i}',act())
-                connectors.append(layer)
-                connectors.append(activation)
-                
-        self.connectors = nn.Sequential(OrderedDict(connectors))
-
-    def forward(self, inputs_embeds):
-        return self.connectors(inputs_embeds)
-
-
 
 
 class TransformerEncoderForSequenceSummarization(Module):
@@ -396,37 +365,45 @@ class TransformerEncoderForSequenceSummarization(Module):
     '''
     def __init__(
         self,
-        encoder_config,
+        assembly_checkpoint,
+        assembly_tokenizer,
         connector_config,
         llm_config,
-        end2end=True
+        end2end=True,
     ):
         super().__init__()
         self.encoder_config=encoder_config
         
+        
+        self.assembly_tokenizer=tokenizer.load(assembly_tokenizer)
         self.assembly_model=None
         if end2end:
-            self.assembly_encoder(**encoder_config)
+            self.assembly_encoder=TransformerEncoderForMaskedLM.load_from_checkpoint(assembly_checkpoint)
         
-        self.tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
         self.llm = GPT2LMHeadModel.from_pretrained('gpt2')
         self.llm_embedding_size = self.llm.transformer.wte.weight.shape[1]
-        self.prompt_length=connector_config.prompt_length
+        self.prefix_length=connector_config.prefix_length
         
 
-        output_size=self.llm_embedding_size*self.prompt_length
+        output_size=self.llm_embedding_size*self.prefix_length
         hidden_size=output_size//2
-        self.connector=MLPLanguageConnector(encoder_length,output_size,hidden_size,
-                                         connector_config.num_layers,connector_config.act)
-    def forward(self,text,encoder_embedding,mask=None,labels=None):
         
         
-        tokens=self.tokenizer.encode(text)
-        embedding_text = self.llm.transformer.wte(tokens)
-        prompts = self.connector(encoder_embedding).view(-1, self.prompt_length, self.llm_embedding_size)
+        if connector_config.model_type.lower() == "mlp":
+            self.clip_project = MLP((connector_config.prefix_size, hidden_size,
+                                     output_size))
+        else:
+            self.clip_project = TransformerMapper(connetor_config.prefix_size, self.gpt_embedding_size, prefix_length,
+                                                                     clip_length, num_layers)
+        
+        
+    def forward(self,text_tokens,encoder_embedding,mask=None,labels=None):
+        
+        embedding_text = self.llm.transformer.wte(text_tokens)
+        prefixes = self.connector(encoder_embedding).view(-1, self.prefix_length, self.llm_embedding_size)
         
 
-        embedding_cat = torch.cat((prompts, embedding_text), dim=1)
+        embedding_cat = torch.cat((prefixes, embedding_text), dim=1)
         
         if labels is not None:
             dummy_token = self.get_dummy_token(tokens.shape[0], tokens.device)
@@ -439,14 +416,15 @@ class TransformerEncoderForSequenceSummarization(Module):
         
         if self.assembly_model==None:
             self.assembly_encoder(**self.encoder_config)
-        return self.assembly_encoder(assembly_text)
+        tokens=self.embedder_tokenizer(assembly_text)
+        return self.assembly_encoder(tokens)
     
     def get_dummy_token(self, batch_size: int, device: torch.device) -> torch.Tensor:
         return torch.zeros(batch_size, self.prefix_length, dtype=torch.int64, device=device)
         
     def generate_beam(
         beam_size: int = 5,
-        prompt=None,
+        prefix=None,
         embed=None,
         entry_length=67,
         temperature=1.0,
@@ -464,7 +442,7 @@ class TransformerEncoderForSequenceSummarization(Module):
                 generated = embed
             else:
                 if tokens is None:
-                    tokens = torch.tensor(tokenizer.encode(prompt))
+                    tokens = torch.tensor(tokenizer.encode(prefix))
                     tokens = tokens.unsqueeze(0).to(device)
                     generated = self.llm.transformer.wte(tokens)
             for i in range(entry_length):
@@ -519,7 +497,7 @@ class TransformerEncoderForSequenceSummarization(Module):
 
     def generate2(self,
         tokens=None,
-        prompt=None,
+        prefix=None,
         embed=None,
         entry_count=1,
         entry_length=67,  # maximum number of words
@@ -542,7 +520,7 @@ class TransformerEncoderForSequenceSummarization(Module):
                     generated = embed
                 else:
                     if tokens is None:
-                        tokens = torch.tensor(self.tokenizer.encode(prompt))
+                        tokens = torch.tensor(self.tokenizer.encode(prefix))
                         tokens = tokens.unsqueeze(0).to(device)
 
                     generated = self.llm.transformer.wte(tokens)

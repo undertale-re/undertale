@@ -14,6 +14,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="pretrain the model on a masked language modeling dataset",
     )
+    
+    
+    parser.add_argument(
+        "-e", "--end2end", default=True, type=bool, help="whether to train from assembly codo embeddings "
+    )
+    
 
     parser.add_argument(
         "-t", "--tokenizer", required=True, help="trained tokenizer file"
@@ -29,6 +35,7 @@ if __name__ == "__main__":
         "--checkpoint",
         help="trained model checkpoint from which to resume training",
     )
+    
     parser.add_argument("-b", "--batch-size", type=int, default=8, help="batch size")
     parser.add_argument(
         "-a", "--accelerator", default="auto", help="accelerator to use"
@@ -50,14 +57,16 @@ if __name__ == "__main__":
         help="whether to output validation examples",
     )
 
+      
     arguments = parser.parse_args()
 
 
 
 data=Dataset.load("/home/gridsan/AN31700/undertale_shared/datasets/xlcost-compiled-disassembled-parquet")
-
+print(data.column_names)
+print(data['disassembly'][0])
 class SummarizeTrainer(pl.LightningModule):
-    def __init__(self,model, prefix_length, total_steps,lr= 2e-5, warmup_steps=5000):
+    def __init__(self,model, prefix_length, total_steps,lr= 2e-5, warmup_steps=5000,end2end=True):
         
         self.model=model
         self.prompt_length=prompt_length
@@ -65,15 +74,20 @@ class SummarizeTrainer(pl.LightningModule):
         self.warmup_steps=warmup_steps
         self.total_steps=total_steps
         self.device=model.device
+        self.end2end=True
     
     def forward(self,text,encoder_embedding,mask=None,labels=None):
-        return self.model(text,envoder_embedding,mask,labels)
+        if end2end:
+            embed_assembly(self,text,assembly_mask=None)
+        return self.model(text,encoder_embedding,mask,labels)
         
     def training_step(self, batch, batch_idx):
-        tokens, prompt,mask = batch
+        tokens, mask,disassembly_info = batch
         tokens, mask = tokens.to(self.device),mask.to(self.device)
         prefix = prefix.to(self.device, dtype=torch.float32)
-
+        
+        with torch.no_grad():
+            self.model.embed_assembly(disassembly_info,assembly_mask=None):
         outputs = self(tokens, prefix,mask)
         logits = outputs.logits[:, self.prefix_length - 1: -1]
         loss = F.cross_entropy(logits.reshape(-1, logits.shape[-1]), tokens.flatten(), ignore_index=0)
