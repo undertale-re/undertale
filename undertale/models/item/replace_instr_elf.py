@@ -1,7 +1,8 @@
 #
 # Sample use:
 #
-# python -m undertale.models.item.tok_elf  -t ~/undertale_shared/models/item/item.tokenizer.nixpkgs-disassembled-rizin.json -c ~/undertale_shared/models/item/nixpkgs-full-pytorch/checkpoints/epoch\=38-train_loss\=0.16-valid_f1\=0.96.ckpt  ~/trident-obfuscated sym.ls
+# python -m undertale.models.item.replace_instr_elf  -t ~/undertale_shared/models/item/item.tokenizer.nixpkgs-disassembled-rizin.json -c ~/undertale_shared/models/item/nixpkgs-full-pytorch/checkpoints/epoch\=38-train_loss\=0.16-valid_f1\=0.96.ckpt  ~/trident-obfuscated sym.ls
+# python -m undertale.models.item.replace_instr_elf  -t ~/undertale_shared/models/item/item.tokenizer.nixpkgs-disassembled-rizin.json -c ~/undertale_shared/models/item/nixpkgs-full-pytorch/checkpoints/epoch\=38-train_loss\=0.16-valid_f1\=0.96.ckpt  ~/trident-obfuscated ls
 #
 # -t is the tokenizer to use
 # -c is the masked language model to use
@@ -18,13 +19,13 @@
 #
 # Starting with 0th instruction, we collect instructions until we hit
 # token limit (512) but only keep full instructions.  This is the
-# window of code that anomoly_map operates upon.  This function gets
+# window of code that anomaly_map operates upon.  This function gets
 # handed a window that starts with the 1st instruction, then one that
 # starts with the 20th instruction, then one that starts with the 40th
 # instruction, etc. These different windows overlap.  Could have done
 # a window starting at 0, at 1, 2, etc.  But that seemed overkill.
 #
-# anomoly_map gets a string that is pretokenized and includes a
+# anomaly_map gets a string that is pretokenized and includes a
 # sequence of instructions from the input function. It masks all the
 # tokens in the 1st instruction and has the model fill in those
 # blanks. For just the tokens that represent the instruction that was
@@ -34,7 +35,7 @@
 # instruction is the same and will be positive if a more likely
 # alternative was imagined by the model.
 #
-# Returned by anomoly map is a list of triples which are the original
+# Returned by anomaly map is a list of triples which are the original
 # and predicted instructions for masking and the log probability for
 # the predicted vs the original.
 #
@@ -48,8 +49,12 @@
 import argparse
 import json
 import math
+import re
 
+import binaryninja
 import r2pipe
+from binaryninja.architecture import Architecture
+from binaryninja.enums import InstructionTextTokenType
 from torch import argmax, softmax, tensor, where
 
 from . import tokenizer
@@ -155,7 +160,7 @@ def decode(tokens):
     return dec.replace(tokenizer.TOKEN_PAD, "").strip()
 
 
-def anomoly_map(pretok_disas_str):
+def anomaly_map(pretok_disas_str):
     encoded = tok.encode(pretok_disas_str)
     tokens, attn = tensor(encoded.ids), tensor(encoded.attention_mask)
 
@@ -231,6 +236,11 @@ def anomoly_map(pretok_disas_str):
     return lpri
 
 
+def remove_braces(text):
+    # Matches ' {' followed by any characters (non-greedy) until the next '}'
+    return re.sub(r" \{.*?\}", "", text)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="predict masked tokens in a piece of disassembly"
@@ -264,37 +274,80 @@ if __name__ == "__main__":
     # this is the context window (number of tokens)
     window = 512
 
-    r = r2pipe.open(arguments.elf)
-
-    r.cmd("aa")
-    d = json.loads(r.cmd(f"pdfj @ {arguments.fn}"))
-
-    buf = None
-    for op in d["ops"]:
-        byts = bytes.fromhex(op["bytes"])
-        if buf is None:
-            buf = byts
-        else:
-            buf += byts
-
-    code_max = 65536
-    r = r2pipe.open(f"malloc://{code_max}", flags=["-2"])
-    r.cmd("s 0")
-    r.cmd(f"r {len(buf)}")
-    r.cmd("wx " + (" ".join([f"{i:02x}" for i in buf])))
-    r.cmd("aa")
-    d = json.loads(r.cmd("pdfj"))
-
     disassembly = []
-    print("ORIGINAL DISASSEMBLY FROM R2")
-    if "ops" in d.keys():
-        for i in range(len(d["ops"])):
-            dis = d["ops"][i]["disasm"]
-            print(dis)
-            disassembly.append(dis)
+
+    if "sym" in arguments.fn:
+        r = r2pipe.open(arguments.elf)
+        r.cmd("aa")
+        d = json.loads(r.cmd(f"pdfj @ {arguments.fn}"))
+
+        buf = None
+        for op in d["ops"]:
+            byts = bytes.fromhex(op["bytes"])
+            if buf is None:
+                buf = byts
+            else:
+                buf += byts
+
+        code_max = 65536
+        r = r2pipe.open(f"malloc://{code_max}", flags=["-2"])
+        r.cmd("s 0")
+        r.cmd(f"r {len(buf)}")
+        r.cmd("wx " + (" ".join([f"{i:02x}" for i in buf])))
+        r.cmd("aa")
+        d = json.loads(r.cmd("pdfj"))
+
+        print("ORIGINAL DISASSEMBLY FROM R2")
+        if "ops" in d.keys():
+            for i in range(len(d["ops"])):
+                dis = d["ops"][i]["disasm"]
+                print(dis)
+                disassembly.append(dis)
+    else:
+        SKIP_TOKENS = [
+            InstructionTextTokenType.StackVariableToken,
+            InstructionTextTokenType.TagToken,
+        ]
+
+        bv = binaryninja.load(arguments.elf)
+
+        fn = bv.get_functions_by_name(arguments.fn)[0]
+        buf = bv.read(fn.start, fn.total_bytes)
+
+        base_addr = 0
+        bv = binaryninja.BinaryView.new(buf)
+        bv.arch = Architecture["x86_64"]
+        bv.platform = bv.arch.standalone_platform
+        bv.add_entry_point(base_addr)
+        bv.create_user_function(base_addr)
+        bv.update_analysis_and_wait()
+
+        fn = bv.get_function_at(base_addr)
+        for block in sorted(fn.basic_blocks, key=lambda b: b.start):
+            for line in block.disassembly_text:
+                disasm_str = "".join(
+                    token.text for token in line.tokens if token.type not in SKIP_TOKENS
+                )
+                disasm_str = " ".join(disasm_str.strip().split())
+                if any("{" in token.text for token in line.tokens):
+                    disasm_str = remove_braces(disasm_str)
+                if "sub_0" in disasm_str:
+                    idx = next(
+                        (
+                            i
+                            for i, token in enumerate(line.tokens)
+                            if token.text == "sub_0"
+                        ),
+                        -1,
+                    )
+                    disasm_str = disasm_str.replace(
+                        "sub_0", str(line.tokens[idx].value)
+                    )
+                if disasm_str == "retn":
+                    disasm_str = disasm_str[:-1]
+                disassembly.append(disasm_str)
 
     num_insns = len(disassembly)
-
     disassembly = "\n".join(disassembly)
 
     pretokens = pretokenize(disassembly).split()
@@ -339,7 +392,7 @@ if __name__ == "__main__":
         print(pt_txt)
         # breakpoint()
 
-        lpri = anomoly_map(pt_txt)
+        lpri = anomaly_map(pt_txt)
         with open(f"window-{i}-{j}", "w") as w:
             for instr, new_instr, lpr in lpri:
                 w.write(f"{lpr:.3f}: {instr} XXX {new_instr}\n")

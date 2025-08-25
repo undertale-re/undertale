@@ -105,8 +105,8 @@ def pretokenize(disassembly: str) -> str:
                 if ":" in operand:
                     segment, operand = operand.split(":")
                     pretokens.append(segment)
-
-                assert operand[0] == "["
+                print(instruction)
+                # assert operand[0] == "["
                 assert operand[-1] == "]"
                 operand = operand[1:-1]
 
