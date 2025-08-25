@@ -75,6 +75,7 @@ def pretokenize(disassembly: str) -> str:
         # Instruction without operands (e.g., `ret`).
         if len(split) == 1:
             pretokens.append(split[0])
+            pretokens.append(TOKEN_NEXT)
             continue
         else:
             mnemonic, operands = split
@@ -104,8 +105,8 @@ def pretokenize(disassembly: str) -> str:
                 if ":" in operand:
                     segment, operand = operand.split(":")
                     pretokens.append(segment)
-
-                assert operand[0] == "["
+                print(instruction)
+                # assert operand[0] == "["
                 assert operand[-1] == "]"
                 operand = operand[1:-1]
 
@@ -138,6 +139,8 @@ def pretokenize(disassembly: str) -> str:
                 pretokens.append("]")
             # Everything else should be a register.
             else:
+                if " " in operand:
+                    breakpoint()
                 assert " " not in operand
 
                 pretokens.append(operand)

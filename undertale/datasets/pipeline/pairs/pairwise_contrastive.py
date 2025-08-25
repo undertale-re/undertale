@@ -3,7 +3,6 @@ from datatrove.pipeline.base import PipelineStep
 
 
 class PairwiseContrastive(PipelineStep):
-
     type = "P - PAIRS"
     name = "C - Constrastive"
 
