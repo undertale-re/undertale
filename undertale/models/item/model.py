@@ -1,8 +1,10 @@
 from math import sqrt
-from typing import Optional
-
+from typing import Optional, Tuple
+from dataclasses import dataclass
+from transformers.utils import ModelOutput
 from lightning import LightningModule
 from sklearn.metrics import f1_score
+import torch
 from torch import (
     Tensor,
     arange,
@@ -16,11 +18,14 @@ from torch import (
     softmax,
     stack,
     zeros,
+    nn
 )
-from torch.nn import GELU, Dropout, Embedding, LayerNorm, Linear, Module, ModuleList
+from torch.nn import GELU, Dropout, Embedding, LayerNorm, Linear, Module, ModuleList, CosineSimilarity,Sigmoid,BCELoss
 from torch.nn.functional import cross_entropy
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import LambdaLR
+
+from torch.nn import CosineEmbeddingLoss
 
 from .tokenizer import SPECIAL_TOKENS, TOKEN_NEXT
 
@@ -31,7 +36,6 @@ class Defaults:
     heads = 12
     hidden_dimensions = 768
     intermediate_dimensions = 3072
-    embedding_size = 128
     dropout = 0.1
     eps = 1e-12
     lr = 1e-4
@@ -49,6 +53,17 @@ def scaled_dot_product_attention(
     weights = softmax(scores, dim=-1)
     return bmm(weights, value)
 
+class CosineInstructionTraceDifference(Module):
+    def __init__(self):
+        super().__init__()
+
+        self.activation = Sigmoid()
+
+    def forward(self, first, second):
+        cos = CosineSimilarity(dim=-1, eps=1e-6)
+        difference = cos(first, second)
+
+        return self.activation(difference)
 
 class Attention(Module):
     def __init__(self, hidden_dimensions: int, head_dimensions: int):
@@ -314,48 +329,18 @@ class TransformerEncoderForMaskedLM(LightningModule, Module):
 
         self.log("valid_f1", f1, prog_bar=True, sync_dist=True)
 
+@dataclass
+class SimilarityModelOutput(ModelOutput):
+    loss:torch.FloatTensor = None
+    logits:Optional[Tuple[torch.FloatTensor]] = None
+    embedded1: Optional[Tuple[torch.FloatTensor]]  = None
+    hidden_states1: Optional[Tuple[torch.FloatTensor]] = None
+    attentions1: Optional[Tuple[torch.FloatTensor]] = None
+    embedded2: Optional[Tuple[torch.FloatTensor]] =  None
+    hidden_states2: Optional[Tuple[torch.FloatTensor]] = None
+    attentions2: Optional[Tuple[torch.FloatTensor]] = None
 
-
-
-class CosineInstructionTraceDifference(Module):
-    def __init__(self):
-        super().__init__()
-
-        self.activation = nn.Sigmoid()
-
-    def forward(self, first, second):
-        cos = nn.CosineSimilarity(dim=-1, eps=1e-6)
-        difference = cos(first, second)
-
-        return self.activation(difference)
-
-
-class EuclidianInstructionTraceDifference(Module):
-    def __init__(self):
-        super().__init__()
-
-        self.activation = nn.Sigmoid()
-
-    def forward(self, first, second):
-        difference = torch.sqrt(torch.sum((first - second) ** 2, dim=-1))
-
-        return self.activation(difference)
-
-
-class LearnedInstructionTraceDifference(Module):
-    def __init__(self, embedding_size:int):
-        super().__init__()
-
-        self.linear = nn.Linear(embedding_size, 1)
-        self.activation = nn.Sigmoid()
-
-    def forward(self, first, second):
-        difference = torch.abs(first - second)
-        outputs = self.linear(difference).squeeze()
-        outputs = self.activation(outputs)
-
-        return outputs
-
+        
 
 @dataclass
 class EmbeddingModelOutput(ModelOutput):
@@ -378,43 +363,50 @@ class EmbeddingModelOutput(ModelOutput):
 
         return cls(embedded=data)
 
-
 class InstructionTraceEmbeddingHead(Module):
     def __init__(self, hidden_size:int, embedding_size:int, embedding_dropout_prob:int):
         super().__init__()
 
-        self.linear1 = nn.Linear(hidden_size, hidden_size // 2)
-        self.linear2 = nn.Linear(hidden_size // 2, embedding_size)
-        self.activation = nn.GELU()
-        self.dropout = nn.Dropout(embedding_dropout_prob)
+        self.linear1 = Linear(hidden_size, hidden_size // 2)
+        self.linear2 = Linear(hidden_size // 2, embedding_size)
+        self.activation = GELU()
+        self.dropout = Dropout(embedding_dropout_prob)
 
     def forward(self, inputs):
+        inputs = inputs.to(torch.float32)
         outputs = self.linear1(inputs)
+
         outputs = self.activation(outputs)
         outputs = self.linear2(outputs)
         outputs = self.dropout(outputs)
-
         return outputs
 
+class SimilarityLoss(Module):
+    def __init__(self):
+        super().__init__()
+        self.simloss = CosineSimilarity(dim=2,eps=1e-6)
 
-class TransformerEncoderForSequenceEmbedding(Module):
+    def forward(self, first, second):
+        similarity = self.simloss(first, second)
+        return similarity  
 
+
+class TransformerEncoderForSequenceSimilarity(LightningModule, Module):
     def __init__(
-            self,
-            depth: int,
-            hidden_dimensions: int,
-            vocab_size: int,
-            input_size: int,
-            heads: int,
-            intermediate_dimensions: int,
-            dropout: float,
-            eps: float,
-            lr: float,
-            warmup: float,
-            embedding_size: int,
-            embedding_dropout_prob: float):
-        ):
-
+        self,
+        depth: int,
+        hidden_dimensions: int,
+        vocab_size: int,
+        input_size: int,
+        heads: int,
+        intermediate_dimensions: int,
+        dropout: float,
+        eps: float,
+        lr: float,
+        warmup: float,
+    ):
+        
+        super().__init__()
         self.encoder = TransformerEncoder(
             depth,
             hidden_dimensions,
@@ -425,112 +417,46 @@ class TransformerEncoderForSequenceEmbedding(Module):
             dropout,
             eps,
         )
+
         
-        self.embedding = InstructionTraceEmbeddingHead(hidden_dimensions, embedding_size, embedding_dropout_prob)
-
-    def forward(self, input_ids, attention_mask):
-        outputs = self.encoder(input_ids=input_ids, attention_mask=attention_mask)
-        
-        # Pool sequence model by taking the embedding of the [CLS] token - this
-        # is how HuggingFace handles pooling, we just don't want the extra
-        # dense layer that they add
-        pooled = outputs.last_hidden_state[:, 0]
-
-        # Mean pooling - Trex's approach
-        # pooled = output.last_hidden_state.mean(dim=-2)
-
-        embedded = self.embedding(pooled)
-
-        return EmbeddingModelOutput(
-            embedded=embedded,
-            hidden_states=outputs.hidden_states,
-            attentions=outputs.attentions,
-        )
-
-    
-class TransformerEncoderForSequenceSimilarity(Module):
-    def __init__(
-            self,
-            depth: int,
-            hidden_dimensions: int,
-            vocab_size: int,
-            input_size: int,
-            heads: int,
-            intermediate_dimensions: int,
-            dropout: float,
-            eps: float,
-            lr: float,
-            warmup: float,
-            embedding_size: int,
-            embedding_dropout_prob: float):
-    ):
-        super().__init__()
-        self.save_hyperparameters()
-
         self.lr = lr
         self.warmup = warmup
         self.steps_per_epoch = None
-
-        self.embedding = TransformerEncoderForSequenceEmbedding(
-            # these are for TransformerEncoder
-            depth,
-            hidden_dimensions,
-            vocab_size,
-            input_size,
-            heads,
-            intermediate_dimensions,
-            dropout,
-            eps,
-            # these are for the embedding head
-            hidden_dimension, 
-            128, # embedding_size
-            0.1 # embedding_dropout_prob            
-        )
+        self.embedloss = SimilarityLoss()
+        self.head = MaskedLMHead(hidden_dimensions, vocab_size, eps)
+        self.save_hyperparameters()
         
-        self.difference = CosineInstructionTraceDifference()
 
-        
+
     def on_fit_start(self):
         self.steps_per_epoch = (
             self.trainer.estimated_stepping_batches // self.trainer.max_epochs
         )
 
-
+    def on_save_checkpoint(self, checkpoint):
+        model_state_dict = checkpoint['state_dict']
+        for param_name, param_tensor in model_state_dict.items():
+            print(f"{param_name}\t{param_tensor.size()}")
+            
     def forward(
-        self, input_ids1, attention_mask1, input_ids2, attention_mask2, labels=None
+        self, input_ids_d1, attention_mask_d1, input_ids_d2, attention_mask_d2
     ):
-        embedded1 = self.embedding(input_ids=input_ids1, attention_mask=attention_mask1)
-        embedded2 = self.embedding(input_ids=input_ids2, attention_mask=attention_mask2)
-
-        logits = self.difference(embedded1.embedded, embedded2.embedded)
-
-        if labels is not None:
-            function = nn.BCELoss()
-            loss = function(logits, labels.float())
-        else:
-            loss = None
-
-        return SimilarityModelOutput(
-            loss=loss,
-            logits=logits,
-            embedded1=embedded1.embedded,
-            embedded2=embedded2.embedded,
-            hidden_states1=embedded1.hidden_states,
-            hidden_states2=embedded2.hidden_states,
-            attentions1=embedded1.attentions,
-            attentions2=embedded2.attentions,
-        )
+        embedded1 = self.encoder(input_ids_d1, attention_mask_d1)
+        embedded2 = self.encoder(input_ids_d2, attention_mask_d2)
+        similarity = self.embedloss(embedded1, embedded2)
+        similarity = (similarity +1) /2 # Convert -1 to 1 to 0 to 1 range
+        similarity = torch.mean(similarity, dim=[1]) #Collapse (512,768) to mean value
+        return similarity
 
     def configure_optimizers(self):
         optimizer = AdamW(self.parameters(), lr=self.lr)
-
+        
         def constant_with_linear_warmup(step):
             if self.steps_per_epoch is None:
                 return 1
             return min(step / self.warmup * self.steps_per_epoch, 1)
 
         scheduler = LambdaLR(optimizer, constant_with_linear_warmup)
-
         return {
             "optimizer": optimizer,
             "lr_scheduler": {
@@ -541,18 +467,24 @@ class TransformerEncoderForSequenceSimilarity(Module):
         }
 
     def training_step(self, batch, index):
-        # does this work?
-        outputs = self(**batch)
-        return outputs.loss
+        batch_size = batch["input_ids_d1"].shape[0]
+        outputs = torch.empty(batch_size)
+        outputs = []
+        for i in range(batch_size):
+            loss = self(torch.stack([batch["input_ids_d1"][i,:]]),torch.stack([batch["attention_mask_d1"][i,:]]),torch.stack([batch["input_ids_d2"][i,:]]),torch.stack([batch["attention_mask_d2"][i,:]]))
+            outputs.append(loss)    
+        return torch.cat(outputs)
 
     def validation_step(self, batch, index):
-        outputs = self(**batch)
-        references = batch["labels"]
-        predictions = outputs.logits.squeeze()
-        f1 = f1_score(references.tolist(), predictions.tolist(), average="micro")
-        self.log("valid_f1", f1, prog_bar=True, sync_dist=True)
-
-
+        references = batch["similarity"]
+        batch_size = references.shape[0]
+        for i in range(batch_size):
+            loss = self(torch.stack([batch["input_ids_d1"][i,:]]),torch.stack([batch["attention_mask_d1"][i,:]]),torch.stack([batch["input_ids_d2"][i,:]]),torch.stack([batch["attention_mask_d2"][i,:]]))
+            threshold = 0.5
+            similarity = torch.where(loss > threshold, 1.0, 0.0) # Convert continous values to 0 - 1 
+            f1 = f1_score(references.tolist(), similarity.tolist(), average="micro")
+            self.log("valid_f1", f1, prog_bar=True, sync_dist=True)
+        #return output
 
 class TransformerEncoderForSequenceClassification(Module):
     def __init__(

@@ -157,7 +157,7 @@ jpype1==1.5.2
     # via pyhidra
 lief==0.16.5
     # via undertale (setup.py)
-lightning==1.8.6
+lightning==2.5.1
     # via undertale (setup.py)
 lightning-cloud==0.5.70
     # via lightning
@@ -250,7 +250,7 @@ openai==1.78.1
     # via undertale (setup.py)
 orderly-set==5.4.1
     # via deepdiff
-packaging==25.0
+packaging==24.2
     # via
     #   black
     #   build

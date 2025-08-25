@@ -4,16 +4,18 @@ import os
 
 import torch
 import transformers
-from lightning import Trainer
+from lightning.pytorch import Trainer
 from lightning.pytorch.callbacks import ModelCheckpoint, TQDMProgressBar
+from lightning.pytorch.strategies.ddp import DDPStrategy
+from torch.nn import CosineEmbeddingLoss
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 from lightning.pytorch.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
-
+from lightning.pytorch.utilities.model_summary import ModelSummary
 from ... import logging as undertale_logging
 from ...datasets.base import Dataset
 from . import tokenizer
-from .model import Defaults, TransformerEncoderForSequenceSimilarity
+from .model import Defaults, TransformerEncoderForSequenceSimilarity,TransformerEncoderForMaskedLM
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +70,10 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
+        "-v", "--version", default=1.0, type=int, help="Tensorboard logger"
+    )
+
+    parser.add_argument(
         "-e",
         "--epochs",
         type=int,
@@ -77,7 +83,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "--start-epoch", type=int, default=0, help="starting epoch number"
     )
-    parser.add_argument("-b", "--batch-size", type=int, default=8, help="batch size")
 
     arguments = parser.parse_args()
 
@@ -101,23 +106,30 @@ if __name__ == "__main__":
         eps=Defaults.eps,
         lr=Defaults.lr,
         warmup=Defaults.warmup,
-        embedding_size=Defaults.embedding_size,
-        embedding_dropout_prob=Defaults.dropout
+        #embedding_size=128, #ASK TODO REVISIT
+        #embedding_dropout_prob=Defaults.dropout
     )
+    #summary = ModelSummary(model, max_depth=-1) # Use -1 to show all modules
+    #print(summary)
+    model =  TransformerEncoderForSequenceSimilarity.load_from_checkpoint(arguments.model)
+    model_state_dict = model.state_dict() 
+    for param_name, param_tensor in model_state_dict.items():
+        if (param_name =='encoder.embedding.token.weight'):
+            print(f"{param_name}\t{param_tensor}")
+    #if (arguments.model):
+    #    maskedLMModel = TransformerEncoderForMaskedLM.load_from_checkpoint(arguments.model)
+    #elif arguments.checkpoint:
+    #    maskedLMModel = model.from_pretrained(arguments.checkpoint, local_files_only=True)
+    #    print("CHECKPOINT")
 
-    if (arguments.model):
-        # Seems like I want to load the previously trained
-        # TransformerEncoderForMaskedLM and then pull out its
-        # model1.encoder and hand it to this model we'll be using for seq
-        # similarity training.
-        #
-        # Presumably, arguments.model is meant to point to that pre-trained mlm.
-        #
-        mlm = TransformerEncoderForMaskedLM.load_from_checkpoint(arguments.model)
-        model.encoder = mlm.encoder
-    elif arguments.checkpoint:
-        model = model.from_pretrained(arguments.checkpoint, local_files_only=True)
-            
+    #model.encoder = maskedLMModel.encoder
+    #model.head = maskedLMModel.head
+    #model.save_hyperparameters()
+    #print("************************************KSRTC")
+    #ASK
+    summary = ModelSummary(model, max_depth=-1) # Use -1 to show all modules
+    print(summary)
+    
     try:
         dataset = Dataset.load(arguments.dataset)
     except ValueError as e:
@@ -125,37 +137,7 @@ if __name__ == "__main__":
         exit(1)
 
     dataset = dataset.train_test_split(test_size=0.1)
-    
-    def tokenize(batch):
-        preprocessed = tokenizer.preprocess_batch(batch)
-        encoded = tok.encode_batch(preprocessed["preprocessed"])
-
-        batch["input_ids"] = [s.ids for s in encoded]
-        batch["attention_mask"] = [s.attention_mask for s in encoded]
-
-        return batch
-
-    def tokenize_pair(batch):
-        first = tokenize(batch["first"])
-        second = tokenize(batch["second"])
-
-        batch = {}
-        batch["input_ids1"] = first["input_ids"]
-        batch["attention_mask1"] = first["attention_mask"]
-        batch["input_ids2"] = second["input_ids"]
-        batch["attention_mask2"] = second["attention_mask"]
-        batch["labels"] = batch["similarity"]
-
-        return batch
-
-    dataset = dataset.map(
-        tokenize_pair,
-        batched=True,
-        remove_columns=dataset.column_names,
-        desc="tokenizing",
-    )
-
-    dataset = dataset.train_test_split(test_size=0.1)
+    print(dataset.column_names)
 
     collator = transformers.DefaultDataCollator()
 
@@ -164,23 +146,32 @@ if __name__ == "__main__":
         dataset["train"],
         shuffle=True,
         batch_size=batch_size,
-        collate_fn=collator
+        collate_fn=collator,
+        num_workers=7
     )
     validation = DataLoader(
         dataset["test"],
-        shuffle=True,
+        shuffle=False,
         batch_size=batch_size,
-        collate_fn=collator
+        collate_fn=collator,
+        num_workers=7
     )
 
     output = os.path.abspath(os.path.expanduser(arguments.output))
     
-    progress = ProgressBar(leave=True)
+    progress = ProgressBar()
     checkpoint = ModelCheckpoint(
         filename="{epoch}-{train_loss:.2f}-{valid_f1:.2f}",
         save_top_k=-1,
     )
-    stop = EarlyStopping(monitor="valid_f1", mode="max", patience=5, min_delta=0.001)
+    #stop = EarlyStopping(monitor="valid_f1", mode="max", patience=5, min_delta=0.001)  
+    stop = EarlyStopping(
+        monitor="valid_f1",  # Or any other logged metric
+        patience=3,
+        verbose=False,
+        mode="min",
+    )
+
     logger = TensorBoardLogger(
         save_dir=os.path.dirname(output),
         name=os.path.basename(output),
@@ -193,9 +184,10 @@ if __name__ == "__main__":
         accelerator=arguments.accelerator,
         devices=arguments.devices,
         num_nodes=arguments.nodes,
-        strategy="ddp",
+        strategy = DDPStrategy(find_unused_parameters=True),
         max_epochs=96,
     )
+
     trainer.fit(
         model,
         train_dataloaders=training,
