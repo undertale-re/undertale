@@ -9,24 +9,22 @@
 #SBATCH --distribution=nopack
 #SBATCH -o eval-test-log-%j
 
-source /etc/profile
-module purge
-module load anaconda/Python-ML-2025a
-# eval "$(conda shell.bash hook)"
+eval "$(conda shell.bash hook)"
 source activate undertale
-module unload anaconda/Python-ML-2025a
 
 DATASET=nixpkgs-disassembled-rizin-pretraining-small
 TOKENIZER=item.tokenizer.nixpkgs.json
 WORKSPACE=/state/partition1/user/$USER
-MODEL_LOC=/data2/groups/undertale_shared/models/item/nixpkgs-full-pytorch-large/checkpoints/epoch=0-train_loss=0.39-valid_f1=0.90.ckpt
-export HF_HOME=$WORKSPACE/cache
+MODEL=nixpkgs-full-pytorch-large/checkpoints/epoch=38-train_loss=0.16-valid_f1=0.96.ckpt
 
 srun mkdir -p $WORKSPACE
 srun rsync --progress -r ~/undertale_shared/datasets/$DATASET/ $WORKSPACE/$DATASET/
 srun rsync --progress ~/undertale_shared/models/item/$TOKENIZER $WORKSPACE/
+srun rsync --progress ~/undertale_shared/models/item/$MODEL $WORKSPACE/
+
+export HF_HOME=$WORKSPACE/cache
 
 python -m undertale.evaluation.basic_eval \
-    --model $MODEL_LOC \
+    --model $WORKSPACE/$(basename $MODEL) \
     --tokenizer $WORKSPACE/$TOKENIZER \
     --dataset $WORKSPACE/$DATASET/

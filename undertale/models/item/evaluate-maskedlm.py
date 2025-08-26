@@ -8,62 +8,53 @@ from undertale.datasets.base import Dataset
 from undertale.models.item import tokenizer
 from undertale.models.item.model import TransformerEncoderForMaskedLM
 
-parser = argparse.ArgumentParser(
-    description="pretrain the model on a masked language modeling dataset",
-)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="evaluate a model on a masked language modeling dataset",
+    )
 
-parser.add_argument(
-    "-m",
-    "--model",
-    help="model to evaluate",
-)
-parser.add_argument("-t", "--tokenizer", required=True, help="trained tokenizer file")
-parser.add_argument(
-    "--dataset",
-    help="dataset on which to train the model (format: `{module.path}:{DatasetClass}`)",
-)
-parser.add_argument(
-    "-n",
-    "--num_examples",
-    default=10,
-    help="The number of examples to run",
-)
-parser.add_argument(
-    "--mode",
-    default="MLM",
-    help="What kind of model to test",
-)
-args = parser.parse_args()
-if args.mode not in ["MLM"]:
-    raise NotImplementedError(f"{args.mode} is not a currently supported mode.")
-tokenizer_loc = args.tokenizer
-checkpoint = args.model
+    parser.add_argument(
+        "-t", "--tokenizer", required=True, help="trained tokenizer file"
+    )
+    parser.add_argument(
+        "-c",
+        "--checkpoint",
+        required=True,
+        help="trained model checkpoint",
+    )
+    parser.add_argument(
+        "dataset",
+        help="dataset on which to evaluate the model",
+    )
 
-tok = tokenizer.load(tokenizer_loc)
-model = TransformerEncoderForMaskedLM.load_from_checkpoint(checkpoint)
-print("running model on ", model.device)
+    parser.add_argument(
+        "-s",
+        "--samples",
+        default=10,
+        help="the number of samples to run",
+    )
 
-dataset_loc = args.dataset
-batch_size = 1
+    arguments = parser.parse_args()
 
-if args.mode == "MLM":
+    tok = tokenizer.load(arguments.tokenizer)
+    model = TransformerEncoderForMaskedLM.load_from_checkpoint(arguments.checkpoint)
+
     collator = transformers.DataCollatorForLanguageModeling(
         tokenizer=transformers.PreTrainedTokenizerFast(
-            tokenizer_file=tokenizer_loc,
+            tokenizer_file=arguments.tokenizer,
             mask_token=tokenizer.TOKEN_MASK,
             unk_token=tokenizer.TOKEN_UNKNOWN,
             pad_token=tokenizer.TOKEN_PAD,
         ),
         mlm_probability=0.15,
     )
-    dataset = Dataset.load(dataset_loc)
-    dataset = dataset.train_test_split(test_size=10)
+    dataset = Dataset.load(arguments.dataset)
+    dataset = dataset.train_test_split(test_size=arguments.samples)
     validation = DataLoader(
         dataset["test"],
         shuffle=False,
-        batch_size=batch_size,
+        batch_size=1,
         collate_fn=collator,
-        num_workers=8,
     )
     for batch in validation:
         input_ids = batch.input_ids.to(model.device)
@@ -84,7 +75,5 @@ if args.mode == "MLM":
         predicted = (
             predicted.replace(tokenizer.TOKEN_PAD, "").replace("[NEXT]", "\n").strip()
         )
-        # TODO explore Top-K prediction with confidence scores from softmax logits.
-        # top = topk(softmax(output, dim=-1), k=5)
         print(f"input:\n {input_seq}\n\noutput:\n {predicted}")
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
