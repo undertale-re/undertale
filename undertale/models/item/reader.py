@@ -21,7 +21,7 @@ if __name__ == "__main__":
         #embedding_dropout_prob=Defaults.dropout
     )
     '''
-    modelpath = "/panfs/g52-panfs/scratch/as28456/assemblage-windows-disassembled-finetune-embeddingV04/version_1.0/checkpoints/epoch=0-train_loss=0.00-valid_f1=0.49.ckpt"
+    modelpath = "/panfs/g52-panfs/scratch/as28456/assemblage-windows-disassembled-finetune-embedding/version_1.0/checkpoints/epoch=3-train_loss=0.46-valid_f1=0.54.ckpt"
     model = TransformerEncoderForSequenceSimilarity.load_from_checkpoint(modelpath)
     #model.from_pretrained(modelpath, local_files_only=True)
     model_state_dict = model.state_dict() 

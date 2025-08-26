@@ -441,14 +441,14 @@ class TransformerEncoderForSequenceSimilarity(LightningModule, Module):
             print(f"{param_name}\t{param_tensor.size()}")
             
     def forward(
-        self, input_ids_d1, attention_mask_d1, input_ids_d2, attention_mask_d2,similarity=None
+        self, input_ids_d1, attention_mask_d1, input_ids_d2, attention_mask_d2
     ):
         embedded1 = self.encoder(input_ids_d1, attention_mask_d1)
         embedded2 = self.encoder(input_ids_d2, attention_mask_d2)
         diffembed = self.embedloss(embedded1, embedded2)
         diffembed = torch.mean(diffembed, dim=[1]) #Collapse (512,768) to mean value
         #similarity = (similarity +1) /2 # Convert -1 to 1 to 0 to 1 range
-        return diffembed#similarity
+        return diffembed
 
     def configure_optimizers(self):
         optimizer = AdamW(self.parameters(), lr=self.lr)
@@ -472,26 +472,30 @@ class TransformerEncoderForSequenceSimilarity(LightningModule, Module):
         batch_size = batch["input_ids_d1"].shape[0]
         outputs = torch.empty(batch_size)
         outputs = []
-        for i in range(batch_size):
+        running_vloss = 0.0
+        for i in range(batch_size):    
             references = torch.stack([batch["similarity"][i]])
             diffembed = self(torch.stack([batch["input_ids_d1"][i,:]]),torch.stack([batch["attention_mask_d1"][i,:]]),torch.stack([batch["input_ids_d2"][i,:]]),torch.stack([batch["attention_mask_d2"][i,:]]))
             loss = self.bceloss(diffembed, references)
-            self.log("train_loss", loss, prog_bar=True, sync_dist=True)
-            return loss 
+            running_vloss += loss 
             #outputs.append(torch.stack(loss))    
-        #return torch.cat(outputs)
+        avg_vloss = running_vloss / batch_size
+        self.log("train_loss", avg_vloss, prog_bar=True, sync_dist=True)
+        return avg_vloss
 
-    def xvalidation_step(self, batch, index):
+    def validation_step(self, batch, index):
         references = batch["similarity"]
         batch_size = references.shape[0]
+        running_score = 0.0
         for i in range(batch_size):
             target = torch.stack([batch["similarity"][i]])
             predictions = self(torch.stack([batch["input_ids_d1"][i,:]]),torch.stack([batch["attention_mask_d1"][i,:]]),torch.stack([batch["input_ids_d2"][i,:]]),torch.stack([batch["attention_mask_d2"][i,:]]))
-            #threshold = 0.5
-            #similarity = torch.where(loss > threshold, 1.0, 0.0) # Convert continous values to 0 - 1 
+            threshold = 0.5
+            predictions = torch.where(predictions > threshold, 1.0, 0.0) # Convert continous values to 0 - 1 
             f1 = f1_score(target.tolist(), predictions.tolist(), average="micro")
-            self.log("valid_f1", f1, prog_bar=True, sync_dist=True)
-        #return output
+            running_score += f1
+        f1score = running_score / batch_size
+        self.log("valid_f1", f1score, prog_bar=True, sync_dist=True)
 
 class TransformerEncoderForSequenceClassification(Module):
     def __init__(
