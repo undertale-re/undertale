@@ -6,6 +6,7 @@
 *.parquet
 *.safetensors
 *.zip
+*.ckpt
 
 *.DS_Store
 
