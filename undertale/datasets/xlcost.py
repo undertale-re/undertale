@@ -21,7 +21,12 @@ def adapt_xlcost_from_raw(self, data: dict, path: str, id_in_file: int | str) ->
 
 
 class XLCost(Dataset):
-    name = "xlcost"
+    """The XLCost text-to-code generation benchmark.
+
+    C and C++ language subsets, compiled.
+
+    Data: https://huggingface.co/datasets/codeparrot/xlcost-text-to-code.
+    """
 
     def get_pipeline(self, input, writer, parallelism):
         def xlcost_dataset_reader_split_factory(language: str, split: str):
