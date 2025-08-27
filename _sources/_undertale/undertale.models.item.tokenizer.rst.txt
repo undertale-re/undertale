@@ -1,0 +1,15 @@
+tokenizer
+=========
+
+.. automodule:: undertale.models.item.tokenizer
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      load
+      pretokenize
+      process
+      train
+   

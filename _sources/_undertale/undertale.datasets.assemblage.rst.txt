@@ -1,0 +1,14 @@
+assemblage
+==========
+
+.. automodule:: undertale.datasets.assemblage
+
+   
+.. rubric:: Modules
+
+.. autosummary::
+   :toctree:
+   :recursive:
+
+   vcpkg
+   windows

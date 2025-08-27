@@ -1,0 +1,13 @@
+vcpkg
+=====
+
+.. automodule:: undertale.datasets.assemblage.vcpkg
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      AssemblageVcpkg
+      AssemblageVcpkgReader
+   

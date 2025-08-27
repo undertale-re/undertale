@@ -1,0 +1,19 @@
+apt
+===
+
+.. automodule:: undertale.datasets.apt
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      adapt_apt_from_dict
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      APTpkg
+      LoadAPTPackages
+   

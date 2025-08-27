@@ -1,0 +1,23 @@
+schema
+======
+
+.. automodule:: undertale.datasets.schema
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      Function
+      PairwiseContrasting
+      Schema
+      SummarizedFunction
+      TripletContrasting
+      WholeBinary
+   
+   .. rubric:: Exceptions
+
+   .. autosummary::
+   
+      InvalidSchemaError
+   

@@ -1,0 +1,22 @@
+datasets
+========
+
+.. automodule:: undertale.datasets
+
+   
+.. rubric:: Modules
+
+.. autosummary::
+   :toctree:
+   :recursive:
+
+   apt
+   assemblage
+   base
+   googlecodejam
+   humanevalx
+   nixpkgs
+   pipeline
+   schema
+   scripts
+   xlcost

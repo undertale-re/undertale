@@ -1,0 +1,16 @@
+segmenters
+==========
+
+.. automodule:: undertale.datasets.pipeline.segmenters
+
+   
+.. rubric:: Modules
+
+.. autosummary::
+   :toctree:
+   :recursive:
+
+   binaryninja
+   ghidra
+   lief
+   rizin

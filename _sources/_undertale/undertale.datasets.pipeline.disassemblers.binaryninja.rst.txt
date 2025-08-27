@@ -1,0 +1,12 @@
+binaryninja
+===========
+
+.. automodule:: undertale.datasets.pipeline.disassemblers.binaryninja
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      BinaryNinjaDisassembler
+   

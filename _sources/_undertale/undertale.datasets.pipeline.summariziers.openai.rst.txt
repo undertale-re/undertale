@@ -1,0 +1,12 @@
+openai
+======
+
+.. automodule:: undertale.datasets.pipeline.summariziers.openai
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      OpenAISummarizer
+   

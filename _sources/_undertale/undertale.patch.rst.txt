@@ -1,0 +1,12 @@
+patch
+=====
+
+.. automodule:: undertale.patch
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      patch_filelock_flock_unsupported
+   

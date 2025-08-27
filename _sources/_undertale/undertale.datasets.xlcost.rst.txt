@@ -1,0 +1,18 @@
+xlcost
+======
+
+.. automodule:: undertale.datasets.xlcost
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      adapt_xlcost_from_raw
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      XLCost
+   

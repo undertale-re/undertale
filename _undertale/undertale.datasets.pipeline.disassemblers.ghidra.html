@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>ghidra &#8212; Undertale 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="author" title="About these documents" href="../about.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="radare2" href="undertale.datasets.pipeline.disassemblers.radare2.html" />
+    <link rel="prev" title="capstone" href="undertale.datasets.pipeline.disassemblers.capstone.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="module-undertale.datasets.pipeline.disassemblers.ghidra">
+<span id="ghidra"></span><h1>ghidra<a class="headerlink" href="#module-undertale.datasets.pipeline.disassemblers.ghidra" title="Link to this heading">¶</a></h1>
+<p>The Ghidra reverse engineering tool.</p>
+<p>Ghidra: <a class="reference external" href="https://github.com/NationalSecurityAgency/ghidra">https://github.com/NationalSecurityAgency/ghidra</a>.</p>
+<p class="rubric">Functions</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.datasets.pipeline.disassemblers.ghidra.build_control_flow_graph" title="undertale.datasets.pipeline.disassemblers.ghidra.build_control_flow_graph"><code class="xref py py-obj docutils literal notranslate"><span class="pre">build_control_flow_graph</span></code></a>(api, entry[, ipcfg])</p></td>
+<td><p>Build the Control Flow Graph starting at the given entrypoint.</p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Classes</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.datasets.pipeline.disassemblers.ghidra.GhidraDisassembler" title="undertale.datasets.pipeline.disassemblers.ghidra.GhidraDisassembler"><code class="xref py py-obj docutils literal notranslate"><span class="pre">GhidraDisassembler</span></code></a>(*args, **kwargs)</p></td>
+<td><p>Disassembles the given code with Ghidra.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py function">
+<dt class="sig sig-object py" id="undertale.datasets.pipeline.disassemblers.ghidra.build_control_flow_graph">
+<span class="sig-prename descclassname"><span class="pre">undertale.datasets.pipeline.disassemblers.ghidra.</span></span><span class="sig-name descname"><span class="pre">build_control_flow_graph</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">api</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">entry</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ipcfg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.datasets.pipeline.disassemblers.ghidra.build_control_flow_graph" title="Link to this definition">¶</a></dt>
+<dd><p>Build the Control Flow Graph starting at the given entrypoint.</p>
+<p>Start at the specified entrypoint and slice forward to build the graph.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>api</strong> – The Ghidra FlatAPI.</p></li>
+<li><p><strong>entry</strong> – The entry address from which to start building the graph</p></li>
+<li><p><strong>ipcfg</strong> – If <cite>True</cite>, generate an interprocedural CFG (i.e., allow the
+traversal to exit the current function and ignore function
+boundaries).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A graph of the (IP)CFG starting at the specified entry point, a string
+containing the disassembled basic blocks from the CFG in address order,
+and a string containing the decompiled function(s) in address order.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="undertale.datasets.pipeline.disassemblers.ghidra.GhidraDisassembler">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">undertale.datasets.pipeline.disassemblers.ghidra.</span></span><span class="sig-name descname"><span class="pre">GhidraDisassembler</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.datasets.pipeline.disassemblers.ghidra.GhidraDisassembler" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">PipelineStep</span></code></p>
+<p>Disassembles the given code with Ghidra.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>language</strong> – A Ghidra language identifier. If not provided, Ghidra will
+attempt to auto-detect the input language - if this fails, an
+exception will be raised.</p></li>
+<li><p><strong>entry</strong> – A function to determine the entry address. If not provided,
+Ghidra will attempt to auto-detect the entrypoint - if this fails,
+an exception will be raised.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="simple">
+<dt>Input:</dt><dd><p>Raw shellcode (or compiled, individual functions).</p>
+</dd>
+<dt>Output:</dt><dd><p>Adds the fields <cite>disassembly</cite>, <cite>decompilation</cite>, and <cite>cfg</cite> to the
+document metadata, produced by Ghidra. Does not modify the <cite>text</cite>
+field.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+          </div>
+              <div class="related bottom">
+                &nbsp;
+  <nav id="rellinks">
+    <ul>
+        <li>
+          &larr;
+          <a href="undertale.datasets.pipeline.disassemblers.capstone.html" title="Previous document">capstone</a>
+        </li>
+        <li>
+          <a href="undertale.datasets.pipeline.disassemblers.radare2.html" title="Next document">radare2</a>
+          &rarr;
+        </li>
+    </ul>
+  </nav>
+              </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Undertale</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../usage/index.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../development/index.html">Development</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../reference.html">Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="undertale.html">undertale</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="undertale.datasets.html">datasets</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.apt.html">apt</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.assemblage.html">assemblage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.base.html">base</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.googlecodejam.html">googlecodejam</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.humanevalx.html">humanevalx</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.nixpkgs.html">nixpkgs</a></li>
+<li class="toctree-l4 current"><a class="reference internal" href="undertale.datasets.pipeline.html">pipeline</a><ul class="current">
+<li class="toctree-l5"><a class="reference internal" href="undertale.datasets.pipeline.compilers.html">compilers</a></li>
+<li class="toctree-l5 current"><a class="reference internal" href="undertale.datasets.pipeline.disassemblers.html">disassemblers</a><ul class="current">
+<li class="toctree-l6"><a class="reference internal" href="undertale.datasets.pipeline.disassemblers.binaryninja.html">binaryninja</a></li>
+<li class="toctree-l6"><a class="reference internal" href="undertale.datasets.pipeline.disassemblers.capstone.html">capstone</a></li>
+<li class="toctree-l6 current"><a class="current reference internal" href="#">ghidra</a><ul>
+<li class="toctree-l7"><a class="reference internal" href="#undertale.datasets.pipeline.disassemblers.ghidra.build_control_flow_graph"><code class="docutils literal notranslate"><span class="pre">build_control_flow_graph()</span></code></a></li>
+<li class="toctree-l7"><a class="reference internal" href="#undertale.datasets.pipeline.disassemblers.ghidra.GhidraDisassembler"><code class="docutils literal notranslate"><span class="pre">GhidraDisassembler</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l6"><a class="reference internal" href="undertale.datasets.pipeline.disassemblers.radare2.html">radare2</a></li>
+<li class="toctree-l6"><a class="reference internal" href="undertale.datasets.pipeline.disassemblers.rizin.html">rizin</a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="undertale.datasets.pipeline.formatters.html">formatters</a></li>
+<li class="toctree-l5"><a class="reference internal" href="undertale.datasets.pipeline.pairs.html">pairs</a></li>
+<li class="toctree-l5"><a class="reference internal" href="undertale.datasets.pipeline.segmenters.html">segmenters</a></li>
+<li class="toctree-l5"><a class="reference internal" href="undertale.datasets.pipeline.summariziers.html">summariziers</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.schema.html">schema</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.scripts.html">scripts</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.xlcost.html">xlcost</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.evaluation.html">evaluation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.logging.html">logging</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.models.html">models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.patch.html">patch</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.utils.html">utils</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="../reference.html">Reference</a><ul>
+  <li><a href="undertale.html">undertale</a><ul>
+  <li><a href="undertale.datasets.html">datasets</a><ul>
+  <li><a href="undertale.datasets.pipeline.html">pipeline</a><ul>
+  <li><a href="undertale.datasets.pipeline.disassemblers.html">disassemblers</a><ul>
+      <li>Previous: <a href="undertale.datasets.pipeline.disassemblers.capstone.html" title="previous chapter">capstone</a></li>
+      <li>Next: <a href="undertale.datasets.pipeline.disassemblers.radare2.html" title="next chapter">radare2</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, MIT Lincoln Laboratory.
+      
+      |
+      <a href="../_sources/_undertale/undertale.datasets.pipeline.disassemblers.ghidra.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,18 @@
+ghidra
+======
+
+.. automodule:: undertale.datasets.pipeline.disassemblers.ghidra
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      build_control_flow_graph
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      GhidraDisassembler
+   

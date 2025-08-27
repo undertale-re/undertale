@@ -1,0 +1,17 @@
+disassemblers
+=============
+
+.. automodule:: undertale.datasets.pipeline.disassemblers
+
+   
+.. rubric:: Modules
+
+.. autosummary::
+   :toctree:
+   :recursive:
+
+   binaryninja
+   capstone
+   ghidra
+   radare2
+   rizin

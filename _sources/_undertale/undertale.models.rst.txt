@@ -1,0 +1,13 @@
+models
+======
+
+.. automodule:: undertale.models
+
+   
+.. rubric:: Modules
+
+.. autosummary::
+   :toctree:
+   :recursive:
+
+   item

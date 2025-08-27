@@ -1,0 +1,18 @@
+tokenize
+========
+
+.. automodule:: undertale.datasets.scripts.tokenize
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      adapt_dataset_from_parquet
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      Tokenizer
+   

@@ -1,0 +1,12 @@
+ghidra
+======
+
+.. automodule:: undertale.datasets.pipeline.segmenters.ghidra
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      GhidraFunctionSegmenter
+   

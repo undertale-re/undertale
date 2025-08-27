@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>schema &#8212; Undertale 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="author" title="About these documents" href="../about.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="scripts" href="undertale.datasets.scripts.html" />
+    <link rel="prev" title="openai" href="undertale.datasets.pipeline.summariziers.openai.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="module-undertale.datasets.schema">
+<span id="schema"></span><h1>schema<a class="headerlink" href="#module-undertale.datasets.schema" title="Link to this heading">¶</a></h1>
+<p>Dataset schema definition and enforcement.</p>
+<p class="rubric">Classes</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.datasets.schema.Function" title="undertale.datasets.schema.Function"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Function</span></code></a>()</p></td>
+<td><p>A dataset of individual functional pieces of code.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#undertale.datasets.schema.PairwiseContrasting" title="undertale.datasets.schema.PairwiseContrasting"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PairwiseContrasting</span></code></a>()</p></td>
+<td><p>A pairwise contrastive learning dataset.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.datasets.schema.Schema" title="undertale.datasets.schema.Schema"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Schema</span></code></a>()</p></td>
+<td><p>A base schema class for a particular type of dataset.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#undertale.datasets.schema.SummarizedFunction" title="undertale.datasets.schema.SummarizedFunction"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SummarizedFunction</span></code></a>()</p></td>
+<td><p>Function with a functional summary.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.datasets.schema.TripletContrasting" title="undertale.datasets.schema.TripletContrasting"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TripletContrasting</span></code></a>()</p></td>
+<td><p>A triplet loss contrastive learning dataset.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#undertale.datasets.schema.WholeBinary" title="undertale.datasets.schema.WholeBinary"><code class="xref py py-obj docutils literal notranslate"><span class="pre">WholeBinary</span></code></a>()</p></td>
+<td><p>A dataset of entire binaries.</p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Exceptions</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.datasets.schema.InvalidSchemaError" title="undertale.datasets.schema.InvalidSchemaError"><code class="xref py py-obj docutils literal notranslate"><span class="pre">InvalidSchemaError</span></code></a></p></td>
+<td><p>Raised when a dataset does not match the schema.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py exception">
+<dt class="sig sig-object py" id="undertale.datasets.schema.InvalidSchemaError">
+<em class="property"><span class="k"><span class="pre">exception</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">undertale.datasets.schema.</span></span><span class="sig-name descname"><span class="pre">InvalidSchemaError</span></span><a class="headerlink" href="#undertale.datasets.schema.InvalidSchemaError" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p>
+<p>Raised when a dataset does not match the schema.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="undertale.datasets.schema.Schema">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">undertale.datasets.schema.</span></span><span class="sig-name descname"><span class="pre">Schema</span></span><a class="headerlink" href="#undertale.datasets.schema.Schema" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A base schema class for a particular type of dataset.</p>
+<p>This defines the included fields on a given dataset.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="undertale.datasets.schema.Schema.get_members">
+<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_members</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#undertale.datasets.schema.Schema.get_members" title="Link to this definition">¶</a></dt>
+<dd><p>Get members of this class.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A list of non-class, non-function members of this class as a tuple
+of name and value.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="undertale.datasets.schema.Schema.to_features">
+<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">to_features</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#undertale.datasets.schema.Schema.to_features" title="Link to this definition">¶</a></dt>
+<dd><p>Produce a set of required features.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A Features object in Datasets library form.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="undertale.datasets.schema.Schema.validate">
+<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">validate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.datasets.schema.Schema.validate" title="Link to this definition">¶</a></dt>
+<dd><p>Validate that a dataset matches this schema.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#undertale.datasets.schema.InvalidSchemaError" title="undertale.datasets.schema.InvalidSchemaError"><strong>InvalidSchemaError</strong></a> – if required fields are missing or unknown
+    fields are included.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="undertale.datasets.schema.WholeBinary">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">undertale.datasets.schema.</span></span><span class="sig-name descname"><span class="pre">WholeBinary</span></span><a class="headerlink" href="#undertale.datasets.schema.WholeBinary" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#undertale.datasets.schema.Schema" title="undertale.datasets.schema.Schema"><code class="xref py py-class docutils literal notranslate"><span class="pre">Schema</span></code></a></p>
+<p>A dataset of entire binaries.</p>
+<p>This dataset requires further processing before it is useful for training,
+but this schema might still be useful.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="undertale.datasets.schema.WholeBinary.binary">
+<span class="sig-name descname"><span class="pre">binary</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">Value('binary')</span></em><a class="headerlink" href="#undertale.datasets.schema.WholeBinary.binary" title="Link to this definition">¶</a></dt>
+<dd><p>The entire binary as bytes.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="undertale.datasets.schema.WholeBinary.Optional">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Optional</span></span><a class="headerlink" href="#undertale.datasets.schema.WholeBinary.Optional" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#undertale.datasets.schema.Schema" title="undertale.datasets.schema.Schema"><code class="xref py py-class docutils literal notranslate"><span class="pre">Schema</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="undertale.datasets.schema.WholeBinary.Optional.source">
+<span class="sig-name descname"><span class="pre">source</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">Value('string')</span></em><a class="headerlink" href="#undertale.datasets.schema.WholeBinary.Optional.source" title="Link to this definition">¶</a></dt>
+<dd><p>The source code used to build the entire binary.</p>
+<p>This should be a serialized JSON object mapping file paths relative to
+the root of a project directory to their content. Ideally it should be
+possible to reconstruct an entire source tree from this field.</p>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s1">&#39;hello.cpp&#39;</span><span class="p">:</span> <span class="s1">&#39;void main() { printf(&quot;hello world</span><span class="se">\n</span><span class="s1">&quot;); }&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;assets/data.csv&#39;</span><span class="p">:</span> <span class="s1">&#39;name,description,comment</span><span class="se">\n</span><span class="s1">foo,bar,baz&#39;</span><span class="p">,</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="undertale.datasets.schema.WholeBinary.Optional.architecture">
+<span class="sig-name descname"><span class="pre">architecture</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">Value('string')</span></em><a class="headerlink" href="#undertale.datasets.schema.WholeBinary.Optional.architecture" title="Link to this definition">¶</a></dt>
+<dd><p>The architecture this binary was compiled on.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="undertale.datasets.schema.WholeBinary.Optional.compiler">
+<span class="sig-name descname"><span class="pre">compiler</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">Value('string')</span></em><a class="headerlink" href="#undertale.datasets.schema.WholeBinary.Optional.compiler" title="Link to this definition">¶</a></dt>
+<dd><p>The compiler.</p>
+</dd></dl>
+
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="undertale.datasets.schema.Function">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">undertale.datasets.schema.</span></span><span class="sig-name descname"><span class="pre">Function</span></span><a class="headerlink" href="#undertale.datasets.schema.Function" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#undertale.datasets.schema.Schema" title="undertale.datasets.schema.Schema"><code class="xref py py-class docutils literal notranslate"><span class="pre">Schema</span></code></a></p>
+<p>A dataset of individual functional pieces of code.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The name <cite>Function</cite> is a bit of a misnomer - this is really just any
+subgraph of the Inter-Procedural Control Flow Graph (IPCFG). While it
+will often just be a single function, it doesn’t necessarily have to
+be.</p>
+</div>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="undertale.datasets.schema.Function.code">
+<span class="sig-name descname"><span class="pre">code</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">Value('binary')</span></em><a class="headerlink" href="#undertale.datasets.schema.Function.code" title="Link to this definition">¶</a></dt>
+<dd><p>The executable bytes of this function.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="undertale.datasets.schema.Function.disassembly">
+<span class="sig-name descname"><span class="pre">disassembly</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">Value('string')</span></em><a class="headerlink" href="#undertale.datasets.schema.Function.disassembly" title="Link to this definition">¶</a></dt>
+<dd><p>Instructions disassembled from the <cite>code</cite> field.</p>
+<p>Instructions should be newline separated, lowercase, in intel syntax, and
+appear in address order.</p>
+<p>This disassembly should exclude unreachable instructions if possible.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="undertale.datasets.schema.Function.Optional">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Optional</span></span><a class="headerlink" href="#undertale.datasets.schema.Function.Optional" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#undertale.datasets.schema.Schema" title="undertale.datasets.schema.Schema"><code class="xref py py-class docutils literal notranslate"><span class="pre">Schema</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="undertale.datasets.schema.Function.Optional.id">
+<span class="sig-name descname"><span class="pre">id</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">Value('string')</span></em><a class="headerlink" href="#undertale.datasets.schema.Function.Optional.id" title="Link to this definition">¶</a></dt>
+<dd><p>An identifier relevant to this dataset.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="undertale.datasets.schema.Function.Optional.source">
+<span class="sig-name descname"><span class="pre">source</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">Value('string')</span></em><a class="headerlink" href="#undertale.datasets.schema.Function.Optional.source" title="Link to this definition">¶</a></dt>
+<dd><p>The source code for this function, as a single string.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="undertale.datasets.schema.Function.Optional.architecture">
+<span class="sig-name descname"><span class="pre">architecture</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">Value('string')</span></em><a class="headerlink" href="#undertale.datasets.schema.Function.Optional.architecture" title="Link to this definition">¶</a></dt>
+<dd><p>The architecture this binary was compiled on.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="undertale.datasets.schema.Function.Optional.compiler">
+<span class="sig-name descname"><span class="pre">compiler</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">Value('string')</span></em><a class="headerlink" href="#undertale.datasets.schema.Function.Optional.compiler" title="Link to this definition">¶</a></dt>
+<dd><p>The compiler.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="undertale.datasets.schema.Function.Optional.function_name">
+<span class="sig-name descname"><span class="pre">function_name</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">Value('string')</span></em><a class="headerlink" href="#undertale.datasets.schema.Function.Optional.function_name" title="Link to this definition">¶</a></dt>
+<dd><p>The name of this function.</p>
+</dd></dl>
+
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="undertale.datasets.schema.PairwiseContrasting">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">undertale.datasets.schema.</span></span><span class="sig-name descname"><span class="pre">PairwiseContrasting</span></span><a class="headerlink" href="#undertale.datasets.schema.PairwiseContrasting" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#undertale.datasets.schema.Schema" title="undertale.datasets.schema.Schema"><code class="xref py py-class docutils literal notranslate"><span class="pre">Schema</span></code></a></p>
+<p>A pairwise contrastive learning dataset.</p>
+<p>Contains pairs of samples mapped to ground-truth similarity values for
+pairwise contrastive loss.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="undertale.datasets.schema.PairwiseContrasting.first">
+<span class="sig-name descname"><span class="pre">first</span></span><a class="headerlink" href="#undertale.datasets.schema.PairwiseContrasting.first" title="Link to this definition">¶</a></dt>
+<dd><p>The first sample.</p>
+<p>alias of <a class="reference internal" href="#undertale.datasets.schema.Function" title="undertale.datasets.schema.Function"><code class="xref py py-class docutils literal notranslate"><span class="pre">Function</span></code></a></p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="undertale.datasets.schema.PairwiseContrasting.second">
+<span class="sig-name descname"><span class="pre">second</span></span><a class="headerlink" href="#undertale.datasets.schema.PairwiseContrasting.second" title="Link to this definition">¶</a></dt>
+<dd><p>The second sample.</p>
+<p>alias of <a class="reference internal" href="#undertale.datasets.schema.Function" title="undertale.datasets.schema.Function"><code class="xref py py-class docutils literal notranslate"><span class="pre">Function</span></code></a></p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="undertale.datasets.schema.TripletContrasting">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">undertale.datasets.schema.</span></span><span class="sig-name descname"><span class="pre">TripletContrasting</span></span><a class="headerlink" href="#undertale.datasets.schema.TripletContrasting" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#undertale.datasets.schema.Schema" title="undertale.datasets.schema.Schema"><code class="xref py py-class docutils literal notranslate"><span class="pre">Schema</span></code></a></p>
+<p>A triplet loss contrastive learning dataset.</p>
+<p>Contains an anchor and a positive and negative sample for triplet
+contrastive loss.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="undertale.datasets.schema.TripletContrasting.anchor">
+<span class="sig-name descname"><span class="pre">anchor</span></span><a class="headerlink" href="#undertale.datasets.schema.TripletContrasting.anchor" title="Link to this definition">¶</a></dt>
+<dd><p>The anchor sample.</p>
+<p>alias of <a class="reference internal" href="#undertale.datasets.schema.Function" title="undertale.datasets.schema.Function"><code class="xref py py-class docutils literal notranslate"><span class="pre">Function</span></code></a></p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="undertale.datasets.schema.TripletContrasting.positive">
+<span class="sig-name descname"><span class="pre">positive</span></span><a class="headerlink" href="#undertale.datasets.schema.TripletContrasting.positive" title="Link to this definition">¶</a></dt>
+<dd><p>Another sample with a high degree of similarity.</p>
+<p>alias of <a class="reference internal" href="#undertale.datasets.schema.Function" title="undertale.datasets.schema.Function"><code class="xref py py-class docutils literal notranslate"><span class="pre">Function</span></code></a></p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="undertale.datasets.schema.TripletContrasting.negative">
+<span class="sig-name descname"><span class="pre">negative</span></span><a class="headerlink" href="#undertale.datasets.schema.TripletContrasting.negative" title="Link to this definition">¶</a></dt>
+<dd><p>Another sample with a low degree of similarity.</p>
+<p>alias of <a class="reference internal" href="#undertale.datasets.schema.Function" title="undertale.datasets.schema.Function"><code class="xref py py-class docutils literal notranslate"><span class="pre">Function</span></code></a></p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="undertale.datasets.schema.SummarizedFunction">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">undertale.datasets.schema.</span></span><span class="sig-name descname"><span class="pre">SummarizedFunction</span></span><a class="headerlink" href="#undertale.datasets.schema.SummarizedFunction" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#undertale.datasets.schema.Function" title="undertale.datasets.schema.Function"><code class="xref py py-class docutils literal notranslate"><span class="pre">Function</span></code></a></p>
+<p>Function with a functional summary.</p>
+<p>This dataset can be used for multi-modal fine-tuning for a full
+summarization pipeline.</p>
+</dd></dl>
+
+</section>
+
+
+          </div>
+              <div class="related bottom">
+                &nbsp;
+  <nav id="rellinks">
+    <ul>
+        <li>
+          &larr;
+          <a href="undertale.datasets.pipeline.summariziers.openai.html" title="Previous document">openai</a>
+        </li>
+        <li>
+          <a href="undertale.datasets.scripts.html" title="Next document">scripts</a>
+          &rarr;
+        </li>
+    </ul>
+  </nav>
+              </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Undertale</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../usage/index.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../development/index.html">Development</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../reference.html">Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="undertale.html">undertale</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="undertale.datasets.html">datasets</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.apt.html">apt</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.assemblage.html">assemblage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.base.html">base</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.googlecodejam.html">googlecodejam</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.humanevalx.html">humanevalx</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.nixpkgs.html">nixpkgs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.pipeline.html">pipeline</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">schema</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.datasets.schema.InvalidSchemaError"><code class="docutils literal notranslate"><span class="pre">InvalidSchemaError</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.datasets.schema.Schema"><code class="docutils literal notranslate"><span class="pre">Schema</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="#undertale.datasets.schema.Schema.get_members"><code class="docutils literal notranslate"><span class="pre">Schema.get_members()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#undertale.datasets.schema.Schema.to_features"><code class="docutils literal notranslate"><span class="pre">Schema.to_features()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#undertale.datasets.schema.Schema.validate"><code class="docutils literal notranslate"><span class="pre">Schema.validate()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.datasets.schema.WholeBinary"><code class="docutils literal notranslate"><span class="pre">WholeBinary</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="#undertale.datasets.schema.WholeBinary.binary"><code class="docutils literal notranslate"><span class="pre">WholeBinary.binary</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#undertale.datasets.schema.WholeBinary.Optional"><code class="docutils literal notranslate"><span class="pre">WholeBinary.Optional</span></code></a><ul>
+<li class="toctree-l7"><a class="reference internal" href="#undertale.datasets.schema.WholeBinary.Optional.source"><code class="docutils literal notranslate"><span class="pre">WholeBinary.Optional.source</span></code></a></li>
+<li class="toctree-l7"><a class="reference internal" href="#undertale.datasets.schema.WholeBinary.Optional.architecture"><code class="docutils literal notranslate"><span class="pre">WholeBinary.Optional.architecture</span></code></a></li>
+<li class="toctree-l7"><a class="reference internal" href="#undertale.datasets.schema.WholeBinary.Optional.compiler"><code class="docutils literal notranslate"><span class="pre">WholeBinary.Optional.compiler</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.datasets.schema.Function"><code class="docutils literal notranslate"><span class="pre">Function</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="#undertale.datasets.schema.Function.code"><code class="docutils literal notranslate"><span class="pre">Function.code</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#undertale.datasets.schema.Function.disassembly"><code class="docutils literal notranslate"><span class="pre">Function.disassembly</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#undertale.datasets.schema.Function.Optional"><code class="docutils literal notranslate"><span class="pre">Function.Optional</span></code></a><ul>
+<li class="toctree-l7"><a class="reference internal" href="#undertale.datasets.schema.Function.Optional.id"><code class="docutils literal notranslate"><span class="pre">Function.Optional.id</span></code></a></li>
+<li class="toctree-l7"><a class="reference internal" href="#undertale.datasets.schema.Function.Optional.source"><code class="docutils literal notranslate"><span class="pre">Function.Optional.source</span></code></a></li>
+<li class="toctree-l7"><a class="reference internal" href="#undertale.datasets.schema.Function.Optional.architecture"><code class="docutils literal notranslate"><span class="pre">Function.Optional.architecture</span></code></a></li>
+<li class="toctree-l7"><a class="reference internal" href="#undertale.datasets.schema.Function.Optional.compiler"><code class="docutils literal notranslate"><span class="pre">Function.Optional.compiler</span></code></a></li>
+<li class="toctree-l7"><a class="reference internal" href="#undertale.datasets.schema.Function.Optional.function_name"><code class="docutils literal notranslate"><span class="pre">Function.Optional.function_name</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.datasets.schema.PairwiseContrasting"><code class="docutils literal notranslate"><span class="pre">PairwiseContrasting</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="#undertale.datasets.schema.PairwiseContrasting.first"><code class="docutils literal notranslate"><span class="pre">PairwiseContrasting.first</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#undertale.datasets.schema.PairwiseContrasting.second"><code class="docutils literal notranslate"><span class="pre">PairwiseContrasting.second</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.datasets.schema.TripletContrasting"><code class="docutils literal notranslate"><span class="pre">TripletContrasting</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="#undertale.datasets.schema.TripletContrasting.anchor"><code class="docutils literal notranslate"><span class="pre">TripletContrasting.anchor</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#undertale.datasets.schema.TripletContrasting.positive"><code class="docutils literal notranslate"><span class="pre">TripletContrasting.positive</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#undertale.datasets.schema.TripletContrasting.negative"><code class="docutils literal notranslate"><span class="pre">TripletContrasting.negative</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.datasets.schema.SummarizedFunction"><code class="docutils literal notranslate"><span class="pre">SummarizedFunction</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.scripts.html">scripts</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.xlcost.html">xlcost</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.evaluation.html">evaluation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.logging.html">logging</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.models.html">models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.patch.html">patch</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.utils.html">utils</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="../reference.html">Reference</a><ul>
+  <li><a href="undertale.html">undertale</a><ul>
+  <li><a href="undertale.datasets.html">datasets</a><ul>
+      <li>Previous: <a href="undertale.datasets.pipeline.summariziers.openai.html" title="previous chapter">openai</a></li>
+      <li>Next: <a href="undertale.datasets.scripts.html" title="next chapter">scripts</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, MIT Lincoln Laboratory.
+      
+      |
+      <a href="../_sources/_undertale/undertale.datasets.schema.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

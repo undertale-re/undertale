@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>patch &#8212; Undertale 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="author" title="About these documents" href="../about.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="utils" href="undertale.utils.html" />
+    <link rel="prev" title="tokenizer" href="undertale.models.item.tokenizer.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="module-undertale.patch">
+<span id="patch"></span><h1>patch<a class="headerlink" href="#module-undertale.patch" title="Link to this heading">¶</a></h1>
+<p>Patches for external libraries.</p>
+<p class="rubric">Functions</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.patch.patch_filelock_flock_unsupported" title="undertale.patch.patch_filelock_flock_unsupported"><code class="xref py py-obj docutils literal notranslate"><span class="pre">patch_filelock_flock_unsupported</span></code></a>()</p></td>
+<td><p>Force usage of SoftFileLock by the Datasets library.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py function">
+<dt class="sig sig-object py" id="undertale.patch.patch_filelock_flock_unsupported">
+<span class="sig-prename descclassname"><span class="pre">undertale.patch.</span></span><span class="sig-name descname"><span class="pre">patch_filelock_flock_unsupported</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#undertale.patch.patch_filelock_flock_unsupported" title="Link to this definition">¶</a></dt>
+<dd><p>Force usage of SoftFileLock by the Datasets library.</p>
+<p>Datasets currently doesn’t support filesystems that do not support locking
+(like the SAN filesystem on LLSC). This patches the <cite>filelock</cite> library to
+use a soft lock primitive instead.</p>
+<p>More details: <a class="reference external" href="https://github.com/huggingface/datasets/issues/6395">https://github.com/huggingface/datasets/issues/6395</a>.</p>
+<p>Note: The Datasets library can get into some weird states when using soft
+locks - in particular if programs crash in unexpected ways while they own
+locks or if you are attempting to acquire a lock on something that has
+already had a standard flock used on it. You can run the following command
+to clear all locks from the Datasets cache directory:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>rm $(find ~/.cache/huggingface/datasets/ -type f -name &#39;*.lock&#39;)
+</pre></div>
+</div>
+<p>You may need to run the command above if/when you have switched from flocks
+to soft locks or if a running process with a soft lock dies. Basically, if
+you notice deadlocks, try running the above when you know nothing should
+have those locks (i.e., all processing has stopped).</p>
+</dd></dl>
+
+</section>
+
+
+          </div>
+              <div class="related bottom">
+                &nbsp;
+  <nav id="rellinks">
+    <ul>
+        <li>
+          &larr;
+          <a href="undertale.models.item.tokenizer.html" title="Previous document">tokenizer</a>
+        </li>
+        <li>
+          <a href="undertale.utils.html" title="Next document">utils</a>
+          &rarr;
+        </li>
+    </ul>
+  </nav>
+              </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Undertale</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../usage/index.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../development/index.html">Development</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../reference.html">Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="undertale.html">undertale</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="undertale.datasets.html">datasets</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.evaluation.html">evaluation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.logging.html">logging</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.models.html">models</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">patch</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#undertale.patch.patch_filelock_flock_unsupported"><code class="docutils literal notranslate"><span class="pre">patch_filelock_flock_unsupported()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.utils.html">utils</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="../reference.html">Reference</a><ul>
+  <li><a href="undertale.html">undertale</a><ul>
+      <li>Previous: <a href="undertale.models.item.tokenizer.html" title="previous chapter">tokenizer</a></li>
+      <li>Next: <a href="undertale.utils.html" title="next chapter">utils</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, MIT Lincoln Laboratory.
+      
+      |
+      <a href="../_sources/_undertale/undertale.patch.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

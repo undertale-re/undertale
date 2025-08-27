@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>formatters &#8212; Undertale 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="author" title="About these documents" href="../about.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="item" href="undertale.datasets.pipeline.formatters.item.html" />
+    <link rel="prev" title="rizin" href="undertale.datasets.pipeline.disassemblers.rizin.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="module-undertale.datasets.pipeline.formatters">
+<span id="formatters"></span><h1>formatters<a class="headerlink" href="#module-undertale.datasets.pipeline.formatters" title="Link to this heading">¶</a></h1>
+<p>Custom formatters and data manipulators.</p>
+<p class="rubric">Modules</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="undertale.datasets.pipeline.formatters.item.html#module-undertale.datasets.pipeline.formatters.item" title="undertale.datasets.pipeline.formatters.item"><code class="xref py py-obj docutils literal notranslate"><span class="pre">item</span></code></a></p></td>
+<td><p>Tokenization utilities for the ITEM model.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+
+
+          </div>
+              <div class="related bottom">
+                &nbsp;
+  <nav id="rellinks">
+    <ul>
+        <li>
+          &larr;
+          <a href="undertale.datasets.pipeline.disassemblers.rizin.html" title="Previous document">rizin</a>
+        </li>
+        <li>
+          <a href="undertale.datasets.pipeline.formatters.item.html" title="Next document">item</a>
+          &rarr;
+        </li>
+    </ul>
+  </nav>
+              </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Undertale</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../usage/index.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../development/index.html">Development</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../reference.html">Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="undertale.html">undertale</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="undertale.datasets.html">datasets</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.apt.html">apt</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.assemblage.html">assemblage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.base.html">base</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.googlecodejam.html">googlecodejam</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.humanevalx.html">humanevalx</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.nixpkgs.html">nixpkgs</a></li>
+<li class="toctree-l4 current"><a class="reference internal" href="undertale.datasets.pipeline.html">pipeline</a><ul class="current">
+<li class="toctree-l5"><a class="reference internal" href="undertale.datasets.pipeline.compilers.html">compilers</a></li>
+<li class="toctree-l5"><a class="reference internal" href="undertale.datasets.pipeline.disassemblers.html">disassemblers</a></li>
+<li class="toctree-l5 current"><a class="current reference internal" href="#">formatters</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="undertale.datasets.pipeline.formatters.item.html">item</a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="undertale.datasets.pipeline.pairs.html">pairs</a></li>
+<li class="toctree-l5"><a class="reference internal" href="undertale.datasets.pipeline.segmenters.html">segmenters</a></li>
+<li class="toctree-l5"><a class="reference internal" href="undertale.datasets.pipeline.summariziers.html">summariziers</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.schema.html">schema</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.scripts.html">scripts</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.xlcost.html">xlcost</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.evaluation.html">evaluation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.logging.html">logging</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.models.html">models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.patch.html">patch</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.utils.html">utils</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="../reference.html">Reference</a><ul>
+  <li><a href="undertale.html">undertale</a><ul>
+  <li><a href="undertale.datasets.html">datasets</a><ul>
+  <li><a href="undertale.datasets.pipeline.html">pipeline</a><ul>
+      <li>Previous: <a href="undertale.datasets.pipeline.disassemblers.rizin.html" title="previous chapter">rizin</a></li>
+      <li>Next: <a href="undertale.datasets.pipeline.formatters.item.html" title="next chapter">item</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, MIT Lincoln Laboratory.
+      
+      |
+      <a href="../_sources/_undertale/undertale.datasets.pipeline.formatters.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

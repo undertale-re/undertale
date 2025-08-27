@@ -1,0 +1,12 @@
+pairwise\_contrastive
+=====================
+
+.. automodule:: undertale.datasets.pipeline.pairs.pairwise_contrastive
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      PairwiseContrastive
+   

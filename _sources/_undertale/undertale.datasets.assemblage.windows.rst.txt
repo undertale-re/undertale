@@ -1,0 +1,13 @@
+windows
+=======
+
+.. automodule:: undertale.datasets.assemblage.windows
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      AssemblageWindows
+      AssemblageWindowsReader
+   

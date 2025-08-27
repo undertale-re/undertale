@@ -1,0 +1,13 @@
+formatters
+==========
+
+.. automodule:: undertale.datasets.pipeline.formatters
+
+   
+.. rubric:: Modules
+
+.. autosummary::
+   :toctree:
+   :recursive:
+
+   item

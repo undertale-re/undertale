@@ -1,0 +1,18 @@
+humanevalx
+==========
+
+.. automodule:: undertale.datasets.humanevalx
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      adapt_humanevalx_from_raw
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      HumanEvalX
+   

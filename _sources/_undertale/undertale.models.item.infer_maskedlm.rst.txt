@@ -1,0 +1,6 @@
+infer\_maskedlm
+===============
+
+.. automodule:: undertale.models.item.infer_maskedlm
+
+   

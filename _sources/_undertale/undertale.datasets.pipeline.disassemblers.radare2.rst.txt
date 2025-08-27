@@ -1,0 +1,12 @@
+radare2
+=======
+
+.. automodule:: undertale.datasets.pipeline.disassemblers.radare2
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      RadareDisassembler
+   

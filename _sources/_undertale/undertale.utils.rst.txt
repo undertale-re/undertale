@@ -1,0 +1,13 @@
+utils
+=====
+
+.. automodule:: undertale.utils
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      allow_sigint
+      suppress_sigint
+   

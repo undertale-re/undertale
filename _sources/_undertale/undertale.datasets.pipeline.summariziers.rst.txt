@@ -1,0 +1,13 @@
+summariziers
+============
+
+.. automodule:: undertale.datasets.pipeline.summariziers
+
+   
+.. rubric:: Modules
+
+.. autosummary::
+   :toctree:
+   :recursive:
+
+   openai

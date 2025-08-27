@@ -1,0 +1,12 @@
+binaryninja
+===========
+
+.. automodule:: undertale.datasets.pipeline.segmenters.binaryninja
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      BinaryNinjaFunctionSegmenter
+   

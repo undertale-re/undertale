@@ -1,0 +1,13 @@
+item
+====
+
+.. automodule:: undertale.datasets.pipeline.formatters.item
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      ITEMPretokenizer
+      ITEMTokenizer
+   

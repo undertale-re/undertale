@@ -1,0 +1,12 @@
+rizin
+=====
+
+.. automodule:: undertale.datasets.pipeline.disassemblers.rizin
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      RizinDisassembler
+   

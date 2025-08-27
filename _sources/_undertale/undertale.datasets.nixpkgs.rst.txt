@@ -1,0 +1,16 @@
+nixpkgs
+=======
+
+.. automodule:: undertale.datasets.nixpkgs
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      BuildNixpkgs
+      EnrichGithubPackages
+      ExtractBinaryDataset
+      FindNixpkgs
+      NixPkgs
+   

@@ -1,0 +1,6 @@
+infer\_embedding
+================
+
+.. automodule:: undertale.models.item.infer_embedding
+
+   

@@ -1,0 +1,18 @@
+pretokenize
+===========
+
+.. automodule:: undertale.datasets.scripts.pretokenize
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      adapt_dataset_from_parquet
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      Pretokenizer
+   

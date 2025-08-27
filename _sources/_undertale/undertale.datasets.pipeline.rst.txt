@@ -1,0 +1,18 @@
+pipeline
+========
+
+.. automodule:: undertale.datasets.pipeline
+
+   
+.. rubric:: Modules
+
+.. autosummary::
+   :toctree:
+   :recursive:
+
+   compilers
+   disassemblers
+   formatters
+   pairs
+   segmenters
+   summariziers

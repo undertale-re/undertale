@@ -1,0 +1,30 @@
+base
+====
+
+.. automodule:: undertale.datasets.base
+
+   
+   .. rubric:: Module Attributes
+
+   .. autosummary::
+   
+      WRITERS
+      DEFAULT_WRITER
+      EXECUTORS
+      DEFAULT_EXECUTOR
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      adapt_to_flatten
+      adapt_to_flatten_for_pretraining
+      build_parser
+      main
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      Dataset
+   

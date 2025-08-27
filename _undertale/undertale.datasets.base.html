@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>base &#8212; Undertale 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="author" title="About these documents" href="../about.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="googlecodejam" href="undertale.datasets.googlecodejam.html" />
+    <link rel="prev" title="windows" href="undertale.datasets.assemblage.windows.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="module-undertale.datasets.base">
+<span id="base"></span><h1>base<a class="headerlink" href="#module-undertale.datasets.base" title="Link to this heading">¶</a></h1>
+<p>Base classes and utilities for datasets.</p>
+<p class="rubric">Module Attributes</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.datasets.base.WRITERS" title="undertale.datasets.base.WRITERS"><code class="xref py py-obj docutils literal notranslate"><span class="pre">WRITERS</span></code></a></p></td>
+<td><p>Supported dataset writers.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#undertale.datasets.base.DEFAULT_WRITER" title="undertale.datasets.base.DEFAULT_WRITER"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DEFAULT_WRITER</span></code></a></p></td>
+<td><p>Default dataset writer.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.datasets.base.EXECUTORS" title="undertale.datasets.base.EXECUTORS"><code class="xref py py-obj docutils literal notranslate"><span class="pre">EXECUTORS</span></code></a></p></td>
+<td><p>Supported dataset executors.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#undertale.datasets.base.DEFAULT_EXECUTOR" title="undertale.datasets.base.DEFAULT_EXECUTOR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DEFAULT_EXECUTOR</span></code></a></p></td>
+<td><p>Default dataset executor.</p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Functions</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">adapt_to_flatten</span></code>(self, document)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">adapt_to_flatten_for_pretraining</span></code>(self, document)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">build_parser</span></code>(parser)</p></td>
+<td><p>Build an argument parser for processing a dataset.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#undertale.datasets.base.main" title="undertale.datasets.base.main"><code class="xref py py-obj docutils literal notranslate"><span class="pre">main</span></code></a>(cls)</p></td>
+<td><p>The CLI entrypoint for parsing a dataset.</p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Classes</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.datasets.base.Dataset" title="undertale.datasets.base.Dataset"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Dataset</span></code></a>([writer, executor, logging_directory])</p></td>
+<td><p>The base class for all Undertale datasets.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py class">
+<dt class="sig sig-object py" id="undertale.datasets.base.Dataset">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">undertale.datasets.base.</span></span><span class="sig-name descname"><span class="pre">Dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">writer</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'parquet'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">executor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'local'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logging_directory</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.datasets.base.Dataset" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>The base class for all Undertale datasets.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>writer</strong> – The name of the dataset writer to use.</p></li>
+<li><p><strong>executor</strong> – The name of the dataset executor to use.</p></li>
+<li><p><strong>logging_directory</strong> – A path to the directory to use for logging.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="undertale.datasets.base.Dataset.schema">
+<span class="sig-name descname"><span class="pre">schema</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="undertale.datasets.schema.html#undertale.datasets.schema.Schema" title="undertale.datasets.schema.Schema"><span class="pre">Schema</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#undertale.datasets.base.Dataset.schema" title="Link to this definition">¶</a></dt>
+<dd><p>The schema class that this dataset implements.</p>
+<p>This should be the literal class from the <cite>schema</cite> module.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="undertale.datasets.base.Dataset.get_executor">
+<span class="sig-name descname"><span class="pre">get_executor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pipeline</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">PipelineStep</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">PipelineExecutor</span></span></span><a class="headerlink" href="#undertale.datasets.base.Dataset.get_executor" title="Link to this definition">¶</a></dt>
+<dd><p>Returns an executor for the current pipeline.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>pipeline</strong> – A list of pipeline steps.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="undertale.datasets.base.Dataset.get_pipeline">
+<em class="property"><span class="k"><span class="pre">abstractmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_pipeline</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">writer</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">PipelineStep</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parallelism</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">PipelineExecutor</span></span></span><a class="headerlink" href="#undertale.datasets.base.Dataset.get_pipeline" title="Link to this definition">¶</a></dt>
+<dd><p>Build and return the dataset processing pipeline.</p>
+<p>This should make use of the <code class="docutils literal notranslate"><span class="pre">get_executor</span></code> method to wrap the
+configured executor.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input</strong> – Some input data from the user (path, name, etc.).</p></li>
+<li><p><strong>writer</strong> – A series of output writer steps to add to the pipeline.</p></li>
+<li><p><strong>parallelism</strong> – The degree of parallelism; dataset authors can choose
+to implement this however they want.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="undertale.datasets.base.Dataset.load">
+<em class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dataset</span></span></span><a class="headerlink" href="#undertale.datasets.base.Dataset.load" title="Link to this definition">¶</a></dt>
+<dd><p>Load a dataset from the given path.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>path</strong> – The path from which this dataset should be loaded.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A dataset loaded from the given path.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="undertale.datasets.base.Dataset.store">
+<em class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">store</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dataset</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#undertale.datasets.base.Dataset.store" title="Link to this definition">¶</a></dt>
+<dd><p>Save a dataset to the given path.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>path</strong> – The path where this dataset should be saved.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="undertale.datasets.base.WRITERS">
+<span class="sig-prename descclassname"><span class="pre">undertale.datasets.base.</span></span><span class="sig-name descname"><span class="pre">WRITERS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'parquet':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">'pretraining':</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;}</span></em><a class="headerlink" href="#undertale.datasets.base.WRITERS" title="Link to this definition">¶</a></dt>
+<dd><p>Supported dataset writers.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="undertale.datasets.base.DEFAULT_WRITER">
+<span class="sig-prename descclassname"><span class="pre">undertale.datasets.base.</span></span><span class="sig-name descname"><span class="pre">DEFAULT_WRITER</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'parquet'</span></em><a class="headerlink" href="#undertale.datasets.base.DEFAULT_WRITER" title="Link to this definition">¶</a></dt>
+<dd><p>Default dataset writer.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="undertale.datasets.base.EXECUTORS">
+<span class="sig-prename descclassname"><span class="pre">undertale.datasets.base.</span></span><span class="sig-name descname"><span class="pre">EXECUTORS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'local':</span> <span class="pre">&lt;class</span> <span class="pre">'datatrove.executor.local.LocalPipelineExecutor'&gt;,</span> <span class="pre">'slurm':</span> <span class="pre">&lt;class</span> <span class="pre">'datatrove.executor.slurm.SlurmPipelineExecutor'&gt;}</span></em><a class="headerlink" href="#undertale.datasets.base.EXECUTORS" title="Link to this definition">¶</a></dt>
+<dd><p>Supported dataset executors.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="undertale.datasets.base.DEFAULT_EXECUTOR">
+<span class="sig-prename descclassname"><span class="pre">undertale.datasets.base.</span></span><span class="sig-name descname"><span class="pre">DEFAULT_EXECUTOR</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'local'</span></em><a class="headerlink" href="#undertale.datasets.base.DEFAULT_EXECUTOR" title="Link to this definition">¶</a></dt>
+<dd><p>Default dataset executor.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="undertale.datasets.base.main">
+<span class="sig-prename descclassname"><span class="pre">undertale.datasets.base.</span></span><span class="sig-name descname"><span class="pre">main</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cls</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Type</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#undertale.datasets.base.Dataset" title="undertale.datasets.base.Dataset"><span class="pre">Dataset</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#undertale.datasets.base.main" title="Link to this definition">¶</a></dt>
+<dd><p>The CLI entrypoint for parsing a dataset.</p>
+<p>This should be called in <code class="docutils literal notranslate"><span class="pre">__main__</span></code> for dataset modules.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>cls</strong> – A dataset class to interact with.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+          </div>
+              <div class="related bottom">
+                &nbsp;
+  <nav id="rellinks">
+    <ul>
+        <li>
+          &larr;
+          <a href="undertale.datasets.assemblage.windows.html" title="Previous document">windows</a>
+        </li>
+        <li>
+          <a href="undertale.datasets.googlecodejam.html" title="Next document">googlecodejam</a>
+          &rarr;
+        </li>
+    </ul>
+  </nav>
+              </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Undertale</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../usage/index.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../development/index.html">Development</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../reference.html">Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="undertale.html">undertale</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="undertale.datasets.html">datasets</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.apt.html">apt</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.assemblage.html">assemblage</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">base</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.datasets.base.Dataset"><code class="docutils literal notranslate"><span class="pre">Dataset</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="#undertale.datasets.base.Dataset.schema"><code class="docutils literal notranslate"><span class="pre">Dataset.schema</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#undertale.datasets.base.Dataset.get_executor"><code class="docutils literal notranslate"><span class="pre">Dataset.get_executor()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#undertale.datasets.base.Dataset.get_pipeline"><code class="docutils literal notranslate"><span class="pre">Dataset.get_pipeline()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#undertale.datasets.base.Dataset.load"><code class="docutils literal notranslate"><span class="pre">Dataset.load()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#undertale.datasets.base.Dataset.store"><code class="docutils literal notranslate"><span class="pre">Dataset.store()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.datasets.base.WRITERS"><code class="docutils literal notranslate"><span class="pre">WRITERS</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.datasets.base.DEFAULT_WRITER"><code class="docutils literal notranslate"><span class="pre">DEFAULT_WRITER</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.datasets.base.EXECUTORS"><code class="docutils literal notranslate"><span class="pre">EXECUTORS</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.datasets.base.DEFAULT_EXECUTOR"><code class="docutils literal notranslate"><span class="pre">DEFAULT_EXECUTOR</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.datasets.base.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.googlecodejam.html">googlecodejam</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.humanevalx.html">humanevalx</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.nixpkgs.html">nixpkgs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.pipeline.html">pipeline</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.schema.html">schema</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.scripts.html">scripts</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.datasets.xlcost.html">xlcost</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.evaluation.html">evaluation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.logging.html">logging</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.models.html">models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.patch.html">patch</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.utils.html">utils</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="../reference.html">Reference</a><ul>
+  <li><a href="undertale.html">undertale</a><ul>
+  <li><a href="undertale.datasets.html">datasets</a><ul>
+      <li>Previous: <a href="undertale.datasets.assemblage.windows.html" title="previous chapter">windows</a></li>
+      <li>Next: <a href="undertale.datasets.googlecodejam.html" title="next chapter">googlecodejam</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, MIT Lincoln Laboratory.
+      
+      |
+      <a href="../_sources/_undertale/undertale.datasets.base.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

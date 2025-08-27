@@ -1,0 +1,30 @@
+model
+=====
+
+.. automodule:: undertale.models.item.model
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      scaled_dot_product_attention
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      Attention
+      Defaults
+      FeedForward
+      LanguageConnector
+      MaskedLMHead
+      MultiHeadAttention
+      PositionEmbedding
+      TransformerEncoder
+      TransformerEncoderForMaskedLM
+      TransformerEncoderForSequenceClassification
+      TransformerEncoderForSequenceSimilarity
+      TransformerEncoderForSequenceSummarizationGPT2
+      TransformerEncoderLayer
+   

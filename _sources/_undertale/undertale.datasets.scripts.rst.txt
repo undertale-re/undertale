@@ -1,0 +1,15 @@
+scripts
+=======
+
+.. automodule:: undertale.datasets.scripts
+
+   
+.. rubric:: Modules
+
+.. autosummary::
+   :toctree:
+   :recursive:
+
+   pretokenize
+   shell
+   tokenize

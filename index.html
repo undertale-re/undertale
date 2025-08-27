@@ -54,9 +54,18 @@
 <li class="toctree-l3"><a class="reference internal" href="usage/modeling.html#pretoken-processing">Pretoken Processing</a></li>
 <li class="toctree-l3"><a class="reference internal" href="usage/modeling.html#tokenizer-training">Tokenizer Training</a></li>
 <li class="toctree-l3"><a class="reference internal" href="usage/modeling.html#tokenization">Tokenization</a></li>
-<li class="toctree-l3"><a class="reference internal" href="usage/modeling.html#pre-training-maked-language-modeling">Pre-Training (Maked Language Modeling)</a></li>
-<li class="toctree-l3"><a class="reference internal" href="usage/modeling.html#fine-tuning-contrastive-embeddings">Fine-Tuning (Contrastive Embeddings)</a></li>
-<li class="toctree-l3"><a class="reference internal" href="usage/modeling.html#fine-tuning-multi-modal-summarization">Fine-Tuning (Multi-Modal Summarization)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage/modeling.html#pre-training-maked-language-modeling">Pre-Training (Maked Language Modeling)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="usage/modeling.html#inference">Inference</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="usage/modeling.html#fine-tuning-contrastive-embeddings">Fine-Tuning (Contrastive Embeddings)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="usage/modeling.html#id1">Inference</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="usage/modeling.html#fine-tuning-multi-modal-summarization">Fine-Tuning (Multi-Modal Summarization)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="usage/modeling.html#id2">Inference</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -88,12 +97,265 @@
 <li class="toctree-l3"><a class="reference internal" href="development/setup.html#id1">Setup</a></li>
 <li class="toctree-l3"><a class="reference internal" href="development/setup.html#code-style">Code Style</a></li>
 <li class="toctree-l3"><a class="reference internal" href="development/setup.html#documentation">Documentation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="development/setup.html#extras">Extras</a></li>
+<li class="toctree-l3"><a class="reference internal" href="development/setup.html#extras">Extras</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="development/setup.html#installing-ghidra-on-macos">Installing Ghidra on MacOS</a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="reference/index.html">Reference</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="reference.html">Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="_undertale/undertale.html">undertale</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="_undertale/undertale.datasets.html">datasets</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="_undertale/undertale.datasets.apt.html">apt</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.apt.html#undertale.datasets.apt.LoadAPTPackages"><code class="docutils literal notranslate"><span class="pre">LoadAPTPackages</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.apt.html#undertale.datasets.apt.APTpkg"><code class="docutils literal notranslate"><span class="pre">APTpkg</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="_undertale/undertale.datasets.assemblage.html">assemblage</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.assemblage.vcpkg.html">vcpkg</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.assemblage.vcpkg.html#undertale.datasets.assemblage.vcpkg.AssemblageVcpkgReader"><code class="docutils literal notranslate"><span class="pre">AssemblageVcpkgReader</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.assemblage.vcpkg.html#undertale.datasets.assemblage.vcpkg.AssemblageVcpkg"><code class="docutils literal notranslate"><span class="pre">AssemblageVcpkg</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.assemblage.windows.html">windows</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.assemblage.windows.html#undertale.datasets.assemblage.windows.AssemblageWindowsReader"><code class="docutils literal notranslate"><span class="pre">AssemblageWindowsReader</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.assemblage.windows.html#undertale.datasets.assemblage.windows.AssemblageWindows"><code class="docutils literal notranslate"><span class="pre">AssemblageWindows</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="_undertale/undertale.datasets.base.html">base</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.base.html#undertale.datasets.base.Dataset"><code class="docutils literal notranslate"><span class="pre">Dataset</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.base.html#undertale.datasets.base.Dataset.schema"><code class="docutils literal notranslate"><span class="pre">Dataset.schema</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.base.html#undertale.datasets.base.Dataset.get_executor"><code class="docutils literal notranslate"><span class="pre">Dataset.get_executor()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.base.html#undertale.datasets.base.Dataset.get_pipeline"><code class="docutils literal notranslate"><span class="pre">Dataset.get_pipeline()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.base.html#undertale.datasets.base.Dataset.load"><code class="docutils literal notranslate"><span class="pre">Dataset.load()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.base.html#undertale.datasets.base.Dataset.store"><code class="docutils literal notranslate"><span class="pre">Dataset.store()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.base.html#undertale.datasets.base.WRITERS"><code class="docutils literal notranslate"><span class="pre">WRITERS</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.base.html#undertale.datasets.base.DEFAULT_WRITER"><code class="docutils literal notranslate"><span class="pre">DEFAULT_WRITER</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.base.html#undertale.datasets.base.EXECUTORS"><code class="docutils literal notranslate"><span class="pre">EXECUTORS</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.base.html#undertale.datasets.base.DEFAULT_EXECUTOR"><code class="docutils literal notranslate"><span class="pre">DEFAULT_EXECUTOR</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.base.html#undertale.datasets.base.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="_undertale/undertale.datasets.googlecodejam.html">googlecodejam</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.googlecodejam.html#undertale.datasets.googlecodejam.GoogleCodeJam"><code class="docutils literal notranslate"><span class="pre">GoogleCodeJam</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="_undertale/undertale.datasets.humanevalx.html">humanevalx</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.humanevalx.html#undertale.datasets.humanevalx.HumanEvalX"><code class="docutils literal notranslate"><span class="pre">HumanEvalX</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="_undertale/undertale.datasets.nixpkgs.html">nixpkgs</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.nixpkgs.html#undertale.datasets.nixpkgs.FindNixpkgs"><code class="docutils literal notranslate"><span class="pre">FindNixpkgs</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.nixpkgs.html#undertale.datasets.nixpkgs.EnrichGithubPackages"><code class="docutils literal notranslate"><span class="pre">EnrichGithubPackages</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.nixpkgs.html#undertale.datasets.nixpkgs.BuildNixpkgs"><code class="docutils literal notranslate"><span class="pre">BuildNixpkgs</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.nixpkgs.html#undertale.datasets.nixpkgs.ExtractBinaryDataset"><code class="docutils literal notranslate"><span class="pre">ExtractBinaryDataset</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.nixpkgs.html#undertale.datasets.nixpkgs.NixPkgs"><code class="docutils literal notranslate"><span class="pre">NixPkgs</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.html">pipeline</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.compilers.html">compilers</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.compilers.cpp.html">cpp</a><ul>
+<li class="toctree-l7"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.compilers.cpp.html#undertale.datasets.pipeline.compilers.cpp.CppCompiler"><code class="docutils literal notranslate"><span class="pre">CppCompiler</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.disassemblers.html">disassemblers</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.disassemblers.binaryninja.html">binaryninja</a><ul>
+<li class="toctree-l7"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.disassemblers.binaryninja.html#undertale.datasets.pipeline.disassemblers.binaryninja.BinaryNinjaDisassembler"><code class="docutils literal notranslate"><span class="pre">BinaryNinjaDisassembler</span></code></a><ul>
+<li class="toctree-l8"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.disassemblers.binaryninja.html#undertale.datasets.pipeline.disassemblers.binaryninja.BinaryNinjaDisassembler.run"><code class="docutils literal notranslate"><span class="pre">BinaryNinjaDisassembler.run()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.disassemblers.capstone.html">capstone</a><ul>
+<li class="toctree-l7"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.disassemblers.capstone.html#undertale.datasets.pipeline.disassemblers.capstone.CapstoneDisassembler"><code class="docutils literal notranslate"><span class="pre">CapstoneDisassembler</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.disassemblers.ghidra.html">ghidra</a><ul>
+<li class="toctree-l7"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.disassemblers.ghidra.html#undertale.datasets.pipeline.disassemblers.ghidra.build_control_flow_graph"><code class="docutils literal notranslate"><span class="pre">build_control_flow_graph()</span></code></a></li>
+<li class="toctree-l7"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.disassemblers.ghidra.html#undertale.datasets.pipeline.disassemblers.ghidra.GhidraDisassembler"><code class="docutils literal notranslate"><span class="pre">GhidraDisassembler</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.disassemblers.radare2.html">radare2</a><ul>
+<li class="toctree-l7"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.disassemblers.radare2.html#undertale.datasets.pipeline.disassemblers.radare2.RadareDisassembler"><code class="docutils literal notranslate"><span class="pre">RadareDisassembler</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.disassemblers.rizin.html">rizin</a><ul>
+<li class="toctree-l7"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.disassemblers.rizin.html#undertale.datasets.pipeline.disassemblers.rizin.RizinDisassembler"><code class="docutils literal notranslate"><span class="pre">RizinDisassembler</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.formatters.html">formatters</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.formatters.item.html">item</a><ul>
+<li class="toctree-l7"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.formatters.item.html#undertale.datasets.pipeline.formatters.item.ITEMPretokenizer"><code class="docutils literal notranslate"><span class="pre">ITEMPretokenizer</span></code></a></li>
+<li class="toctree-l7"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.formatters.item.html#undertale.datasets.pipeline.formatters.item.ITEMTokenizer"><code class="docutils literal notranslate"><span class="pre">ITEMTokenizer</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.pairs.html">pairs</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.pairs.pairwise_contrastive.html">pairwise_contrastive</a><ul>
+<li class="toctree-l7"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.pairs.pairwise_contrastive.html#undertale.datasets.pipeline.pairs.pairwise_contrastive.PairwiseContrastive"><code class="docutils literal notranslate"><span class="pre">PairwiseContrastive</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.segmenters.html">segmenters</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.segmenters.binaryninja.html">binaryninja</a><ul>
+<li class="toctree-l7"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.segmenters.binaryninja.html#undertale.datasets.pipeline.segmenters.binaryninja.BinaryNinjaFunctionSegmenter"><code class="docutils literal notranslate"><span class="pre">BinaryNinjaFunctionSegmenter</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.segmenters.ghidra.html">ghidra</a><ul>
+<li class="toctree-l7"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.segmenters.ghidra.html#undertale.datasets.pipeline.segmenters.ghidra.GhidraFunctionSegmenter"><code class="docutils literal notranslate"><span class="pre">GhidraFunctionSegmenter</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.segmenters.lief.html">lief</a><ul>
+<li class="toctree-l7"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.segmenters.lief.html#undertale.datasets.pipeline.segmenters.lief.LIEFFunctionSegmenter"><code class="docutils literal notranslate"><span class="pre">LIEFFunctionSegmenter</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.segmenters.rizin.html">rizin</a><ul>
+<li class="toctree-l7"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.segmenters.rizin.html#undertale.datasets.pipeline.segmenters.rizin.RizinFunctionSegmentAndDisassemble"><code class="docutils literal notranslate"><span class="pre">RizinFunctionSegmentAndDisassemble</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.summariziers.html">summariziers</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.summariziers.openai.html">openai</a><ul>
+<li class="toctree-l7"><a class="reference internal" href="_undertale/undertale.datasets.pipeline.summariziers.openai.html#undertale.datasets.pipeline.summariziers.openai.OpenAISummarizer"><code class="docutils literal notranslate"><span class="pre">OpenAISummarizer</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="_undertale/undertale.datasets.schema.html">schema</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.schema.html#undertale.datasets.schema.InvalidSchemaError"><code class="docutils literal notranslate"><span class="pre">InvalidSchemaError</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.schema.html#undertale.datasets.schema.Schema"><code class="docutils literal notranslate"><span class="pre">Schema</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.schema.html#undertale.datasets.schema.Schema.get_members"><code class="docutils literal notranslate"><span class="pre">Schema.get_members()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.schema.html#undertale.datasets.schema.Schema.to_features"><code class="docutils literal notranslate"><span class="pre">Schema.to_features()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.schema.html#undertale.datasets.schema.Schema.validate"><code class="docutils literal notranslate"><span class="pre">Schema.validate()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.schema.html#undertale.datasets.schema.WholeBinary"><code class="docutils literal notranslate"><span class="pre">WholeBinary</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.schema.html#undertale.datasets.schema.WholeBinary.binary"><code class="docutils literal notranslate"><span class="pre">WholeBinary.binary</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.schema.html#undertale.datasets.schema.WholeBinary.Optional"><code class="docutils literal notranslate"><span class="pre">WholeBinary.Optional</span></code></a><ul>
+<li class="toctree-l7"><a class="reference internal" href="_undertale/undertale.datasets.schema.html#undertale.datasets.schema.WholeBinary.Optional.source"><code class="docutils literal notranslate"><span class="pre">WholeBinary.Optional.source</span></code></a></li>
+<li class="toctree-l7"><a class="reference internal" href="_undertale/undertale.datasets.schema.html#undertale.datasets.schema.WholeBinary.Optional.architecture"><code class="docutils literal notranslate"><span class="pre">WholeBinary.Optional.architecture</span></code></a></li>
+<li class="toctree-l7"><a class="reference internal" href="_undertale/undertale.datasets.schema.html#undertale.datasets.schema.WholeBinary.Optional.compiler"><code class="docutils literal notranslate"><span class="pre">WholeBinary.Optional.compiler</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.schema.html#undertale.datasets.schema.Function"><code class="docutils literal notranslate"><span class="pre">Function</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.schema.html#undertale.datasets.schema.Function.code"><code class="docutils literal notranslate"><span class="pre">Function.code</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.schema.html#undertale.datasets.schema.Function.disassembly"><code class="docutils literal notranslate"><span class="pre">Function.disassembly</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.schema.html#undertale.datasets.schema.Function.Optional"><code class="docutils literal notranslate"><span class="pre">Function.Optional</span></code></a><ul>
+<li class="toctree-l7"><a class="reference internal" href="_undertale/undertale.datasets.schema.html#undertale.datasets.schema.Function.Optional.id"><code class="docutils literal notranslate"><span class="pre">Function.Optional.id</span></code></a></li>
+<li class="toctree-l7"><a class="reference internal" href="_undertale/undertale.datasets.schema.html#undertale.datasets.schema.Function.Optional.source"><code class="docutils literal notranslate"><span class="pre">Function.Optional.source</span></code></a></li>
+<li class="toctree-l7"><a class="reference internal" href="_undertale/undertale.datasets.schema.html#undertale.datasets.schema.Function.Optional.architecture"><code class="docutils literal notranslate"><span class="pre">Function.Optional.architecture</span></code></a></li>
+<li class="toctree-l7"><a class="reference internal" href="_undertale/undertale.datasets.schema.html#undertale.datasets.schema.Function.Optional.compiler"><code class="docutils literal notranslate"><span class="pre">Function.Optional.compiler</span></code></a></li>
+<li class="toctree-l7"><a class="reference internal" href="_undertale/undertale.datasets.schema.html#undertale.datasets.schema.Function.Optional.function_name"><code class="docutils literal notranslate"><span class="pre">Function.Optional.function_name</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.schema.html#undertale.datasets.schema.PairwiseContrasting"><code class="docutils literal notranslate"><span class="pre">PairwiseContrasting</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.schema.html#undertale.datasets.schema.PairwiseContrasting.first"><code class="docutils literal notranslate"><span class="pre">PairwiseContrasting.first</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.schema.html#undertale.datasets.schema.PairwiseContrasting.second"><code class="docutils literal notranslate"><span class="pre">PairwiseContrasting.second</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.schema.html#undertale.datasets.schema.TripletContrasting"><code class="docutils literal notranslate"><span class="pre">TripletContrasting</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.schema.html#undertale.datasets.schema.TripletContrasting.anchor"><code class="docutils literal notranslate"><span class="pre">TripletContrasting.anchor</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.schema.html#undertale.datasets.schema.TripletContrasting.positive"><code class="docutils literal notranslate"><span class="pre">TripletContrasting.positive</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.schema.html#undertale.datasets.schema.TripletContrasting.negative"><code class="docutils literal notranslate"><span class="pre">TripletContrasting.negative</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.schema.html#undertale.datasets.schema.SummarizedFunction"><code class="docutils literal notranslate"><span class="pre">SummarizedFunction</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="_undertale/undertale.datasets.scripts.html">scripts</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.scripts.pretokenize.html">pretokenize</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.scripts.pretokenize.html#undertale.datasets.scripts.pretokenize.Pretokenizer"><code class="docutils literal notranslate"><span class="pre">Pretokenizer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.scripts.shell.html">shell</a></li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.scripts.tokenize.html">tokenize</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.datasets.scripts.tokenize.html#undertale.datasets.scripts.tokenize.Tokenizer"><code class="docutils literal notranslate"><span class="pre">Tokenizer</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="_undertale/undertale.datasets.xlcost.html">xlcost</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.datasets.xlcost.html#undertale.datasets.xlcost.XLCost"><code class="docutils literal notranslate"><span class="pre">XLCost</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="_undertale/undertale.evaluation.html">evaluation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="_undertale/undertale.logging.html">logging</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="_undertale/undertale.logging.html#undertale.logging.setup_logging"><code class="docutils literal notranslate"><span class="pre">setup_logging()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="_undertale/undertale.models.html">models</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="_undertale/undertale.models.item.html">item</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.models.item.html#undertale.models.item.TransformerEncoder"><code class="docutils literal notranslate"><span class="pre">TransformerEncoder</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.models.item.html#undertale.models.item.TransformerEncoderForMaskedLM"><code class="docutils literal notranslate"><span class="pre">TransformerEncoderForMaskedLM</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.models.item.html#undertale.models.item.TransformerEncoderForSequenceSimilarity"><code class="docutils literal notranslate"><span class="pre">TransformerEncoderForSequenceSimilarity</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.models.item.html#undertale.models.item.TransformerEncoderForSequenceClassification"><code class="docutils literal notranslate"><span class="pre">TransformerEncoderForSequenceClassification</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.models.item.html#undertale.models.item.TransformerEncoderForSequenceSummarizationGPT2"><code class="docutils literal notranslate"><span class="pre">TransformerEncoderForSequenceSummarizationGPT2</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.models.item.finetune_embedding.html">finetune_embedding</a></li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.models.item.finetune_summarization.html">finetune_summarization</a></li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.models.item.infer_embedding.html">infer_embedding</a></li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.models.item.infer_maskedlm.html">infer_maskedlm</a></li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.models.item.infer_similarity.html">infer_similarity</a></li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.models.item.infer_summarization.html">infer_summarization</a></li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.models.item.model.html">model</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.models.item.model.html#undertale.models.item.model.TransformerEncoder"><code class="docutils literal notranslate"><span class="pre">TransformerEncoder</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.models.item.model.html#undertale.models.item.model.TransformerEncoderForMaskedLM"><code class="docutils literal notranslate"><span class="pre">TransformerEncoderForMaskedLM</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.models.item.model.html#undertale.models.item.model.TransformerEncoderForSequenceSimilarity"><code class="docutils literal notranslate"><span class="pre">TransformerEncoderForSequenceSimilarity</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.models.item.model.html#undertale.models.item.model.TransformerEncoderForSequenceClassification"><code class="docutils literal notranslate"><span class="pre">TransformerEncoderForSequenceClassification</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.models.item.model.html#undertale.models.item.model.TransformerEncoderForSequenceSummarizationGPT2"><code class="docutils literal notranslate"><span class="pre">TransformerEncoderForSequenceSummarizationGPT2</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.models.item.pretrain_dataflow.html">pretrain_dataflow</a></li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.models.item.pretrain_maskedlm.html">pretrain_maskedlm</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.models.item.pretrain_maskedlm.html#undertale.models.item.pretrain_maskedlm.ProgressBar"><code class="docutils literal notranslate"><span class="pre">ProgressBar</span></code></a><ul>
+<li class="toctree-l7"><a class="reference internal" href="_undertale/undertale.models.item.pretrain_maskedlm.html#undertale.models.item.pretrain_maskedlm.ProgressBar.get_metrics"><code class="docutils literal notranslate"><span class="pre">ProgressBar.get_metrics()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.models.item.pretrain_maskedlm.html#undertale.models.item.pretrain_maskedlm.ValidationCallback"><code class="docutils literal notranslate"><span class="pre">ValidationCallback</span></code></a><ul>
+<li class="toctree-l7"><a class="reference internal" href="_undertale/undertale.models.item.pretrain_maskedlm.html#undertale.models.item.pretrain_maskedlm.ValidationCallback.on_validation_end"><code class="docutils literal notranslate"><span class="pre">ValidationCallback.on_validation_end()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="_undertale/undertale.models.item.tokenizer.html">tokenizer</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="_undertale/undertale.models.item.tokenizer.html#undertale.models.item.tokenizer.train"><code class="docutils literal notranslate"><span class="pre">train()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="_undertale/undertale.patch.html">patch</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="_undertale/undertale.patch.html#undertale.patch.patch_filelock_flock_unsupported"><code class="docutils literal notranslate"><span class="pre">patch_filelock_flock_unsupported()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="_undertale/undertale.utils.html">utils</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="_undertale/undertale.utils.html#undertale.utils.suppress_sigint"><code class="docutils literal notranslate"><span class="pre">suppress_sigint()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="_undertale/undertale.utils.html#undertale.utils.allow_sigint"><code class="docutils literal notranslate"><span class="pre">allow_sigint()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="glossary.html">Glossary</a></li>
@@ -149,7 +411,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="usage/index.html">Usage</a></li>
 <li class="toctree-l1"><a class="reference internal" href="development/index.html">Development</a></li>
-<li class="toctree-l1"><a class="reference internal" href="reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reference.html">Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="glossary.html">Glossary</a></li>
 <li class="toctree-l1"><a class="reference internal" href="about.html">About</a></li>
 </ul>

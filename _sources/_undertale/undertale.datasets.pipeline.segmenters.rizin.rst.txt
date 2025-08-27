@@ -1,0 +1,12 @@
+rizin
+=====
+
+.. automodule:: undertale.datasets.pipeline.segmenters.rizin
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      RizinFunctionSegmentAndDisassemble
+   

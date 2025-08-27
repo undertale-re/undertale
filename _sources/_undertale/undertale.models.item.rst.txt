@@ -1,0 +1,22 @@
+item
+====
+
+.. automodule:: undertale.models.item
+
+   
+.. rubric:: Modules
+
+.. autosummary::
+   :toctree:
+   :recursive:
+
+   finetune_embedding
+   finetune_summarization
+   infer_embedding
+   infer_maskedlm
+   infer_similarity
+   infer_summarization
+   model
+   pretrain_dataflow
+   pretrain_maskedlm
+   tokenizer

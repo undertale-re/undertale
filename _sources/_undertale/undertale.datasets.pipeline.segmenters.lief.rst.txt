@@ -1,0 +1,12 @@
+lief
+====
+
+.. automodule:: undertale.datasets.pipeline.segmenters.lief
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      LIEFFunctionSegmenter
+   

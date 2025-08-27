@@ -1,0 +1,12 @@
+capstone
+========
+
+.. automodule:: undertale.datasets.pipeline.disassemblers.capstone
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      CapstoneDisassembler
+   

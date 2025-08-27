@@ -1,0 +1,13 @@
+pairs
+=====
+
+.. automodule:: undertale.datasets.pipeline.pairs
+
+   
+.. rubric:: Modules
+
+.. autosummary::
+   :toctree:
+   :recursive:
+
+   pairwise_contrastive

@@ -1,0 +1,6 @@
+shell
+=====
+
+.. automodule:: undertale.datasets.scripts.shell
+
+   

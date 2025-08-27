@@ -1,0 +1,18 @@
+googlecodejam
+=============
+
+.. automodule:: undertale.datasets.googlecodejam
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      adapt_googlecodejam_from_raw
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      GoogleCodeJam
+   

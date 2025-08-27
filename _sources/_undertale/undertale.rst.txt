@@ -1,0 +1,18 @@
+﻿undertale
+==========
+
+.. automodule:: undertale
+
+   
+.. rubric:: Modules
+
+.. autosummary::
+   :toctree:
+   :recursive:
+
+   datasets
+   evaluation
+   logging
+   models
+   patch
+   utils
