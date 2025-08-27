@@ -5,6 +5,7 @@
 *.log
 *.parquet
 *.safetensors
+*.zip
 
 *.DS_Store
 
