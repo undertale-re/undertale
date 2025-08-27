@@ -30,7 +30,7 @@ python -m undertale.{module} ...
 ```
 
 For more details on available scripts and usage information, see the [full
-documentation](https://undertale-re.github.io/undertale/).
+documentation][pages].
 
 ## Contributing
 
