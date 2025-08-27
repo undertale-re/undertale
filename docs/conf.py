@@ -32,7 +32,6 @@ exclude_patterns = ["_build"]
 # -- Options for HTML output -------------------------------------------------
 
 html_theme = "alabaster"
-html_favicon = "favicon.png"
 html_theme_options = {
     "show_relbar_bottom": True,
 }
