@@ -1,3 +1,5 @@
+"""Dataset schema definition and enforcement."""
+
 import inspect
 import logging
 
@@ -99,8 +101,8 @@ class Schema:
 class WholeBinary(Schema):
     """A dataset of entire binaries.
 
-    This dataset requires further processing before it is useful for
-    training, but this schema might still be useful.
+    This dataset requires further processing before it is useful for training,
+    but this schema might still be useful.
     """
 
     binary = datasets.Value("binary")
@@ -114,10 +116,11 @@ class WholeBinary(Schema):
         the root of a project directory to their content. Ideally it should be
         possible to reconstruct an entire source tree from this field.
 
-        Example:
+        Example::
+
             {
-                'hello.cpp': 'void main() { printf("hello world\n"); }',
-                'assets/data.csv': 'name,description,comment\nfoo,bar,baz',
+                'hello.cpp': 'void main() { printf("hello world\\n"); }',
+                'assets/data.csv': 'name,description,comment\\nfoo,bar,baz',
             }
         """
 

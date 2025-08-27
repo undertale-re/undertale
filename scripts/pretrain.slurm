@@ -25,7 +25,7 @@ srun rsync --progress ~/undertale_shared/models/item/$TOKENIZER $WORKSPACE/
 
 export HF_HOME=$WORKSPACE/cache
 
-srun python -m undertale.models.item.pretrain-maskedlm \
+srun python -m undertale.models.item.pretrain_maskedlm \
     --tokenizer $WORKSPACE/$TOKENIZER \
     $WORKSPACE/$DATASET/ \
     pretrain-maskedlm/ \

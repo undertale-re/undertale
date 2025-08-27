@@ -1,3 +1,13 @@
+"""A dataset built from packages available via the Nix package manager.
+
+NixOS provides a package manager ``nixpkgs`` which allows for determinsitic
+builds of a large number of open-source tools and libraries. This dataset
+crawls available packages, checks for compilable languages, then builds them
+from source using ``nixpkgs``.
+
+nixpkgs: https://github.com/NixOS/nixpkgs
+"""
+
 import os
 import tempfile
 from pathlib import Path
@@ -10,8 +20,8 @@ from datatrove.pipeline.filters import LambdaFilter
 from datatrove.pipeline.readers import JsonlReader, ParquetReader
 from datatrove.pipeline.writers import JsonlWriter, ParquetWriter
 
-from undertale.datasets.base import Dataset, main
-from undertale.datasets.pipeline.segmenters import BinaryNinjaFunctionSegmenter
+from .base import Dataset, main
+from .pipeline.segmenters import BinaryNinjaFunctionSegmenter
 
 
 class FindNixpkgs(PipelineStep):
@@ -85,6 +95,7 @@ class FindNixpkgs(PipelineStep):
     def run(
         self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
     ) -> DocumentsPipeline:
+        """"""
         import json
         import os
         import subprocess
@@ -202,6 +213,7 @@ class EnrichGithubPackages(PipelineStep):
     def run(
         self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
     ) -> DocumentsPipeline:
+        """"""
         import json
         import time
 
@@ -298,6 +310,7 @@ class BuildNixpkgs(PipelineStep):
     def run(
         self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
     ) -> DocumentsPipeline:
+        """"""
         import subprocess
         import tarfile
 
@@ -459,6 +472,7 @@ class ExtractBinaryDataset(PipelineStep):
     def run(
         self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
     ) -> DocumentsPipeline:
+        """"""
         import os
         import tarfile
 
@@ -568,7 +582,7 @@ class NixPkgs(Dataset):
         None  # list[str] of arguments to wrap nix commands around if neccessary
     )
 
-    undertale_dir = os.environ.get("UNDERTALE_DATASETS_DIRECTORY")
+    undertale_dir = os.environ.get("UNDERTALE_DATASETS_DIRECTORY", "./")
     dataset_dir = os.path.abspath(
         os.path.join(undertale_dir, name)
     )  # where final datasets are stored (pulls from ENV variable)
@@ -599,6 +613,7 @@ class NixPkgs(Dataset):
     slurm_partition_offline = None
 
     def get_executor(self, steps, input):
+        """"""
         # stage0: generate curated package listing from all flakes
         self.slurm_find_packages = SlurmPipelineExecutor(
             pipeline=[
@@ -745,6 +760,7 @@ class NixPkgs(Dataset):
         return None
 
     def get_pipeline(self, input, writer, parallelism):
+        """"""
         from datatrove.utils.logging import logger
 
         # currently ignoring input

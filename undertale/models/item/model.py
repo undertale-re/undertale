@@ -1,3 +1,5 @@
+"""Model implementation."""
+
 from math import sqrt
 from typing import Optional
 
@@ -58,6 +60,7 @@ class Attention(Module):
         self.v = Linear(hidden_dimensions, head_dimensions)
 
     def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
+        """"""
         return scaled_dot_product_attention(
             self.q(state), self.k(state), self.v(state), mask=mask
         )
@@ -76,6 +79,7 @@ class MultiHeadAttention(Module):
         self.output = Linear(hidden_dimensions, hidden_dimensions)
 
     def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
+        """"""
         attended = cat([h(state, mask) for h in self.heads], dim=-1)
         output = self.output(attended)
 
@@ -94,6 +98,7 @@ class FeedForward(Module):
         self.dropout = Dropout(dropout)
 
     def forward(self, state: Tensor) -> Tensor:
+        """"""
         hidden = self.activation(self.linear1(state))
         output = self.dropout(self.linear2(hidden))
 
@@ -116,6 +121,7 @@ class TransformerEncoderLayer(Module):
         self.ff = FeedForward(hidden_dimensions, intermediate_dimensions, dropout)
 
     def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
+        """"""
         # Vanila.
         # attended = self.attention(state)
         # output = self.ff(attended)
@@ -153,6 +159,7 @@ class PositionEmbedding(Module):
         self.next_token_id = SPECIAL_TOKENS.index(TOKEN_NEXT)
 
     def forward(self, state: Tensor) -> Tensor:
+        """"""
         # FIXME this could probably be optimized
         starts = roll(state == self.next_token_id, 1)
         starts[:, 0] = False
@@ -201,6 +208,7 @@ class TransformerEncoder(Module):
         )
 
     def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
+        """"""
         output = self.embedding(state)
 
         for layer in self.layers:
@@ -220,6 +228,7 @@ class MaskedLMHead(Module):
         self.decode = Linear(hidden_dimensions, vocab_size)
 
     def forward(self, state: Tensor) -> Tensor:
+        """"""
         hidden = self.activation(self.transform(state))
         hidden = self.norm(hidden)
 
@@ -262,17 +271,20 @@ class TransformerEncoderForMaskedLM(LightningModule, Module):
         self.steps_per_epoch = None
 
     def on_fit_start(self):
+        """"""
         self.steps_per_epoch = (
             self.trainer.estimated_stepping_batches // self.trainer.max_epochs
         )
 
     def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
+        """"""
         hidden = self.encoder(state, mask)
         output = self.head(hidden)
 
         return output
 
     def configure_optimizers(self):
+        """"""
         optimizer = AdamW(self.parameters(), lr=self.lr)
 
         def constant_with_linear_warmup(step):
@@ -292,6 +304,7 @@ class TransformerEncoderForMaskedLM(LightningModule, Module):
         }
 
     def training_step(self, batch, index):
+        """"""
         output = self(batch.input_ids, batch.attention_mask)
         loss = cross_entropy(output.view(-1, output.size(-1)), batch.labels.view(-1))
 
@@ -301,6 +314,7 @@ class TransformerEncoderForMaskedLM(LightningModule, Module):
         return loss
 
     def validation_step(self, batch, index):
+        """"""
         output = self(batch.input_ids, batch.attention_mask)
 
         references = batch.labels
@@ -345,6 +359,7 @@ class TransformerEncoderForSequenceClassification(Module):
         self.head = Linear(hidden_dimensions, classes)
 
     def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
+        """"""
         # Select only the final state to classify.
         hidden = self.encoder(state, mask)[:, 0, :]
         hidden = self.dropout(hidden)
@@ -362,6 +377,7 @@ class LanguageConnector(Module):
         )
 
     def forward(self, state: Tensor) -> Tensor:
+        """"""
         return stack([c(state) for c in self.connectors], dim=1)
 
 

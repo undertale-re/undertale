@@ -1,3 +1,10 @@
+"""A dataset harvested from packages available via Advanced Package Tool.
+
+``apt`` is a popular package management tool that ships with Ubuntu - this
+dataset is built by downloading packages from a mirror, unpacking them, and
+scanning for executable files.
+"""
+
 import logging
 import os
 
@@ -6,8 +13,8 @@ from datatrove.pipeline.base import PipelineStep
 from datatrove.pipeline.readers import ParquetReader
 from datatrove.pipeline.writers import ParquetWriter
 
-from undertale.datasets.base import DEFAULT_DATASETS_DIRECTORY, Dataset, main
-from undertale.datasets.pipeline.disassemblers.ghidra import GhidraDisassembler
+from .base import Dataset, main
+from .pipeline.disassemblers.ghidra import GhidraDisassembler
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +64,7 @@ class LoadAPTPackages(PipelineStep):
         logger.debug("In constructor")
 
     def run(self, data=None, rank=0, world_size=0):
+        """"""
         import os
         import shutil
         import tempfile
@@ -219,9 +227,10 @@ class LoadAPTPackages(PipelineStep):
 
 class APTpkg(Dataset):
     name = "apt-pkg"
-    DEFAULT_DATASETS_DIRECTORY = DEFAULT_DATASETS_DIRECTORY
+    DEFAULT_DATASETS_DIRECTORY = "./"
 
     def get_pipeline(self, input, writer, parallelism):
+        """"""
         from datatrove.utils.logging import logger
 
         # def adapt_apt_from_dict(data: dict) -> dict:

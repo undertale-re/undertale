@@ -1,3 +1,10 @@
+"""The HumanEval-X multilingual code benchmark.
+
+C++ language subset, compiled.
+
+Data: https://huggingface.co/datasets/zai-org/humaneval-x.
+"""
+
 import os
 
 from datatrove.pipeline.readers import JsonlReader
@@ -18,14 +25,8 @@ def adapt_humanevalx_from_raw(
 
 
 class HumanEvalX(Dataset):
-    """The HumanEval-X multilingual code benchmark.
-
-    C++ language subset, compiled.
-
-    Data: https://huggingface.co/datasets/zai-org/humaneval-x.
-    """
-
     def get_pipeline(self, input, writer, parallelism):
+        """"""
         steps = [
             JsonlReader(
                 os.path.join(input, "cpp/data/humaneval.jsonl"),
