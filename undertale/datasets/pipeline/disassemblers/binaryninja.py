@@ -1,3 +1,10 @@
+"""The BinaryNinja reverse engineering tool.
+
+Requires a license.
+
+BinaryNinja: https://binary.ninja/
+"""
+
 from datatrove.data import DocumentsPipeline
 from datatrove.pipeline.base import PipelineStep
 
@@ -12,6 +19,7 @@ class BinaryNinjaDisassembler(PipelineStep):
     def run(
         self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
     ) -> DocumentsPipeline:
+        """."""
 
         import pickle
 

@@ -1,3 +1,7 @@
+"""The Ghidra reverse engineering tool.
+
+Ghidra: https://github.com/NationalSecurityAgency/ghidra."""
+
 from datatrove.data import DocumentsPipeline
 from datatrove.pipeline.base import PipelineStep
 
@@ -23,6 +27,7 @@ class GhidraFunctionSegmenter(PipelineStep):
     def run(
         self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
     ) -> DocumentsPipeline:
+        """"""
         import os
         import pickle
         import tempfile

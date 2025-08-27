@@ -1,3 +1,5 @@
+"""Patches for external libraries."""
+
 import os
 
 
@@ -14,7 +16,7 @@ def patch_filelock_flock_unsupported():
     locks - in particular if programs crash in unexpected ways while they own
     locks or if you are attempting to acquire a lock on something that has
     already had a standard flock used on it. You can run the following command
-    to clear all locks from the Datasets cache directory:
+    to clear all locks from the Datasets cache directory::
 
         rm $(find ~/.cache/huggingface/datasets/ -type f -name '*.lock')
 

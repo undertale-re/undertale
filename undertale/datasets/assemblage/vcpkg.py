@@ -1,3 +1,12 @@
+"""The VCPKG dataset, built by Assemblage.
+
+VCPKG (https://vcpkg.io/en/) is an open-source library manager for downloading
+and building external libraries. This dataset was built by the Assemblage
+folks who downloaded and compiled all of VCPKG.
+
+Data: https://assemblage-dataset.net/
+"""
+
 import os
 import time
 from pathlib import Path
@@ -29,6 +38,7 @@ class AssemblageVcpkgReader(PipelineStep):
         self.first_time = self.last_time
 
     def run(self, data, rank: int = 0, world_size: int = 1) -> DocumentsPipeline:
+        """"""
         import os
         import random
         import shutil
@@ -216,6 +226,8 @@ class AssemblageVcpkg(Dataset):
     name = "assemblage-vcpkg-dt"
 
     def get_pipeline(self, input, writer, parallelism):
+        """"""
+
         from datatrove.utils.logging import logger
 
         if input == "binaries":

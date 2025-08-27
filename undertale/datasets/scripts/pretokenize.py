@@ -1,3 +1,5 @@
+"""Apply ITEM pretokenization to a given dataset."""
+
 import os
 from pathlib import Path
 
@@ -19,6 +21,7 @@ def adapt_dataset_from_parquet(
 
 class Pretokenizer(Dataset):
     def get_pipeline(self, input, writer, parallelism):
+        """"""
         steps = [
             ParquetReader(
                 input,

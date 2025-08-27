@@ -1,3 +1,5 @@
+"""Disassemblers (binary code → assembly)."""
+
 from .binaryninja import BinaryNinjaDisassembler  # noqa: F401, F403
 from .capstone import CapstoneDisassembler  # noqa: F401, F403
 from .ghidra import GhidraDisassembler  # noqa: F401, F403

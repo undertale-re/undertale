@@ -1,3 +1,5 @@
+"""Tokenizer implementation and training script."""
+
 import argparse
 import collections
 import logging

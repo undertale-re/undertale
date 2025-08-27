@@ -1,3 +1,5 @@
+"""Apply an ITEM tokenizer to a given dataset."""
+
 import argparse
 import os
 from pathlib import Path
@@ -26,6 +28,7 @@ class Tokenizer(Dataset):
         self.tokenizer = tokenizer
 
     def get_pipeline(self, input, writer, parallelism):
+        """"""
         steps = [
             ParquetReader(
                 input,

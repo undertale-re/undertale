@@ -1,9 +1,14 @@
 *.swp
 *.pyc
 *.json
+*.jsonl
 *.log
 *.parquet
 *.safetensors
+*.zip
+*.ckpt
+
+*.DS_Store
 
 *.egg-info/
 dist/

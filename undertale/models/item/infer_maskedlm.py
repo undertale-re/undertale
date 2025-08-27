@@ -1,3 +1,5 @@
+"""Predict masked tokens given a pretrained model."""
+
 import argparse
 
 from torch import argmax, tensor, where

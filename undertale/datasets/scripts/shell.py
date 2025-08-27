@@ -1,3 +1,5 @@
+"""Load a given dataset and start a shell."""
+
 import argparse
 import code
 import logging

@@ -1,3 +1,7 @@
+"""Rizin, a popular fork of Radare2.
+
+Rizin: https://rizin.re/."""
+
 from datatrove.data import DocumentsPipeline
 from datatrove.pipeline.base import PipelineStep
 
@@ -6,11 +10,12 @@ class RizinFunctionSegmentAndDisassemble(PipelineStep):
     """Segments the given binaries into individual functions.
 
     Input:
-        Whole binaries in some executable format (ELF, PE, DLL, Mach-O, etc.)
+        Whole binaries in some executable format (ELF, PE, DLL, Mach-O, etc.).
 
     Output:
         Yields documents for each function in the given binary. Also
         disassemblesd each function.
+
     Notes:
         Rizin might also do decompilation and certainly also can give you CFG.
         Not sure exactly how to extract this info.
@@ -22,6 +27,7 @@ class RizinFunctionSegmentAndDisassemble(PipelineStep):
     def run(
         self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
     ) -> DocumentsPipeline:
+        """"""
 
         import json
         import os

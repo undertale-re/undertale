@@ -1,8 +1,50 @@
+"""Contrastive dataset generator by annotated equivalence class."""
+
 from datatrove.data import Document, DocumentsPipeline
 from datatrove.pipeline.base import PipelineStep
 
 
 class PairwiseContrastive(PipelineStep):
+    """Contrastive dfataset generator.
+
+    Input:
+        `data` is an iterable the documents in which have a `text` field
+        that contains the binary data for a single function.
+        Note: It is assumed that a document also has an `equiv_class`
+        field in its `metadata` dictionary. If two documents have the same
+        value for `equiv_class` then they are the same function (same source,
+        same program), perhaps compiled with different compilers / settings.
+
+    Output:
+        Yields new documents with pairs of docs and a specified similarity.
+
+        Note we can't just stick the pair of docs in this doc, say, in
+        `metadata["variant1"]` and `metadata["variant2"]`. That fails.
+        Instead, we copy all the fields and their values for doc1 and doc2
+        into `metadata`. The fields for doc1 get the "_d1" suffix" while
+        the field for doc2 get "_d2". Thus, if we start with, e.g.,
+
+        doc1.metadata['disassembly']    disassembly for func 1
+        doc1.metadata['text']           binary for func 1
+
+        doc2.metadata['disassembly']    disassembly for func 2
+        doc2.metadata['text']           binary for func 2
+
+        Then, if doc1 and doc2 are a pos or neg pair, we'll have, yielded
+        by this `run`,
+
+        doc.metadata["disassembly_d1"]
+        doc.metadata["text_d1"]
+        doc.metadata["disassembly_d2"]
+        doc.metadata["text_d2"]
+        (and other fields)
+
+        That is, all of the original info from doc1 and doc2 are here but
+        with different but distinguishable fields.
+
+        The similarity value (0 is not similar, 1 is similar) is in the
+        `metadata` field's dictionary.
+    """
 
     type = "P - PAIRS"
     name = "C - Constrastive"
@@ -23,46 +65,7 @@ class PairwiseContrastive(PipelineStep):
     def run(
         self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
     ) -> DocumentsPipeline:
-        """
-        Input:
-            `data` is an iterable the documents in which have a `text` field
-            that contains the binary data for a single function.
-            Note: It is assumed that a document also has an `equiv_class`
-            field in its `metadata` dictionary. If two documents have the same
-            value for `equiv_class` then they are the same function (same source,
-            same program), perhaps compiled with different compilers / settings.
-
-        Output:
-            Yields new documents with pairs of docs and a specified similarity.
-
-            Note we can't just stick the pair of docs in this doc, say, in
-            `metadata["variant1"]` and `metadata["variant2"]`. That fails.
-            Instead, we copy all the fields and their values for doc1 and doc2
-            into `metadata`. The fields for doc1 get the "_d1" suffix" while
-            the field for doc2 get "_d2". Thus, if we start with, e.g.,
-
-            doc1.metadata['disassembly']    disassembly for func 1
-            doc1.metadata['text']           binary for func 1
-
-            doc2.metadata['disassembly']    disassembly for func 2
-            doc2.metadata['text']           binary for func 2
-
-            Then, if doc1 and doc2 are a pos or neg pair, we'll have, yielded
-            by this `run`,
-
-            doc.metadata["disassembly_d1"]
-            doc.metadata["text_d1"]
-            doc.metadata["disassembly_d2"]
-            doc.metadata["text_d2"]
-            (and other fields)
-
-            That is, all of the original info from doc1 and doc2 are here but
-            with different but distinguishable fields.
-
-            The similarity value (0 is not similar, 1 is similar) is in the
-            `metadata` field's dictionary.
-
-        """
+        """"""
 
         import random
 

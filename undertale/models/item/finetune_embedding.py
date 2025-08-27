@@ -1,3 +1,5 @@
+"""Finetune a pretrained model on a pairwise contrastive task."""
+
 import argparse
 import logging
 import os

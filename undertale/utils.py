@@ -1,3 +1,5 @@
+"""Miscellaneous utilities."""
+
 import logging
 import signal
 
