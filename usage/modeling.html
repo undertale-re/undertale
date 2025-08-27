@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Modeling &#8212; Undertale 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="author" title="About these documents" href="../about.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Development" href="../development/index.html" />
+    <link rel="prev" title="Datasets" href="datasets.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="modeling">
+<h1>Modeling<a class="headerlink" href="#modeling" title="Link to this heading">¶</a></h1>
+<section id="pretoken-processing">
+<h2>Pretoken Processing<a class="headerlink" href="#pretoken-processing" title="Link to this heading">¶</a></h2>
+<p>Before a tokenizer can be trained on a dataset, disassembly must be processed
+into pretokens that the tokenizer can consume. To pretokenize e.g., the
+HumanEval-X dataset, run:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>undertale.datasets.scripts.pretokenize<span class="w"> </span>humanevalx/<span class="w"> </span>humanevalx-pretokenized/
+</pre></div>
+</div>
+</section>
+<section id="tokenizer-training">
+<h2>Tokenizer Training<a class="headerlink" href="#tokenizer-training" title="Link to this heading">¶</a></h2>
+<p>Next, you can train a tokenizer on the pretokenized dataset:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>undertale.models.item.tokenizer<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>humanevalx-pretokenized/<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>item.tokenizer.json
+</pre></div>
+</div>
+</section>
+<section id="tokenization">
+<h2>Tokenization<a class="headerlink" href="#tokenization" title="Link to this heading">¶</a></h2>
+<p>With your trained tokenizer you can now tokenize an entire dataset:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>undertale.datasets.scripts.tokenize<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-t<span class="w"> </span>item.tokenizer.json<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-w<span class="w"> </span>pretraining<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>humanevalx-pretokenized/<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>humanevalx-tokenized/
+</pre></div>
+</div>
+</section>
+<section id="pre-training-maked-language-modeling">
+<h2>Pre-Training (Maked Language Modeling)<a class="headerlink" href="#pre-training-maked-language-modeling" title="Link to this heading">¶</a></h2>
+<p>With a trained tokenizer and a tokenized dataset, you can now proceed with the
+first phase of training:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>undertale.models.item.pretrain-maskedlm<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-t<span class="w"> </span>item.tokenizer.json<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>humanevalx-tokenized/<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>pretrain-maskedlm/
+</pre></div>
+</div>
+<section id="inference">
+<h3>Inference<a class="headerlink" href="#inference" title="Link to this heading">¶</a></h3>
+<p>With a pre-trained model you can now do masked language modeling inference (for
+a given pretokenized text):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>undertale.models.item.infer-maskedlm<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-t<span class="w"> </span>item.tokenizer.json<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-c<span class="w"> </span>pretrain-maskedlm/version_0/checkpoints/model.ckpt<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="s2">&quot;xor rax [MASK]&quot;</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="fine-tuning-contrastive-embeddings">
+<h2>Fine-Tuning (Contrastive Embeddings)<a class="headerlink" href="#fine-tuning-contrastive-embeddings" title="Link to this heading">¶</a></h2>
+<p>Coming soon…</p>
+<section id="id1">
+<h3>Inference<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h3>
+<p>Coming soon…</p>
+</section>
+</section>
+<section id="fine-tuning-multi-modal-summarization">
+<h2>Fine-Tuning (Multi-Modal Summarization)<a class="headerlink" href="#fine-tuning-multi-modal-summarization" title="Link to this heading">¶</a></h2>
+<p>Coming soon…</p>
+<section id="id2">
+<h3>Inference<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h3>
+<p>Coming soon…</p>
+</section>
+</section>
+</section>
+
+
+          </div>
+              <div class="related bottom">
+                &nbsp;
+  <nav id="rellinks">
+    <ul>
+        <li>
+          &larr;
+          <a href="datasets.html" title="Previous document">Datasets</a>
+        </li>
+        <li>
+          <a href="../development/index.html" title="Next document">Development</a>
+          &rarr;
+        </li>
+    </ul>
+  </nav>
+              </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Undertale</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Usage</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="setup.html">Setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="datasets.html">Datasets</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Modeling</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#pretoken-processing">Pretoken Processing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#tokenizer-training">Tokenizer Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#tokenization">Tokenization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#pre-training-maked-language-modeling">Pre-Training (Maked Language Modeling)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fine-tuning-contrastive-embeddings">Fine-Tuning (Contrastive Embeddings)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fine-tuning-multi-modal-summarization">Fine-Tuning (Multi-Modal Summarization)</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../development/index.html">Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Usage</a><ul>
+      <li>Previous: <a href="datasets.html" title="previous chapter">Datasets</a></li>
+      <li>Next: <a href="../development/index.html" title="next chapter">Development</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, MIT Lincoln Laboratory.
+      
+      |
+      <a href="../_sources/usage/modeling.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

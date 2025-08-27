@@ -12,7 +12,6 @@
     <script src="../_static/documentation_options.js?v=01f34227"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
-    <link rel="icon" href="../_static/favicon.png"/>
     <link rel="author" title="About these documents" href="../about.html" />
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -92,6 +91,42 @@ directory run:</p>
 </div>
 <p>Or other <a class="reference external" href="https://www.sphinx-doc.org/en/master/usage/builders/index.html">supported sphinx output formats</a>.</p>
 </section>
+<section id="extras">
+<h2>Extras<a class="headerlink" href="#extras" title="Link to this heading">¶</a></h2>
+<section id="installing-ghidra-on-macos">
+<h3>Installing Ghidra on MacOS<a class="headerlink" href="#installing-ghidra-on-macos" title="Link to this heading">¶</a></h3>
+<p>In general, you should follow <a class="reference external" href="https://github.com/NationalSecurityAgency/ghidra?tab=readme-ov-file#install">Ghidra’s installation instructions</a>,
+but here are a few tips.</p>
+<ol class="arabic">
+<li><p>Install OpenJDK with Homebrew</p>
+<blockquote>
+<div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>brew<span class="w"> </span>install<span class="w"> </span>openjdk
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+<li><p>Download and extract a Ghidra release directly from GitHub. The directory
+scheme <code class="docutils literal notranslate"><span class="pre">/opt/ghidra/{version}/</span></code> works well.</p></li>
+<li><p>Disable MacOS code verification for Ghidra, otherwise you will have to auth
+every time you want to run it.</p>
+<blockquote>
+<div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>xattr<span class="w"> </span>-dr<span class="w"> </span>com.apple.quarantine<span class="w"> </span>/opt/ghidra/
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+<li><p>Make sure you set the <code class="docutils literal notranslate"><span class="pre">GHIDRA_INSTALL_DIR</span></code> environment variable when
+running scripts that use Ghidra.</p>
+<blockquote>
+<div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">GHIDRA_INSTALL_DIR</span><span class="o">=</span>/opt/ghidra/11.4.1/<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>python<span class="w"> </span>-m<span class="w"> </span>undertale<span class="w"> </span>...
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+</ol>
+</section>
+</section>
 </section>
 
 
@@ -137,6 +172,7 @@ directory run:</p>
 <script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
 <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../usage/index.html">Usage</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">Development</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="architecture.html">Architecture</a></li>
 <li class="toctree-l2"><a class="reference internal" href="recommended-reading.html">Recommended Reading</a></li>
@@ -147,6 +183,7 @@ directory run:</p>
 <li class="toctree-l3"><a class="reference internal" href="#id1">Setup</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#code-style">Code Style</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#documentation">Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#extras">Extras</a></li>
 </ul>
 </li>
 </ul>

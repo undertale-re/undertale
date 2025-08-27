@@ -2,10 +2,11 @@ Undertale
 =========
 
 .. toctree::
-   :maxdepth: 3
-   :caption: Contents:
+    :maxdepth: 3
+    :caption: Contents:
 
-   development/index
-   reference/index
-   glossary
-   about
+    usage/index
+    development/index
+    reference/index
+    glossary
+    about
