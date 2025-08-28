@@ -6,11 +6,12 @@ import torch
 import transformers
 from lightning.pytorch import Trainer
 from lightning.pytorch.callbacks import ModelCheckpoint, TQDMProgressBar
-from lightning.pytorch.strategies.ddp import DDPStrategy
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 from lightning.pytorch.loggers import TensorBoardLogger
-from torch.utils.data import DataLoader
+from lightning.pytorch.strategies.ddp import DDPStrategy
 from lightning.pytorch.utilities.model_summary import ModelSummary
+from torch.utils.data import DataLoader
+
 from ... import logging as undertale_logging
 from ...datasets.base import Dataset
 from . import tokenizer
@@ -90,10 +91,9 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     if torch.cuda.is_available():
         torch.cuda.set_device(0)
-        torch.set_float32_matmul_precision('high')
-        
-    tok = tokenizer.load(arguments.tokenizer, sequence_length=512)
+        torch.set_float32_matmul_precision("high")
 
+    tok = tokenizer.load(arguments.tokenizer, sequence_length=512)
 
     model = TransformerEncoderForSequenceSimilarity(
         depth=Defaults.depth,
@@ -106,28 +106,30 @@ if __name__ == "__main__":
         eps=Defaults.eps,
         lr=Defaults.lr,
         warmup=Defaults.warmup,
-        #embedding_size=128, #ASK TODO REVISIT
-        #embedding_dropout_prob=Defaults.dropout
+        # embedding_size=128, #ASK TODO REVISIT
+        # embedding_dropout_prob=Defaults.dropout
     )
-    #summary = ModelSummary(model, max_depth=-1) # Use -1 to show all modules
-    #print(summary)
-    model =  TransformerEncoderForSequenceSimilarity.load_from_checkpoint(arguments.model)
+    # summary = ModelSummary(model, max_depth=-1) # Use -1 to show all modules
+    # print(summary)
+    model = TransformerEncoderForSequenceSimilarity.load_from_checkpoint(
+        arguments.model
+    )
     model_state_dict = model.state_dict()
     for param_name, param_tensor in model_state_dict.items():
-        if (param_name =='encoder.embedding.token.weight'):
+        if param_name == "encoder.embedding.token.weight":
             print(f"{param_name}\t{param_tensor}")
-    #if (arguments.model):
+    # if (arguments.model):
     #    maskedLMModel = TransformerEncoderForMaskedLM.load_from_checkpoint(arguments.model)
-    #elif arguments.checkpoint:
+    # elif arguments.checkpoint:
     #    maskedLMModel = model.from_pretrained(arguments.checkpoint, local_files_only=True)
     #    print("CHECKPOINT")
 
-    #model.encoder = maskedLMModel.encoder
-    #model.head = maskedLMModel.head
-    #model.save_hyperparameters()
-    #print("************************************KSRTC")
-    #ASK
-    summary = ModelSummary(model, max_depth=-1) # Use -1 to show all modules
+    # model.encoder = maskedLMModel.encoder
+    # model.head = maskedLMModel.head
+    # model.save_hyperparameters()
+    # print("************************************KSRTC")
+    # ASK
+    summary = ModelSummary(model, max_depth=-1)  # Use -1 to show all modules
     print(summary)
 
     try:
@@ -147,14 +149,14 @@ if __name__ == "__main__":
         shuffle=True,
         batch_size=batch_size,
         collate_fn=collator,
-        num_workers=7
+        num_workers=7,
     )
     validation = DataLoader(
         dataset["test"],
         shuffle=False,
         batch_size=batch_size,
         collate_fn=collator,
-        num_workers=7
+        num_workers=7,
     )
 
     output = os.path.abspath(os.path.expanduser(arguments.output))
@@ -164,12 +166,12 @@ if __name__ == "__main__":
         filename="{epoch}-{train_loss:.2f}-{val_loss:.2f}",
         save_top_k=-1,
     )
-    #stop = EarlyStopping(monitor="valid_f1", mode="max", patience=5, min_delta=0.001)  
+    # stop = EarlyStopping(monitor="valid_f1", mode="max", patience=5, min_delta=0.001)
     stop = EarlyStopping(
         monitor="val_loss",  # Or any other logged metric
         patience=3,
         verbose=False,
-        mode="min", 
+        mode="min",
     )
 
     logger = TensorBoardLogger(
@@ -177,14 +179,14 @@ if __name__ == "__main__":
         name=os.path.basename(output),
         version=arguments.version,
     )
-    
+
     trainer = Trainer(
         callbacks=[progress, checkpoint, stop],
         logger=logger,
         accelerator=arguments.accelerator,
         devices=arguments.devices,
         num_nodes=arguments.nodes,
-        strategy = DDPStrategy(find_unused_parameters=True),
+        strategy=DDPStrategy(find_unused_parameters=True),
         max_epochs=96,
     )
 

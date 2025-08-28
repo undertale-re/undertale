@@ -3,6 +3,7 @@
 from math import sqrt
 from typing import Optional
 
+import torch
 from lightning import LightningModule
 from sklearn.metrics import f1_score
 from torch import (
@@ -19,8 +20,16 @@ from torch import (
     stack,
     zeros,
 )
-import torch
-from torch.nn import GELU, Dropout, Embedding, LayerNorm, Linear, Module, ModuleList,CosineEmbeddingLoss
+from torch.nn import (
+    GELU,
+    CosineEmbeddingLoss,
+    Dropout,
+    Embedding,
+    LayerNorm,
+    Linear,
+    Module,
+    ModuleList,
+)
 from torch.nn.functional import cross_entropy
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import LambdaLR
@@ -356,11 +365,10 @@ class TransformerEncoderForSequenceSimilarity(LightningModule, Module):
             eps,
         )
 
-
         self.lr = lr
         self.warmup = warmup
         self.steps_per_epoch = None
-        self.embedloss = CosineEmbeddingLoss(margin=0.5, reduction='mean')
+        self.embedloss = CosineEmbeddingLoss(margin=0.5, reduction="mean")
         self.head = MaskedLMHead(hidden_dimensions, vocab_size, eps)
         self.save_hyperparameters()
 
@@ -370,16 +378,21 @@ class TransformerEncoderForSequenceSimilarity(LightningModule, Module):
         )
 
     def on_save_checkpoint(self, checkpoint):
-        model_state_dict = checkpoint['state_dict']
+        model_state_dict = checkpoint["state_dict"]
         for param_name, param_tensor in model_state_dict.items():
             print(f"{param_name}\t{param_tensor.size()}")
 
     def forward(
-        self, input_ids_d1, attention_mask_d1, input_ids_d2, attention_mask_d2,similarity=None
+        self,
+        input_ids_d1,
+        attention_mask_d1,
+        input_ids_d2,
+        attention_mask_d2,
+        similarity=None,
     ):
         embedded1 = self.encoder(input_ids_d1, attention_mask_d1)
         embedded2 = self.encoder(input_ids_d2, attention_mask_d2)
-        diffembed = self.embedloss(embedded1[0], embedded2[0],similarity)
+        diffembed = self.embedloss(embedded1[0], embedded2[0], similarity)
         return diffembed
 
     def configure_optimizers(self):
@@ -406,7 +419,13 @@ class TransformerEncoderForSequenceSimilarity(LightningModule, Module):
         running_vloss = 0.0
         for i in range(batch_size):
             references = torch.stack([batch["similarity"][i]])
-            loss = self(torch.stack([batch["input_ids_d1"][i,:]]),torch.stack([batch["attention_mask_d1"][i,:]]),torch.stack([batch["input_ids_d2"][i,:]]),torch.stack([batch["attention_mask_d2"][i,:]]),references)
+            loss = self(
+                torch.stack([batch["input_ids_d1"][i, :]]),
+                torch.stack([batch["attention_mask_d1"][i, :]]),
+                torch.stack([batch["input_ids_d2"][i, :]]),
+                torch.stack([batch["attention_mask_d2"][i, :]]),
+                references,
+            )
             running_vloss += loss
         avg_vloss = running_vloss / batch_size
         self.log("train_loss", avg_vloss, prog_bar=True, sync_dist=True)
@@ -419,7 +438,13 @@ class TransformerEncoderForSequenceSimilarity(LightningModule, Module):
         running_score = 0.0
         for i in range(batch_size):
             target = torch.stack([references[i]])
-            loss = self(torch.stack([batch["input_ids_d1"][i,:]]),torch.stack([batch["attention_mask_d1"][i,:]]),torch.stack([batch["input_ids_d2"][i,:]]),torch.stack([batch["attention_mask_d2"][i,:]]),target)
+            loss = self(
+                torch.stack([batch["input_ids_d1"][i, :]]),
+                torch.stack([batch["attention_mask_d1"][i, :]]),
+                torch.stack([batch["input_ids_d2"][i, :]]),
+                torch.stack([batch["attention_mask_d2"][i, :]]),
+                target,
+            )
             running_score += loss
         valloss = running_score / batch_size
         self.log("val_loss", valloss, prog_bar=True, sync_dist=True)
