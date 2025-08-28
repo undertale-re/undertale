@@ -48,6 +48,6 @@ if __name__ == "__main__":
     print(summary)
 
     for param_name, param_tensor in model_state_dict.items():
-        print("Param Features",param_name)
-        if (param_name =='encoder.embedding.token.weight' or param_name =='encoder.layers.11.ff.linear2'):
+        #print("Param Features",param_name)
+        if (param_name.startswith('encoder.embedding.token') or param_name.startswith('encoder.layers.11.ff.linear2')):
             print(f"{param_name}\t{param_tensor}")
