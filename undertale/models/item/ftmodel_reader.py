@@ -1,4 +1,4 @@
-from .model import TransformerEncoderForSequenceSimilarity,TransformerEncoderForMaskedLM
+from .model import TransformerEncoderForSequenceSimilarity
 from lightning.pytorch.utilities.model_summary import ModelSummary
 from . import tokenizer
 import argparse
@@ -22,10 +22,8 @@ if __name__ == "__main__":
     tok = tokenizer.load(arguments.tokenizer, sequence_length=512)
     modelpath = arguments.checkpoint #"/panfs/g52-panfs/scratch/as28456/assemblage-windows-disassembled-finetune-embedding/version_1.0/checkpoints/epoch=1-train_loss=0.19-val_loss=0.20.ckpt"
     model = TransformerEncoderForSequenceSimilarity.load_from_checkpoint(modelpath)
-    #model.from_pretrained(modelpath, local_files_only=True)
     model_state_dict = model.state_dict() 
-    #model = torch.load(modelpath) 
-    #model_state_dict = model['state_dict']
+
 
     summary = ModelSummary(model, max_depth=-1) # Use -1 to show all modules
     print(summary)
