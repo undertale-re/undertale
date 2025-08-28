@@ -3,6 +3,7 @@
 from math import sqrt
 from typing import Optional
 
+import torch
 from lightning import LightningModule
 from sklearn.metrics import f1_score
 from torch import (
@@ -19,7 +20,16 @@ from torch import (
     stack,
     zeros,
 )
-from torch.nn import GELU, Dropout, Embedding, LayerNorm, Linear, Module, ModuleList
+from torch.nn import (
+    GELU,
+    CosineEmbeddingLoss,
+    Dropout,
+    Embedding,
+    LayerNorm,
+    Linear,
+    Module,
+    ModuleList,
+)
 from torch.nn.functional import cross_entropy
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import LambdaLR
@@ -328,8 +338,122 @@ class TransformerEncoderForMaskedLM(LightningModule, Module):
         self.log("valid_f1", f1, prog_bar=True, sync_dist=True)
 
 
-class TransformerEncoderForSequenceSimilarity(Module):
-    pass
+class TransformerEncoderForSequenceSimilarity(LightningModule, Module):
+    def __init__(
+        self,
+        depth: int,
+        hidden_dimensions: int,
+        vocab_size: int,
+        input_size: int,
+        heads: int,
+        intermediate_dimensions: int,
+        dropout: float,
+        eps: float,
+        lr: float,
+        warmup: float,
+    ):
+
+        super().__init__()
+        self.encoder = TransformerEncoder(
+            depth,
+            hidden_dimensions,
+            vocab_size,
+            input_size,
+            heads,
+            intermediate_dimensions,
+            dropout,
+            eps,
+        )
+
+        self.lr = lr
+        self.warmup = warmup
+        self.steps_per_epoch = None
+        self.embedloss = CosineEmbeddingLoss(margin=0.5, reduction="mean")
+        self.head = MaskedLMHead(hidden_dimensions, vocab_size, eps)
+        self.save_hyperparameters()
+
+    def on_fit_start(self):
+        """"""
+        self.steps_per_epoch = (
+            self.trainer.estimated_stepping_batches // self.trainer.max_epochs
+        )
+
+    def on_save_checkpoint(self, checkpoint):
+        """"""
+        model_state_dict = checkpoint["state_dict"]
+        for param_name, param_tensor in model_state_dict.items():
+            print(f"{param_name}\t{param_tensor.size()}")
+
+    def forward(
+        self,
+        input_ids_d1,
+        attention_mask_d1,
+        input_ids_d2,
+        attention_mask_d2,
+        similarity=None,
+    ):
+        """"""
+        embedded1 = self.encoder(input_ids_d1, attention_mask_d1)
+        embedded2 = self.encoder(input_ids_d2, attention_mask_d2)
+        diffembed = self.embedloss(embedded1[0], embedded2[0], similarity)
+        return diffembed
+
+    def configure_optimizers(self):
+        """"""
+        optimizer = AdamW(self.parameters(), lr=self.lr)
+
+        def constant_with_linear_warmup(step):
+            if self.steps_per_epoch is None:
+                return 1
+            return min(step / self.warmup * self.steps_per_epoch, 1)
+
+        scheduler = LambdaLR(optimizer, constant_with_linear_warmup)
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "interval": "step",
+                "frequency": 1,
+            },
+        }
+
+    def training_step(self, batch, index):
+        """"""
+        batch["similarity"][batch["similarity"] == 0] = -1
+        batch_size = batch["input_ids_d1"].shape[0]
+        running_vloss = 0.0
+        for i in range(batch_size):
+            references = torch.stack([batch["similarity"][i]])
+            loss = self(
+                torch.stack([batch["input_ids_d1"][i, :]]),
+                torch.stack([batch["attention_mask_d1"][i, :]]),
+                torch.stack([batch["input_ids_d2"][i, :]]),
+                torch.stack([batch["attention_mask_d2"][i, :]]),
+                references,
+            )
+            running_vloss += loss
+        avg_vloss = running_vloss / batch_size
+        self.log("train_loss", avg_vloss, prog_bar=True, sync_dist=True)
+        return avg_vloss
+
+    def validation_step(self, batch, index):
+        """"""
+        references = batch["similarity"]
+        references[references == 0] = -1
+        batch_size = references.shape[0]
+        running_score = 0.0
+        for i in range(batch_size):
+            target = torch.stack([references[i]])
+            loss = self(
+                torch.stack([batch["input_ids_d1"][i, :]]),
+                torch.stack([batch["attention_mask_d1"][i, :]]),
+                torch.stack([batch["input_ids_d2"][i, :]]),
+                torch.stack([batch["attention_mask_d2"][i, :]]),
+                target,
+            )
+            running_score += loss
+        valloss = running_score / batch_size
+        self.log("val_loss", valloss, prog_bar=True, sync_dist=True)
 
 
 class TransformerEncoderForSequenceClassification(Module):
