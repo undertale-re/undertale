@@ -1,7 +1,6 @@
-from .model import Defaults, TransformerEncoderForSequenceSimilarity,TransformerEncoderForMaskedLM
+from .model import TransformerEncoderForSequenceSimilarity,TransformerEncoderForMaskedLM
 from lightning.pytorch.utilities.model_summary import ModelSummary
 from . import tokenizer
-import torch
 import argparse
 
 if __name__ == "__main__":
@@ -21,22 +20,6 @@ if __name__ == "__main__":
     arguments = parser.parse_args()
 
     tok = tokenizer.load(arguments.tokenizer, sequence_length=512)
-    ''' 
-    model = TransformerEncoderForSequenceSimilarity(
-        depth=Defaults.depth,
-        hidden_dimensions=Defaults.hidden_dimensions,
-        vocab_size=tok.get_vocab_size(),
-        input_size=Defaults.input_size,
-        heads=Defaults.heads,
-        intermediate_dimensions=Defaults.intermediate_dimensions,
-        dropout=Defaults.dropout,
-        eps=Defaults.eps,
-        lr=Defaults.lr, 
-        warmup=Defaults.warmup,
-        #embedding_size=128, #ASK TODO REVISIT
-        #embedding_dropout_prob=Defaults.dropout
-    )
-    '''
     modelpath = arguments.checkpoint #"/panfs/g52-panfs/scratch/as28456/assemblage-windows-disassembled-finetune-embedding/version_1.0/checkpoints/epoch=1-train_loss=0.19-val_loss=0.20.ckpt"
     model = TransformerEncoderForSequenceSimilarity.load_from_checkpoint(modelpath)
     #model.from_pretrained(modelpath, local_files_only=True)

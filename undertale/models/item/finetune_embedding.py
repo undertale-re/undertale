@@ -7,7 +7,6 @@ import transformers
 from lightning.pytorch import Trainer
 from lightning.pytorch.callbacks import ModelCheckpoint, TQDMProgressBar
 from lightning.pytorch.strategies.ddp import DDPStrategy
-from torch.nn import CosineEmbeddingLoss
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 from lightning.pytorch.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
@@ -15,7 +14,7 @@ from lightning.pytorch.utilities.model_summary import ModelSummary
 from ... import logging as undertale_logging
 from ...datasets.base import Dataset
 from . import tokenizer
-from .model import Defaults, TransformerEncoderForSequenceSimilarity,TransformerEncoderForMaskedLM
+from .model import Defaults, TransformerEncoderForSequenceSimilarity
 
 logger = logging.getLogger(__name__)
 
