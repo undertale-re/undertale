@@ -373,11 +373,13 @@ class TransformerEncoderForSequenceSimilarity(LightningModule, Module):
         self.save_hyperparameters()
 
     def on_fit_start(self):
+        """"""
         self.steps_per_epoch = (
             self.trainer.estimated_stepping_batches // self.trainer.max_epochs
         )
 
     def on_save_checkpoint(self, checkpoint):
+        """"""
         model_state_dict = checkpoint["state_dict"]
         for param_name, param_tensor in model_state_dict.items():
             print(f"{param_name}\t{param_tensor.size()}")
@@ -390,12 +392,14 @@ class TransformerEncoderForSequenceSimilarity(LightningModule, Module):
         attention_mask_d2,
         similarity=None,
     ):
+        """"""
         embedded1 = self.encoder(input_ids_d1, attention_mask_d1)
         embedded2 = self.encoder(input_ids_d2, attention_mask_d2)
         diffembed = self.embedloss(embedded1[0], embedded2[0], similarity)
         return diffembed
 
     def configure_optimizers(self):
+        """"""
         optimizer = AdamW(self.parameters(), lr=self.lr)
 
         def constant_with_linear_warmup(step):
@@ -414,6 +418,7 @@ class TransformerEncoderForSequenceSimilarity(LightningModule, Module):
         }
 
     def training_step(self, batch, index):
+        """"""
         batch["similarity"][batch["similarity"] == 0] = -1
         batch_size = batch["input_ids_d1"].shape[0]
         running_vloss = 0.0
@@ -432,6 +437,7 @@ class TransformerEncoderForSequenceSimilarity(LightningModule, Module):
         return avg_vloss
 
     def validation_step(self, batch, index):
+        """"""
         references = batch["similarity"]
         references[references == 0] = -1
         batch_size = references.shape[0]
