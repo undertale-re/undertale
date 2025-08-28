@@ -46,7 +46,8 @@ if __name__ == "__main__":
 
     summary = ModelSummary(model, max_depth=-1) # Use -1 to show all modules
     print(summary)
-    
+
     for param_name, param_tensor in model_state_dict.items():
+        print("Param Features",param_name)
         if (param_name =='encoder.embedding.token.weight' or param_name =='encoder.layers.11.ff.linear2'):
             print(f"{param_name}\t{param_tensor}")
