@@ -1,20 +1,30 @@
-"""Finetune a pretrained model on a pairwise contrastive task."""
-
 import argparse
 import logging
 import os
 
 import torch
-import tqdm
 import transformers
-from sklearn import metrics
+from lightning.pytorch import Trainer
+from lightning.pytorch.callbacks import ModelCheckpoint, TQDMProgressBar
+from lightning.pytorch.strategies.ddp import DDPStrategy
+from torch.nn import CosineEmbeddingLoss
+from lightning.pytorch.callbacks.early_stopping import EarlyStopping
+from lightning.pytorch.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
-
-from ... import datasets
+from lightning.pytorch.utilities.model_summary import ModelSummary
 from ... import logging as undertale_logging
-from . import model, tokenizer
+from ...datasets.base import Dataset
+from . import tokenizer
+from .model import Defaults, TransformerEncoderForSequenceSimilarity,TransformerEncoderForMaskedLM
 
 logger = logging.getLogger(__name__)
+
+
+class ProgressBar(TQDMProgressBar):
+    def get_metrics(self, trainer, model):
+        items = super().get_metrics(trainer, model)
+        items.pop("v_num", None)
+        return items
 
 
 if __name__ == "__main__":
@@ -35,10 +45,32 @@ if __name__ == "__main__":
     start.add_argument(
         "-m", "--model", help="pretrained model from which to begin training"
     )
+
     start.add_argument(
         "-c",
         "--checkpoint",
         help="trained model checkpoint from which to resume training",
+    )
+
+    parser.add_argument("-b", "--batch-size", type=int, default=8, help="batch size")
+
+    parser.add_argument(
+        "-a", "--accelerator", default="auto", help="accelerator to use"
+    )
+
+    parser.add_argument(
+        "-d",
+        "--devices",
+        default=1,
+        type=int,
+        help="number of accelerator devices to use (per node)",
+    )
+    parser.add_argument(
+        "-n", "--nodes", default=1, type=int, help="number of nodes to use"
+    )
+
+    parser.add_argument(
+        "-v", "--version", default=1.0, type=int, help="Tensorboard logger"
     )
 
     parser.add_argument(
@@ -51,147 +83,115 @@ if __name__ == "__main__":
     parser.add_argument(
         "--start-epoch", type=int, default=0, help="starting epoch number"
     )
-    parser.add_argument("-b", "--batch-size", type=int, default=8, help="batch size")
 
     arguments = parser.parse_args()
 
     undertale_logging.setup_logging()
 
-    os.makedirs(arguments.output, exist_ok=True)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    if torch.cuda.is_available():
+        torch.cuda.set_device(0)
+        torch.set_float32_matmul_precision('high')
+        
+    tok = tokenizer.load(arguments.tokenizer, sequence_length=512)
 
-    sequence_length = 512
 
-    tok = tokenizer.load(arguments.tokenizer, sequence_length=sequence_length)
-
-    configuration = model.InstructionTraceConfig(
+    model = TransformerEncoderForSequenceSimilarity(
+        depth=Defaults.depth,
+        hidden_dimensions=Defaults.hidden_dimensions,
         vocab_size=tok.get_vocab_size(),
-        next_token_id=tok.token_to_id("[NEXT]"),
-        max_position_embeddings=sequence_length,
-        type_vocab_size=1,
+        input_size=Defaults.input_size,
+        heads=Defaults.heads,
+        intermediate_dimensions=Defaults.intermediate_dimensions,
+        dropout=Defaults.dropout,
+        eps=Defaults.eps,
+        lr=Defaults.lr,
+        warmup=Defaults.warmup,
+        #embedding_size=128, #ASK TODO REVISIT
+        #embedding_dropout_prob=Defaults.dropout
     )
+    #summary = ModelSummary(model, max_depth=-1) # Use -1 to show all modules
+    #print(summary)
+    model =  TransformerEncoderForSequenceSimilarity.load_from_checkpoint(arguments.model)
+    model_state_dict = model.state_dict()
+    for param_name, param_tensor in model_state_dict.items():
+        if (param_name =='encoder.embedding.token.weight'):
+            print(f"{param_name}\t{param_tensor}")
+    #if (arguments.model):
+    #    maskedLMModel = TransformerEncoderForMaskedLM.load_from_checkpoint(arguments.model)
+    #elif arguments.checkpoint:
+    #    maskedLMModel = model.from_pretrained(arguments.checkpoint, local_files_only=True)
+    #    print("CHECKPOINT")
 
-    model = model.InstructionTraceEncoderTransformerForSequenceSimilarity(configuration)
-
-    if arguments.model:
-        model.embedding = model.embedding.from_pretrained(
-            arguments.model, local_files_only=True
-        )
-    elif arguments.checkpoint:
-        model = model.from_pretrained(arguments.checkpoint, local_files_only=True)
+    #model.encoder = maskedLMModel.encoder
+    #model.head = maskedLMModel.head
+    #model.save_hyperparameters()
+    #print("************************************KSRTC")
+    #ASK
+    summary = ModelSummary(model, max_depth=-1) # Use -1 to show all modules
+    print(summary)
 
     try:
-        dataset = datasets.from_specifier(arguments.dataset)
+        dataset = Dataset.load(arguments.dataset)
     except ValueError as e:
         logger.critical(e)
         exit(1)
 
-    def tokenize(batch):
-        preprocessed = tokenizer.preprocess_batch(batch)
-        encoded = tok.encode_batch(preprocessed["preprocessed"])
-
-        batch["input_ids"] = [s.ids for s in encoded]
-        batch["attention_mask"] = [s.attention_mask for s in encoded]
-
-        return batch
-
-    def tokenize_pair(batch):
-        first = tokenize(batch["first"])
-        second = tokenize(batch["second"])
-
-        batch = {}
-        batch["input_ids1"] = first["input_ids"]
-        batch["attention_mask1"] = first["attention_mask"]
-        batch["input_ids2"] = second["input_ids"]
-        batch["attention_mask2"] = second["attention_mask"]
-        batch["labels"] = batch["similarity"]
-
-        return batch
-
-    dataset = dataset.map(
-        tokenize_pair,
-        batched=True,
-        remove_columns=dataset.column_names,
-        desc="tokenizing",
-    )
-
     dataset = dataset.train_test_split(test_size=0.1)
+    print(dataset.column_names)
 
     collator = transformers.DefaultDataCollator()
 
     batch_size = arguments.batch_size
     training = DataLoader(
-        dataset["train"], shuffle=True, batch_size=batch_size, collate_fn=collator
+        dataset["train"],
+        shuffle=True,
+        batch_size=batch_size,
+        collate_fn=collator,
+        num_workers=7
     )
     validation = DataLoader(
-        dataset["test"], shuffle=True, batch_size=batch_size, collate_fn=collator
+        dataset["test"],
+        shuffle=False,
+        batch_size=batch_size,
+        collate_fn=collator,
+        num_workers=7
     )
 
-    learning_rate = 1e-4
-    epochs = arguments.epochs
+    output = os.path.abspath(os.path.expanduser(arguments.output))
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
-
-    batches = len(training)
-    steps = epochs * batches
-
-    scheduler = transformers.get_scheduler(
-        "constant",
-        optimizer=optimizer,
-        num_training_steps=steps,
+    progress = ProgressBar()
+    checkpoint = ModelCheckpoint(
+        filename="{epoch}-{train_loss:.2f}-{val_loss:.2f}",
+        save_top_k=-1,
+    )
+    #stop = EarlyStopping(monitor="valid_f1", mode="max", patience=5, min_delta=0.001)  
+    stop = EarlyStopping(
+        monitor="val_loss",  # Or any other logged metric
+        patience=3,
+        verbose=False,
+        mode="min", 
     )
 
-    parallel = False
-    if torch.cuda.device_count() > 1:
-        parallel = True
-        model.embedding.bert = torch.nn.DataParallel(model.embedding.bert)
+    logger = TensorBoardLogger(
+        save_dir=os.path.dirname(output),
+        name=os.path.basename(output),
+        version=arguments.version,
+    )
+    
+    trainer = Trainer(
+        callbacks=[progress, checkpoint, stop],
+        logger=logger,
+        accelerator=arguments.accelerator,
+        devices=arguments.devices,
+        num_nodes=arguments.nodes,
+        strategy = DDPStrategy(find_unused_parameters=True),
+        max_epochs=96,
+    )
 
-    model.to(model.device)
-
-    for epoch in range(arguments.start_epoch, arguments.start_epoch + epochs):
-        print(f"epoch {epoch}")
-
-        model.train()
-        losses = []
-        loop = tqdm.tqdm(training, desc="training")
-        for batch in loop:
-            batch = {k: v.to(model.device) for k, v in batch.items()}
-
-            outputs = model(**batch)
-            loss = outputs.loss
-            loss.backward()
-
-            optimizer.step()
-            scheduler.step()
-            optimizer.zero_grad()
-
-            losses.append(loss.item())
-            loop.set_postfix(loss=sum(losses) / len(losses))
-
-        if parallel:
-            model.embedding.bert = model.embedding.bert.module
-            model.save_pretrained(f"{arguments.output}/{epoch}")
-            model.embedding.bert = torch.nn.DataParallel(model.embedding.bert)
-        else:
-            model.save_pretrained(f"{arguments.output}/{epoch}")
-
-        model.eval()
-        values, labels = [], []
-        performance = {}
-        loop = tqdm.tqdm(validation, desc="validating")
-        for batch in loop:
-            batch = {k: v.to(model.device) for k, v in batch.items()}
-
-            with torch.no_grad():
-                outputs = model(**batch)
-
-            references = batch["labels"]
-            predictions = outputs.logits.squeeze()
-
-            labels.extend(references.tolist())
-            losses.append(predictions.tolist())
-
-            performance["roc-auc"] = metrics.roc_auc_score(labels, values)
-
-            loop.set_postfix(**performance)
-
-        print(f"evaluation performance: {performance}")
+    trainer.fit(
+        model,
+        train_dataloaders=training,
+        val_dataloaders=validation,
+        ckpt_path=arguments.checkpoint,
+    )
