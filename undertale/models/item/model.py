@@ -46,7 +46,7 @@ def scaled_dot_product_attention(
         scores = scores.masked_fill(mask.unsqueeze(-2) == 0, -1e9)
 
     weights = softmax(scores, dim=-1)
-    return bmm(weights, value)
+    return (bmm(weights, value), weights)
 
 
 class Attention(Module):
@@ -76,10 +76,13 @@ class MultiHeadAttention(Module):
         self.output = Linear(hidden_dimensions, hidden_dimensions)
 
     def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
-        attended = cat([h(state, mask) for h in self.heads], dim=-1)
+        result = [h(state, mask) for h in self.heads]
+        attended = cat([r[0] for r in result], dim=-1)
+        attention_weights = [w[1] for w in result]
+
         output = self.output(attended)
 
-        return output
+        return (output, attention_weights)
 
 
 class FeedForward(Module):
@@ -126,11 +129,12 @@ class TransformerEncoderLayer(Module):
 
         # Add skip connections.
         hidden = self.norm1(state)
-        output = state + self.attention(hidden, mask)
+        output, attention = self.attention(hidden, mask)
+        output = state + output
         hidden = self.norm2(output)
         output = output + self.ff(hidden)
 
-        return output
+        return (output, attention)
 
 
 class PositionEmbedding(Module):
@@ -203,10 +207,12 @@ class TransformerEncoder(Module):
     def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
         output = self.embedding(state)
 
+        attentions = []
         for layer in self.layers:
-            output = layer(output, mask)
+            output, attention = layer(output, mask)
+            attentions.append(stack(attention, dim=0))
 
-        return output
+        return (output, attentions)
 
 
 class MaskedLMHead(Module):
@@ -266,10 +272,14 @@ class TransformerEncoderForMaskedLM(LightningModule, Module):
             self.trainer.estimated_stepping_batches // self.trainer.max_epochs
         )
 
-    def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
-        hidden = self.encoder(state, mask)
+    def forward(
+        self, state: Tensor, mask: Optional[Tensor] = None, attn_weights: bool = False
+    ) -> Tensor:
+        hidden, attention = self.encoder(state, mask)
         output = self.head(hidden)
 
+        if attn_weights:
+            return (output, attention)
         return output
 
     def configure_optimizers(self):

@@ -42,6 +42,9 @@ setup(
         "cpp_demangle",
         "itanium-demangler",
         "rust-demangler",
+        "bertviz",
+        "ipykernel",
+        "notebook",
     ],
     extras_require={
         "development": [
