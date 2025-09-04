@@ -343,8 +343,8 @@ if __name__ == "__main__":
                     disasm_str = disasm_str.replace(
                         "sub_0", str(line.tokens[idx].value)
                     )
-                if disasm_str == "retn":
-                    disasm_str = disasm_str[:-1]
+                if "retn" in disasm_str:
+                    disasm_str = disasm_str[: disasm_str.find("n")]
                 disassembly.append(disasm_str)
 
     num_insns = len(disassembly)
