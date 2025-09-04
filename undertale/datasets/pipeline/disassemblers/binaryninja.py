@@ -22,6 +22,7 @@ class BinaryNinjaDisassembler(PipelineStep):
         """."""
 
         import pickle
+        import re
 
         import binaryninja
         import networkx as nx
@@ -29,10 +30,12 @@ class BinaryNinjaDisassembler(PipelineStep):
         from binaryninja.enums import InstructionTextTokenType
         from datatrove.data import Document
 
+        def remove_braces(text):
+            # Matches ' {' followed by any characters (non-greedy) until the next '}'
+            return re.sub(r" \{.*?\}", "", text)
+
         SKIP_TOKENS = [
-            InstructionTextTokenType.AnnotationToken,
             InstructionTextTokenType.StackVariableToken,
-            InstructionTextTokenType.CodeSymbolToken,
             InstructionTextTokenType.TagToken,
         ]
 
@@ -62,6 +65,22 @@ class BinaryNinjaDisassembler(PipelineStep):
                         if token.type not in SKIP_TOKENS
                     )
                     disasm_str = " ".join(disasm_str.strip().split())
+                    if any("{" in token.text for token in line.tokens):
+                        disasm_str = remove_braces(disasm_str)
+                    if "sub_0" in disasm_str:
+                        idx = next(
+                            (
+                                i
+                                for i, token in enumerate(line.tokens)
+                                if token.text == "sub_0"
+                            ),
+                            -1,
+                        )
+                        disasm_str = disasm_str.replace(
+                            "sub_0", str(line.tokens[idx].value)
+                        )
+                    if "retn" in disasm_str:
+                        disasm_str = disasm_str[: disasm_str.find("n")]
                     block_disassembly.append(disasm_str)
                 block_disassembly = "\n".join(block_disassembly)
                 node = (block.start, block_disassembly)
@@ -85,6 +104,22 @@ class BinaryNinjaDisassembler(PipelineStep):
                         if token.type not in SKIP_TOKENS
                     )
                     disasm_str = " ".join(disasm_str.strip().split())
+                    if any("{" in token.text for token in line.tokens):
+                        disasm_str = remove_braces(disasm_str)
+                    if "sub_0" in disasm_str:
+                        idx = next(
+                            (
+                                i
+                                for i, token in enumerate(line.tokens)
+                                if token.text == "sub_0"
+                            ),
+                            -1,
+                        )
+                        disasm_str = disasm_str.replace(
+                            "sub_0", str(line.tokens[idx].value)
+                        )
+                    if "retn" in disasm_str:
+                        disasm_str = disasm_str[: disasm_str.find("n")]
                     disassembly.append(disasm_str)
             disassembly = "\n".join(disassembly)
 
