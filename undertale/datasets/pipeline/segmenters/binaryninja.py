@@ -43,7 +43,7 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
         ]
 
         SKIP_TOKENS = [
-            InstructionTextTokenType.AnnotationToken,
+            InstructionTextTokenType.StackVariableToken,
             InstructionTextTokenType.TagToken,
         ]
 
@@ -91,9 +91,8 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
                             if token.type not in SKIP_TOKENS
                         )
                         disasm_str = " ".join(disasm_str.strip().split())
-                        if "pop" in disasm_str:
-                            print(disasm_str)
-                            # breakpoint()
+                        if "Does" in disasm_str:  # { Does not return }
+                            continue
                         if any("{" in token.text for token in line.tokens):
                             disasm_str = remove_braces(disasm_str)
                         if "sub_0" in disasm_str:
