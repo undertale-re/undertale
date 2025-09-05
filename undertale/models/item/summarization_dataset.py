@@ -1,62 +1,60 @@
-from transformers import GPT2Tokenizer
-from torch.utils.data import Dataset
+from transformers import GPT2Tokenizer,DataCollatorWithPadding
+import torch
 import multiprocessing
 import numpy as np
-from datasets import load_dataset
+import os
 
+from tqdm import tqdm
 
-
-
-class SummarizerDataset(Dataset):
+class SummarizerDataset(torch.utils.data.Dataset):
     
     
-    def __init__(self, dataset, data_path, prefix_length, gpt2_type= "gpt2",
-                 normalize_prefix=False,end2end=True,token_batchsize=1024):
+    def __init__(self, dataset, prefix_length, gpt2path,
+                 normalize_prefix=False,end2end=True,token_batchsize=1024,max_seq_len=1024):
         
-        self.all_lengths = []
-        self.tokenizer = GPT2Tokenizer.from_pretrained(gpt2_type)
+
+        self.max_seq_len=max_seq_len
+        self.end2end=end2end
+        try:
+            self.tokenizer = GPT2Tokenizer.from_pretrained(gpt2path)
+        except:
+            print("loading gpt2 tokenizer...")
+            self.tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+            self.tokenizer.save_pretrained(gpt2path)
+            
+            
         self.prefix_length = prefix_length
         self.normalize_prefix = normalize_prefix
         
+        
+        self.dataset=dataset
         if end2end:
-            self.tokenize_dataset(dataset,token_batchsize)
-
-        else:
+            self.tokenize_dataset(token_batchsize)
             
-            if os.path.isfile(data_path):
-                selfdataset = load_dataset("parquet", data_files=data_path)
-            else:
-                raise FileNotFoundError(f"File not found: {data_path}")
         
-    def tokenize_batch(self, batch):
-        
-        input_ids = [self.tokenizer.encode(text) for text in batch['summary']]
-        self.token_lengths.extend([len(ids) for ids in input_ids])
-        
-        return {"summary_tokens": input_ids}
+
     
-    def tokenize_dataset(self, dataset, batch_size=1024):
+    def tokenize_dataset(self, batch_size=1024):
+        
+        all_len=[]
+        captions=self.dataset["summary"]
+        tokenized = []
+        for cap in tqdm(captions, desc="Tokenizing captions"):
+            encoded = self.tokenizer.encode(cap, truncation=True, max_length=self.max_seq_len)
+            tokenized.append(encoded)
 
-        num_cpus = multiprocessing.cpu_count()
 
-        print(f"Tokenizing with {num_proc} processes...")
-        self.dataset = dataset.map(
-            self.tokenize_batch,
-            batched=True,
-            batch_size=batch_size,
-            num_proc=num_proc,
-            remove_columns=["summary"]
-        )
+        self.dataset = self.dataset.add_column("summary_tokens", tokenized)
+        self.dataset = self.dataset.remove_columns(["summary"])
+        
 
-        all_len = np.array(self.token_lengths)
-        self.max_seq_len = min(int(all_len.mean() + all_len.std() * 10),int(all_len.max()))
         
     def __len__(self) -> int:
         return len(self.dataset)
 
     def pad_tokens(self, item: int):
         tokens = self.dataset['summary_tokens'][item]
-        
+        tokens=torch.tensor(tokens, dtype=torch.int64)
         padding = self.max_seq_len - tokens.shape[0]
         if padding > 0:
             tokens = torch.cat((tokens, torch.zeros(padding, dtype=torch.int64) - 1))
@@ -70,10 +68,10 @@ class SummarizerDataset(Dataset):
         mask = torch.cat((torch.ones(self.prefix_length), mask), dim=0)  # adding prefix mask
         return tokens, mask
 
-    def __getitem__(self, item: int) -> Tuple[torch.Tensor, ...]:
+    def __getitem__(self, item: int):
         tokens, mask = self.pad_tokens(item)
           
-        if end2end:
+        if self.end2end:
             disassembly_info=self.dataset['disassembly'][item]
         else:
             prefix = self.dataset['disassembly_prefixes'][item]
@@ -87,4 +85,30 @@ class SummarizerDataset(Dataset):
     
 
 
-   
+class CustomCollator:
+    def __init__(self, tokenizer):
+
+        self.pad_collator = DataCollatorWithPadding(tokenizer)
+
+    def __call__(self, batch):
+
+        tokens, masks, disassembly_infos = zip(*batch)
+
+        disassembly_batch = self.pad_collator(
+            self.pad_collator.tokenizer(
+                list(disassembly_infos),
+                truncation=True,
+                padding=True,
+                return_tensors="pt"
+            )
+        )
+
+        return {
+
+            "tokens": torch.stack(tokens),
+            "mask": torch.stack(masks),
+
+            "disassembly_tokens": disassembly_batch["input_ids"],
+            "disassembly_mask": disassembly_batch["attention_mask"],
+        }
+

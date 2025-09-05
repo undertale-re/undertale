@@ -1,5 +1,6 @@
 from math import sqrt
 from typing import Optional
+import os
 
 from lightning import LightningModule
 from sklearn.metrics import f1_score
@@ -26,7 +27,8 @@ from .tokenizer import SPECIAL_TOKENS, TOKEN_NEXT
 
 from transformers import GPT2LMHeadModel
 import torch
-from model_connector import MLP, TransformerConnector
+from .model_connector import MLP, TransformerConnector
+from . import tokenizer
 
 class Defaults:
     input_size = 512
@@ -366,61 +368,76 @@ class TransformerEncoderForSequenceSummarization(Module):
     def __init__(
         self,
         assembly_checkpoint,
-        assembly_tokenizer,
         connector_config,
-        llm_config,
-        end2end=True,
+        llm_checkpoint,
+        end2end=True
     ):
         super().__init__()
-        self.encoder_config=encoder_config
         
+            
+            
         
-        self.assembly_tokenizer=tokenizer.load(assembly_tokenizer)
+        self.assembly_checkpoint=assembly_checkpoint
         self.assembly_model=None
         if end2end:
             self.assembly_encoder=TransformerEncoderForMaskedLM.load_from_checkpoint(assembly_checkpoint)
         
-        self.llm = GPT2LMHeadModel.from_pretrained('gpt2')
+        
+        try:
+            self.llm = GPT2LMHeadModel.from_pretrained(llm_checkpoint)
+        except:
+            print("downloading gpt2 from huggingface...")
+            self.llm = GPT2LMHeadModel.from_pretrained("gpt2")
+            self.llm.save_pretrained(llm_checkpoint)
+ 
         self.llm_embedding_size = self.llm.transformer.wte.weight.shape[1]
-        self.prefix_length=connector_config.prefix_length
+        self.prefix_length_const=connector_config.prefix_length_const
+        prefix_length_assembly=connector_config.prefix_length_assembly
         
 
-        output_size=self.llm_embedding_size*self.prefix_length
+        output_size=self.llm_embedding_size*self.prefix_length_const
         hidden_size=output_size//2
         
         
         if connector_config.model_type.lower() == "mlp":
-            self.clip_project = MLP((connector_config.prefix_size, hidden_size,
+            self.connector = MLP((connector_config.prefix_size_const, hidden_size,
                                      output_size))
         else:
-            self.clip_project = TransformerMapper(connetor_config.prefix_size, self.gpt_embedding_size, prefix_length,
-                                                                     clip_length, num_layers)
+            self.connector = TransformerConnector(connector_config.prefix_size, self.llm_embedding_size, self.prefix_length_const,
+                                                                     prefix_length_assembly, connector_config.num_layers)
         
         
     def forward(self,text_tokens,encoder_embedding,mask=None,labels=None):
         
         embedding_text = self.llm.transformer.wte(text_tokens)
-        prefixes = self.connector(encoder_embedding).view(-1, self.prefix_length, self.llm_embedding_size)
+        encoder_embedding=encoder_embedding.mean(dim=1)
+        prefixes = self.connector(encoder_embedding).view(-1, self.prefix_length_const, self.llm_embedding_size)
+        print("WOWOWOW",prefixes.shape,embedding_text.shape)
         
 
         embedding_cat = torch.cat((prefixes, embedding_text), dim=1)
-        
+        print("ooooh",embedding_cat.shape)
         if labels is not None:
             dummy_token = self.get_dummy_token(tokens.shape[0], tokens.device)
             labels = torch.cat((dummy_token, tokens), dim=1)
+        print(labels,mask.shape,"EEEEEEK")
+        import sys
+
+        sys.stdout.flush()
         out = self.llm(inputs_embeds=embedding_cat, labels=labels, attention_mask=mask)
+        print("AAAAAAAH",out.shape)
         
         return out
     
-    def embed_assembly(self,assembly_text,assembly_mask=None):
+    def embed_assembly(self,assembly_tokens,assembly_mask=None):
         
         if self.assembly_model==None:
-            self.assembly_encoder(**self.encoder_config)
-        tokens=self.embedder_tokenizer(assembly_text)
-        return self.assembly_encoder(tokens)
+            self.assembly_encoder=TransformerEncoderForMaskedLM.load_from_checkpoint(self.assembly_checkpoint)
+
+        return self.assembly_encoder.encoder(assembly_tokens, assembly_mask)
     
     def get_dummy_token(self, batch_size: int, device: torch.device) -> torch.Tensor:
-        return torch.zeros(batch_size, self.prefix_length, dtype=torch.int64, device=device)
+        return torch.zeros(batch_size, self.prefix_length_const, dtype=torch.int64, device=device)
         
     def generate_beam(
         beam_size: int = 5,

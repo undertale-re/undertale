@@ -1,5 +1,10 @@
 #taken from https://github.com/rmokady/CLIP_prefix_caption/blob/main/train.py
 
+import torch
+from torch import nn
+from typing import Tuple, Optional
+from torch.nn import functional as nnf
+
 class MLP(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -125,34 +130,25 @@ class Transformer(nn.Module):
         
         
 
-self.prompt_length=connector_config.prompt_length
-
-
-output_size=self.llm_embedding_size*self.prompt_length
-hidden_size=output_size//2
-self.connector=MLPLanguageConnector(self.prompt_length,output_size,hidden_size,
-                                 connector_config.num_layers,connector_config.act)
         
-class TransformerMapper(nn.Module):
+class TransformerConnector(nn.Module):
 
     def forward(self, x):
-        x = self.linear(x).view(x.shape[0], self.clip_length, -1)
+        x = self.linear(x).view(x.shape[0], self.assembly_length, -1)
         prefix = self.prefix_const.unsqueeze(0).expand(x.shape[0], *self.prefix_const.shape)
+        
         prefix = torch.cat((x, prefix), dim=1)
-        out = self.transformer(prefix)[:, self.clip_length:]
+        print(prefix.shape,"prefix")
+        out = self.transformer(prefix)[:, self.assembly_length:]
+        print(out.shape,"OUT")
         return out
 
-    def __init__(self, dim_clip: int, dim_embedding: int, prefix_length: int, clip_length: int, num_layers: int = 8):
-        
-        dim_clip=prefix_size
-        dim_embedding=same
-        prefix_length=prompt_length
-        clip_length=
+    def __init__(self, prefix_size: int, dim_embedding: int, prefix_length: int, assembly_length: int, num_layers: int = 8):
         
         
-        super(TransformerMapper, self).__init__()
-        self.clip_length = clip_length
+        super(TransformerConnector, self).__init__()
+        self.assembly_length = assembly_length
         self.transformer = Transformer(dim_embedding, 8, num_layers)
-        self.linear = nn.Linear(dim_clip, clip_length * dim_embedding)
+        self.linear = nn.Linear(prefix_size, assembly_length * dim_embedding)
         self.prefix_const = nn.Parameter(torch.randn(prefix_length, dim_embedding), requires_grad=True)
 
