@@ -320,18 +320,64 @@ class BuildNixpkgs(PipelineStep):
         description = "nixpkgs with debugging overlay";
         inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
         outputs = { self, nixpkgs }:
-          let
-            pkgs = import nixpkgs {
-              overlays = [ (final: prev: { enableDebugging = true; }) ];
-              system = "x86_64-linux";
-              config.allowBroken = false;
-              config.allowUnsupportedSystem = false;
-              config.allowUnfree = true;
-              config.allowInsecurePredicate = (x: true);
+        let
+
+            debugOverlay = final: prev:
+            let
+                addDebug = attrs:
+                    let
+                        env0 = attrs.env or {};
+                        env1 = env0 // {
+                            NIX_CFLAGS_COMPILE = (env0.NIX_CFLAGS_COMPILE or "") + " -g -Og";
+                        };
+                    in
+                    (builtins.removeAttrs attrs [ "NIX_CFLAGS_COMPILE" ]) // {
+                        dontStrip = true;
+                        dontSplitDebugInfo = true;
+                        env = env1;
+                    };
+
+                wrapMk = drv:
+                    if builtins.isFunction drv
+                    then prev.stdenv.mkDerivation (args: drv (addDebug args))
+                    else prev.stdenv.mkDerivation (addDebug drv);
+
+                debugStdenv = prev.stdenv // { mkDerivation = wrapMk; };
+                baseStdenv = prev.stdenvAdapters.keepDebugInfo prev.stdenv;
+                origMk = baseStdenv.mkDerivation;
+
+                normalize = attrs:
+                    let
+                        env0 = attrs.env or { };
+                        envNew = builtins.removeAttrs env0 ["NIX_CLFAGS_COMPILE" ];
+                    in attrs // { NIX_CFLAGS_COMPILE = "-g -Og"; } // { env = envNew; };
+            in {
+                # embed DWARF everywhere (no strip / no split)
+                stdenv = debugStdenv;
+                # language-specific tweaks — **inside `env` -> no key clash**
+                rustPlatform = prev.rustPlatform // {
+                  env.NIX_RUSTFLAGS = (prev.rustPlatform.env.NIX_RUSTFLAGS or "") + "-g";
+                };
+
+                go = prev.go.override {
+                  env.NIX_LDFLAGS = "-compressdwarf=false";
+                  env.NIX_GCFLAGS = "-N -l";
+                };
             };
-          in {
-            packages.x86_64-linux = pkgs;
-          };
+
+            pkgsFor = system: import nixpkgs {
+              inherit system;
+              overlays = [ debugOverlay ];
+              config = {
+                allowUnfree = true;
+                allowBroken = false;
+                allowUnsupportedSystem = false;
+                allowInsecurePredicate = _: true;
+              };
+            };
+        in {
+          packages.x86_64-linux = pkgsFor "x86_64-linux";
+        };
       }"""
         )
         flake_nix.close()
@@ -647,6 +693,8 @@ class NixPkgs(Dataset):
             job_name="nixpkgs_find",
             partition=self.slurm_partition_online,
         )
+        if input == "find":
+            return self.slurm_find_packages
 
         # stage1: build packages in parallel
         self.slurm_build_packages = SlurmPipelineExecutor(
@@ -665,13 +713,15 @@ class NixPkgs(Dataset):
                 ),
             ],
             logging_dir=os.path.join(self.logging_dir, "build"),
-            time="12:00:00",
-            tasks=16,
+            time="48:00:00",
+            tasks=32,
             job_name="nixpkgs_build",
             mem_per_cpu_gb=4,
             cpus_per_task=1,
             partition=self.slurm_partition_online,
         )
+        if input == "build":
+            return self.slurm_build_packages
 
         # stage2: assemble builds into dataset export format
         self.slurm_export_dataset = SlurmPipelineExecutor(
@@ -680,14 +730,14 @@ class NixPkgs(Dataset):
                 JsonlReader(data_folder=self.builds_dir),
                 ExtractBinaryDataset(),
                 ParquetWriter(
-                    output_folder=self.dataset_dir,
+                    output_folder=self.dataset_dir + "-binaries",
                     adapter=lambda self, doc: doc.metadata,
                     max_file_size=5 * 1024 * 1024,
                 ),
             ],
             logging_dir=os.path.join(self.logging_dir, "extract"),
             time="48:00:00",
-            tasks=len(self.flakes) * 64,
+            tasks=300,  # len(self.flakes) * 64,
             job_name="nixpkgs_extract",
             mem_per_cpu_gb=8,
             cpus_per_task=1,
@@ -703,7 +753,7 @@ class NixPkgs(Dataset):
             # depends=self.slurm_export_dataset,
             pipeline=[
                 ParquetReader(
-                    data_folder=self.dataset_dir,
+                    data_folder=self.dataset_dir + "-binaries",
                     adapter=lambda self, data, path, id_in_file: {
                         "id": data["filename"],
                         "text": data["binary"],

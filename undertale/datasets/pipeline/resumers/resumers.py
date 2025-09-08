@@ -91,7 +91,7 @@ class ParquetResumeFilter(PipelineStep):
 
         glob_pat = f"*_{str(rank).zfill(5)}.parquet"
         logger.info(
-            "checking previous files in {} like ", self.data_folder.path, glob_pat
+            "checking previous files in {} like {}", self.data_folder.path, glob_pat
         )
         for myfile in self.data_folder.list_files(glob_pattern=glob_pat):
             try:
