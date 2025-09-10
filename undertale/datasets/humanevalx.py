@@ -11,7 +11,7 @@ from datatrove.pipeline.readers import JsonlReader
 
 from .base import Dataset, main
 from .pipeline.compilers import CppCompiler
-from .pipeline.segmenters import BinaryNinjaFunctionSegmenter
+from .pipeline.disassemblers import GhidraDisassembler
 
 
 def adapt_humanevalx_from_raw(
@@ -33,7 +33,7 @@ class HumanEvalX(Dataset):
                 adapter=adapt_humanevalx_from_raw,
             ),
             CppCompiler(),
-            BinaryNinjaFunctionSegmenter(),
+            GhidraDisassembler(),
         ]
         steps.extend(writer)
 
