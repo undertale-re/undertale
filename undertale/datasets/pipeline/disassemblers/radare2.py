@@ -1,3 +1,8 @@
+"""The Radare2 reverse engineering tool.
+
+Radare2: https://github.com/radareorg/radare2.
+"""
+
 from datatrove.data import DocumentsPipeline
 from datatrove.pipeline.base import PipelineStep
 
@@ -16,6 +21,7 @@ class RadareDisassembler(PipelineStep):
     def run(
         self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
     ) -> DocumentsPipeline:
+        """"""
 
         import json
 

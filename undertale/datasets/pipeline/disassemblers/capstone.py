@@ -1,3 +1,8 @@
+"""The Capstone disassembler.
+
+Capstone: https://www.capstone-engine.org/.
+"""
+
 import capstone
 from datatrove.data import DocumentsPipeline
 from datatrove.pipeline.base import PipelineStep
@@ -38,6 +43,7 @@ class CapstoneDisassembler(PipelineStep):
     def run(
         self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
     ) -> DocumentsPipeline:
+        """"""
         import capstone
 
         if not data:

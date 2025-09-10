@@ -1,3 +1,5 @@
+"""Compile C or C++ via ``gcc``/``g++``."""
+
 import logging
 
 from datatrove.data import DocumentsPipeline
@@ -15,7 +17,7 @@ class CppCompiler(PipelineStep):
     Output:
         Replaces the current `text` field with the raw bytes of the compiled
         code and stores the original source in a metadata field called
-        `source`.
+        ``source``.
 
     Discards any samples that fail to compile and logs the compilation errors.
     """
@@ -26,6 +28,7 @@ class CppCompiler(PipelineStep):
     def run(
         self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
     ) -> DocumentsPipeline:
+        """"""
         import os
         import subprocess
         import tempfile

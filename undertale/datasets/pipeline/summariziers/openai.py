@@ -1,3 +1,5 @@
+"""Summarize with any OpenAI API compatible service."""
+
 import logging
 import os
 
@@ -7,7 +9,7 @@ from datatrove.pipeline.base import PipelineStep
 logger = logging.getLogger(__name__)
 
 
-class OpenAISummarizier(PipelineStep):
+class OpenAISummarizer(PipelineStep):
     """Summarize the given code with an OpenAI model.
 
     Arguments:
@@ -48,6 +50,7 @@ class OpenAISummarizier(PipelineStep):
     def run(
         self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
     ) -> DocumentsPipeline:
+        """"""
         import openai
 
         if not data:
