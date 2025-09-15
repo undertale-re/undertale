@@ -23,7 +23,7 @@ if __name__ == "__main__":
         help="trained model checkpoint",
     )
     parser.add_argument(
-        "dataset",
+        "--dataset",
         help="dataset on which to evaluate the model",
     )
 
