@@ -10,7 +10,6 @@
 #SBATCH -o eval-test-log
 
 eval "$(conda shell.bash hook)"
-source activate undertale_llama
 
 DATASET=nixpkgs-disassembled-rizin-pretraining-small
 TOKENIZER=item.tokenizer.nixpkgs.json
@@ -19,9 +18,9 @@ WORKSPACE=/state/partition1/user/$USER
 MODEL=nixpkgs-full-pytorch-large/checkpoints/epoch=0-train_loss=0.39-valid_f1=0.90.ckpt
 
 srun mkdir -p $WORKSPACE
-srun rsync --progress -r ~/undertale_shared/datasets/$DATASET/ $WORKSPACE/$DATASET/
-srun rsync --progress ~/undertale_shared/models/item/$TOKENIZER $WORKSPACE/
-srun rsync --progress ~/undertale_shared/models/item/$MODEL $WORKSPACE/
+srun rsync --progress -r ./datasets/$DATASET/ $WORKSPACE/$DATASET/
+srun rsync --progress ./models/item/$TOKENIZER $WORKSPACE/
+srun rsync --progress ./models/item/$MODEL $WORKSPACE/
 
 export HF_HOME=$WORKSPACE/cache
 
