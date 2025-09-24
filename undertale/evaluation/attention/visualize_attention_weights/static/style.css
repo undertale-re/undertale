@@ -1,0 +1,31 @@
+h1 {
+    font-family: system-ui;
+    line-height: 2;
+    background-color: #f0f0f0;
+    border: 1px solid #ccc;
+    border-radius: 15px;
+    padding: 20px;
+    text-align: center;
+}
+
+p {
+    font-family: system-ui;
+    text-align: center;
+    font-size: 20px;
+}
+
+form {
+    display: flex;
+    margin-top: 200px;
+    justify-content: center;
+    gap: 8px;
+    margin:0 0 12px;
+}
+
+iframe {
+    width: 1000px;
+    height: 1000px;
+    text-align: center;
+    display: none;
+    justify-content: center;
+}

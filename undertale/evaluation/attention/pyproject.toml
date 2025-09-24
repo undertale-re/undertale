@@ -1,0 +1,18 @@
+[project]
+name = "visualize_attention_weights"
+version = "0.0.1"
+description = "visualize BERT-like model attention weights using bertviz"
+requires-python= ">=3.10"
+dependencies = ["tensorboard>=2.10"]
+
+[project.entry-points."tensorboard_plugins"]
+visualize_attention_weights = "visualize_attention_weights.server:AttentionVisPlugin"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+visualize_attention_weights = ["/visualize_attention_weights/static/*.css", "/visualize_attention_weights/static/*.js"]
+
+[tool.setuptools.packages.find]
+where = ["."]
