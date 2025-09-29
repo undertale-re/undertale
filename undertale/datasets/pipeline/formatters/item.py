@@ -62,7 +62,7 @@ class ITEMTokenizer(PipelineStep):
 
         self.tokenizer = tokenizer
         self.equiv_classes = equiv_classes
-        
+
     type = "✂️ - FORMATTER"
     name = "🎟️ ITEM Tokenizer"
 
@@ -81,16 +81,16 @@ class ITEMTokenizer(PipelineStep):
             with self.track_time():
                 encoding = tok.encode(document.metadata["disassembly"])
 
-                if self.equiv_classes:                    
+                if self.equiv_classes:
                     document.metadata["tokens"] = {
                         "input_ids": encoding.ids,
                         "attention_mask": encoding.attention_mask,
-                        "equiv_class": document.metadata['equiv_class']                        
+                        "equiv_class": document.metadata["equiv_class"],
                     }
-                else:                
+                else:
                     document.metadata["tokens"] = {
                         "input_ids": encoding.ids,
-                        "attention_mask": encoding.attention_mask
+                        "attention_mask": encoding.attention_mask,
                     }
-                
+
                 yield document

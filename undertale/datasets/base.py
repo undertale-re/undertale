@@ -41,6 +41,7 @@ def adapt_to_flatten_for_pretraining(self, document: Document) -> dict:
         "attention_mask": document.metadata["tokens"]["attention_mask"],
     }
 
+
 def adapt_to_flatten_for_pretraining_equiv_classes(self, document: Document) -> dict:
     return {
         "input_ids": document.metadata["tokens"]["input_ids"],
@@ -60,7 +61,6 @@ writers = {
             max_file_size=100 * 1024 * 1024,
         )
     ],
-
     "pretraining_equiv_classes": lambda output: [
         ParquetWriter(
             output,
@@ -68,7 +68,6 @@ writers = {
             max_file_size=100 * 1024 * 1024,
         )
     ],
-
 }
 
 default_writer = "parquet"

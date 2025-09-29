@@ -76,7 +76,7 @@ class PairwiseContrastive(PipelineStep):
         logger.info("Collecting equivalence classes")
         equivalence_classes = {}
         for document in data:
-       
+
             with self.track_time():
                 # this is a function's worth of binary data.
                 ec = document.metadata["equiv_class"]
@@ -132,7 +132,7 @@ class PairwiseContrastive(PipelineStep):
                         dt.metadata[key + suff] = val
 
                 copy_meta(d1, d, "_d1")
-                copy_meta(d2, d, "_d2")                
+                copy_meta(d2, d, "_d2")
                 return d
 
             p = random.random()

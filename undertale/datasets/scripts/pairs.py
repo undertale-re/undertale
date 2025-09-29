@@ -14,20 +14,21 @@ def adapt_dataset_from_parquet(
 ) -> dict:
     return {
         "id": data.pop("id", id_in_file),
-        "text": "PAIRWISE", #TODO needed this hardcoded value for the adapter to work
+        "text": "PAIRWISE",  # TODO needed this hardcoded value for the adapter to work
         "metadata": data,
     }
- 
+
 
 class Pairs(Dataset):
-    def __init__(self, *args, num_samples: int, negative_multiple : float, **kwargs):
+    def __init__(self, *args, num_samples: int, negative_multiple: float, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.num_samples = num_samples
-        self.negative_multiple  = negative_multiple
-        print(f"PairwiseContrastive in PairwiseContrastive.py: num_samples={num_samples} negative_multiple={negative_multiple}")
+        self.negative_multiple = negative_multiple
+        print(
+            f"PairwiseContrastive in PairwiseContrastive.py: num_samples={num_samples} negative_multiple={negative_multiple}"
+        )
 
-        
     def get_pipeline(self, input, writer, parallelism):
         steps = [
             ParquetReader(
@@ -63,21 +64,19 @@ if __name__ == "__main__":
 
     build_parser(parser)
 
-    parser.add_argument(
-        "-s", "--num_samples", required=True, help="number of samples"
-    )
+    parser.add_argument("-s", "--num_samples", required=True, help="number of samples")
 
     parser.add_argument(
         "-m", "--negative_multiple", required=True, help="negative multiple"
     )
-    
+
     arguments = parser.parse_args()
 
     dataset = Pairs(
         writer=arguments.writer,
         executor=arguments.executor,
         num_samples=int(arguments.num_samples),
-        negative_multiple = float(arguments.negative_multiple)
+        negative_multiple=float(arguments.negative_multiple),
     )
     dataset.build(
         input=arguments.input,

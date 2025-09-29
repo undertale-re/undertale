@@ -25,9 +25,10 @@ class Tokenizer(Dataset):
 
         self.tokenizer = tokenizer
         self.equiv_classes = equiv_classes
-        print(f"Tokenizer in tokenize.py: tokenizer={tokenizer} equiv_classes={equiv_classes}")
+        print(
+            f"Tokenizer in tokenize.py: tokenizer={tokenizer} equiv_classes={equiv_classes}"
+        )
 
-        
     def get_pipeline(self, input, writer, parallelism):
         steps = [
             ParquetReader(
@@ -40,7 +41,7 @@ class Tokenizer(Dataset):
 
         return self.get_executor(
             steps,
-            #venv_path=os.path.join(f"{Path.home()}/.conda/envs", "undertale"),
+            # venv_path=os.path.join(f"{Path.home()}/.conda/envs", "undertale"),
             venv_path=os.path.join(f"{Path.home()}/venv", "undertale"),
             time="48:00:00",
             cpus_per_task=1,
@@ -69,16 +70,19 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "-q", "--equiv-classes", action='store_true', help="set this to true if your dataset has equiv_class info and you want that threaded through"
+        "-q",
+        "--equiv-classes",
+        action="store_true",
+        help="set this to true if your dataset has equiv_class info and you want that threaded through",
     )
-    
+
     arguments = parser.parse_args()
 
     dataset = Tokenizer(
         writer=arguments.writer,
         executor=arguments.executor,
         tokenizer=arguments.tokenizer,
-        equiv_classes = arguments.equiv_classes
+        equiv_classes=arguments.equiv_classes,
     )
     dataset.build(
         input=arguments.input,
