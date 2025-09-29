@@ -90,8 +90,9 @@ if __name__ == "__main__":
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     if torch.cuda.is_available():
-        torch.cuda.set_device(0)
-        torch.set_float32_matmul_precision("high")
+        if torch.cuda.device_count() == 1:
+            torch.cuda.set_device(0)  #Lightning trainer should handle the gpu allocation
+            torch.set_float32_matmul_precision("high") #TODO set precision level according to need
 
     tok = tokenizer.load(arguments.tokenizer, sequence_length=512)
 
