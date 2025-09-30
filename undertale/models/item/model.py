@@ -1,5 +1,3 @@
-"""Model implementation."""
-
 from math import sqrt
 from typing import Optional
 
@@ -25,6 +23,9 @@ from torch.optim import AdamW
 from torch.optim.lr_scheduler import LambdaLR
 
 from .tokenizer import SPECIAL_TOKENS, TOKEN_NEXT
+
+from transformers import GPT2LMHeadModel, GPT2Tokenizer
+import torch
 
 
 class Defaults:
@@ -60,7 +61,6 @@ class Attention(Module):
         self.v = Linear(hidden_dimensions, head_dimensions)
 
     def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
-        """"""
         return scaled_dot_product_attention(
             self.q(state), self.k(state), self.v(state), mask=mask
         )
@@ -79,7 +79,6 @@ class MultiHeadAttention(Module):
         self.output = Linear(hidden_dimensions, hidden_dimensions)
 
     def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
-        """"""
         attended = cat([h(state, mask) for h in self.heads], dim=-1)
         output = self.output(attended)
 
@@ -98,7 +97,6 @@ class FeedForward(Module):
         self.dropout = Dropout(dropout)
 
     def forward(self, state: Tensor) -> Tensor:
-        """"""
         hidden = self.activation(self.linear1(state))
         output = self.dropout(self.linear2(hidden))
 
@@ -121,7 +119,6 @@ class TransformerEncoderLayer(Module):
         self.ff = FeedForward(hidden_dimensions, intermediate_dimensions, dropout)
 
     def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
-        """"""
         # Vanila.
         # attended = self.attention(state)
         # output = self.ff(attended)
@@ -159,7 +156,6 @@ class PositionEmbedding(Module):
         self.next_token_id = SPECIAL_TOKENS.index(TOKEN_NEXT)
 
     def forward(self, state: Tensor) -> Tensor:
-        """"""
         # FIXME this could probably be optimized
         starts = roll(state == self.next_token_id, 1)
         starts[:, 0] = False
@@ -208,7 +204,6 @@ class TransformerEncoder(Module):
         )
 
     def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
-        """"""
         output = self.embedding(state)
 
         for layer in self.layers:
@@ -228,7 +223,6 @@ class MaskedLMHead(Module):
         self.decode = Linear(hidden_dimensions, vocab_size)
 
     def forward(self, state: Tensor) -> Tensor:
-        """"""
         hidden = self.activation(self.transform(state))
         hidden = self.norm(hidden)
 
@@ -271,20 +265,17 @@ class TransformerEncoderForMaskedLM(LightningModule, Module):
         self.steps_per_epoch = None
 
     def on_fit_start(self):
-        """"""
         self.steps_per_epoch = (
             self.trainer.estimated_stepping_batches // self.trainer.max_epochs
         )
 
     def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
-        """"""
         hidden = self.encoder(state, mask)
         output = self.head(hidden)
 
         return output
 
     def configure_optimizers(self):
-        """"""
         optimizer = AdamW(self.parameters(), lr=self.lr)
 
         def constant_with_linear_warmup(step):
@@ -304,7 +295,6 @@ class TransformerEncoderForMaskedLM(LightningModule, Module):
         }
 
     def training_step(self, batch, index):
-        """"""
         output = self(batch.input_ids, batch.attention_mask)
         loss = cross_entropy(output.view(-1, output.size(-1)), batch.labels.view(-1))
 
@@ -314,7 +304,6 @@ class TransformerEncoderForMaskedLM(LightningModule, Module):
         return loss
 
     def validation_step(self, batch, index):
-        """"""
         output = self(batch.input_ids, batch.attention_mask)
 
         references = batch.labels
@@ -359,7 +348,6 @@ class TransformerEncoderForSequenceClassification(Module):
         self.head = Linear(hidden_dimensions, classes)
 
     def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
-        """"""
         # Select only the final state to classify.
         hidden = self.encoder(state, mask)[:, 0, :]
         hidden = self.dropout(hidden)
@@ -368,21 +356,233 @@ class TransformerEncoderForSequenceClassification(Module):
         return output
 
 
-class LanguageConnector(Module):
-    def __init__(self, input_size: int, output_size: int, hidden_size: int):
+class MLPLanguageConnector(Module):
+    def __init__(self, embed_size, output_size, hidden_size=128, num_layers=2,act=nn.ReLU):
         super().__init__()
+        
+        #if only one layer, then set hidden size to output size. 
+        #likely wont want only one layer but simple projection is accepted
+        if num_layers==1:
+            hidden_size=output_size
+        
+        connectors=[]
+        for i in range(num_layers):
+            if i==num_layers-1:
+                layer=(f'layer{i}',nn.Linear(hidden_size, output_size))
+                connectors.append(layer)
+            elif i==0:
+                layer=(f'layer{i}',nn.Linear(input_size, hidden_size))
+                activation=(f'act{i}',act())
+                connectors.append(layer)
+                connectors.append(activation) 
+            else:
+                layer=(f'layer{i}',nn.Linear(hidden_size, hidden_size))
+                activation=(f'act{i}',act())
+                connectors.append(layer)
+                connectors.append(activation)
+                
+        self.connectors = nn.Sequential(OrderedDict(connectors))
 
-        self.connectors = ModuleList(
-            [Linear(input_size, output_size) for _ in range(hidden_size)]
-        )
-
-    def forward(self, state: Tensor) -> Tensor:
-        """"""
-        return stack([c(state) for c in self.connectors], dim=1)
+    def forward(self, inputs_embeds):
+        return self.connectors(inputs_embeds)
 
 
-class TransformerEncoderForSequenceSummarizationGPT2(Module):
-    pass
+
+
+class TransformerEncoderForSequenceSummarization(Module):
+    '''
+    code based on https://github.com/rmokady/CLIP_prefix_caption/blob/main/train.py
+    
+    '''
+    def __init__(
+        self,
+        encoder_config,
+        connector_config,
+        llm_config,
+        end2end=True
+    ):
+        super().__init__()
+        self.encoder_config=encoder_config
+        
+        self.assembly_model=None
+        if end2end:
+            self.assembly_encoder(**encoder_config)
+        
+        self.tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
+        self.llm = GPT2LMHeadModel.from_pretrained('gpt2')
+        self.llm_embedding_size = self.llm.transformer.wte.weight.shape[1]
+        self.prompt_length=connector_config.prompt_length
+        
+
+        output_size=self.llm_embedding_size*self.prompt_length
+        hidden_size=output_size//2
+        self.connector=MLPLanguageConnector(encoder_length,output_size,hidden_size,
+                                         connector_config.num_layers,connector_config.act)
+    def forward(self,text,encoder_embedding,mask=None,labels=None):
+        
+        
+        tokens=self.tokenizer.encode(text)
+        embedding_text = self.llm.transformer.wte(tokens)
+        prompts = self.connector(encoder_embedding).view(-1, self.prompt_length, self.llm_embedding_size)
+        
+
+        embedding_cat = torch.cat((prompts, embedding_text), dim=1)
+        
+        if labels is not None:
+            dummy_token = self.get_dummy_token(tokens.shape[0], tokens.device)
+            labels = torch.cat((dummy_token, tokens), dim=1)
+        out = self.llm(inputs_embeds=embedding_cat, labels=labels, attention_mask=mask)
+        
+        return out
+    
+    def embed_assembly(self,assembly_text,assembly_mask=None):
+        
+        if self.assembly_model==None:
+            self.assembly_encoder(**self.encoder_config)
+        return self.assembly_encoder(assembly_text)
+    
+    def get_dummy_token(self, batch_size: int, device: torch.device) -> torch.Tensor:
+        return torch.zeros(batch_size, self.prefix_length, dtype=torch.int64, device=device)
+        
+    def generate_beam(
+        beam_size: int = 5,
+        prompt=None,
+        embed=None,
+        entry_length=67,
+        temperature=1.0,
+        stop_token: str = "."):
+
+        self.llm.eval()
+        stop_token_index = self.tokenizer.encode(stop_token)[0]
+        tokens = None
+        scores = None
+        device = next(self.llm.parameters()).device
+        seq_lengths = torch.ones(beam_size, device=device)
+        is_stopped = torch.zeros(beam_size, device=device, dtype=torch.bool)
+        with torch.no_grad():
+            if embed is not None:
+                generated = embed
+            else:
+                if tokens is None:
+                    tokens = torch.tensor(tokenizer.encode(prompt))
+                    tokens = tokens.unsqueeze(0).to(device)
+                    generated = self.llm.transformer.wte(tokens)
+            for i in range(entry_length):
+                outputs = self.llm(inputs_embeds=generated)
+                logits = outputs.logits
+                logits = logits[:, -1, :] / (temperature if temperature > 0 else 1.0)
+                logits = logits.softmax(-1).log()
+                if scores is None:
+                    scores, next_tokens = logits.topk(beam_size, -1)
+                    generated = generated.expand(beam_size, *generated.shape[1:])
+                    next_tokens, scores = next_tokens.permute(1, 0), scores.squeeze(0)
+                    if tokens is None:
+                        tokens = next_tokens
+                    else:
+                        tokens = tokens.expand(beam_size, *tokens.shape[1:])
+                        tokens = torch.cat((tokens, next_tokens), dim=1)
+                else:
+                    logits[is_stopped] = -float(np.inf)
+                    logits[is_stopped, 0] = 0
+                    scores_sum = scores[:, None] + logits
+                    seq_lengths[~is_stopped] += 1
+                    scores_sum_average = scores_sum / seq_lengths[:, None]
+                    scores_sum_average, next_tokens = scores_sum_average.view(-1).topk(
+                        beam_size, -1
+                    )
+                    next_tokens_source = next_tokens // scores_sum.shape[1]
+                    seq_lengths = seq_lengths[next_tokens_source]
+                    next_tokens = next_tokens % scores_sum.shape[1]
+                    next_tokens = next_tokens.unsqueeze(1)
+                    tokens = tokens[next_tokens_source]
+                    tokens = torch.cat((tokens, next_tokens), dim=1)
+                    generated = generated[next_tokens_source]
+                    scores = scores_sum_average * seq_lengths
+                    is_stopped = is_stopped[next_tokens_source]
+                next_token_embed = self.llm.transformer.wte(next_tokens.squeeze()).view(
+                    generated.shape[0], 1, -1
+                )
+                generated = torch.cat((generated, next_token_embed), dim=1)
+                is_stopped = is_stopped + next_tokens.eq(stop_token_index).squeeze()
+                if is_stopped.all():
+                    break
+        scores = scores / seq_lengths
+        output_list = tokens.cpu().numpy()
+        output_texts = [
+            self.tokenizer.decode(output[: int(length)])
+            for output, length in zip(output_list, seq_lengths)
+        ]
+        order = scores.argsort(descending=True)
+        output_texts = [output_texts[i] for i in order]
+        return output_texts
+
+
+    def generate2(self,
+        tokens=None,
+        prompt=None,
+        embed=None,
+        entry_count=1,
+        entry_length=67,  # maximum number of words
+        top_p=0.8,
+        temperature=1.0,
+        stop_token: str = "."):
+        
+        
+        self.llm.eval()
+        generated_num = 0
+        generated_list = []
+        stop_token_index = self.tokenizer.encode(stop_token)[0]
+        filter_value = -float("Inf")
+        device = next(self.llm.parameters()).device
+
+        with torch.no_grad():
+
+            for entry_idx in range(entry_count):
+                if embed is not None:
+                    generated = embed
+                else:
+                    if tokens is None:
+                        tokens = torch.tensor(self.tokenizer.encode(prompt))
+                        tokens = tokens.unsqueeze(0).to(device)
+
+                    generated = self.llm.transformer.wte(tokens)
+
+                for i in range(entry_length):
+
+                    outputs = self.llm(inputs_embeds=generated)
+                    logits = outputs.logits
+                    logits = logits[:, -1, :] / (temperature if temperature > 0 else 1.0)
+                    sorted_logits, sorted_indices = torch.sort(logits, descending=True)
+                    cumulative_probs = torch.cumsum(
+                        nnf.softmax(sorted_logits, dim=-1), dim=-1
+                    )
+                    sorted_indices_to_remove = cumulative_probs > top_p
+                    sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[
+                        ..., :-1
+                    ].clone()
+                    sorted_indices_to_remove[..., 0] = 0
+
+                    indices_to_remove = sorted_indices[sorted_indices_to_remove]
+                    logits[:, indices_to_remove] = filter_value
+                    next_token = torch.argmax(logits, -1).unsqueeze(0)
+                    next_token_embed = self.llm.transformer.wte(next_token)
+                    if tokens is None:
+                        tokens = next_token
+                    else:
+                        tokens = torch.cat((tokens, next_token), dim=1)
+                    generated = torch.cat((generated, next_token_embed), dim=1)
+                    if stop_token_index == next_token.item():
+                        break
+
+                output_list = list(tokens.squeeze().cpu().numpy())
+                output_text = self.tokenizer.decode(output_list)
+                generated_list.append(output_text)
+
+        return generated_list[0]
+
+
+
+        
 
 
 __all__ = [
@@ -391,5 +591,5 @@ __all__ = [
     "TransformerEncoderForMaskedLM",
     "TransformerEncoderForSequenceSimilarity",
     "TransformerEncoderForSequenceClassification",
-    "TransformerEncoderForSequenceSummarizationGPT2",
+    "TransformerEncoderForSequenceSummarization",
 ]
