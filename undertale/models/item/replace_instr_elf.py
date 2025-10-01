@@ -49,10 +49,12 @@
 import argparse
 import json
 import math
+import random
 import re
 
 import binaryninja
 import r2pipe
+import torch
 from binaryninja.architecture import Architecture
 from binaryninja.enums import InstructionTextTokenType
 from torch import argmax, softmax, tensor, where
@@ -134,16 +136,44 @@ def fill_in_masked(tokens_masked, attn):
     return (filled, probs)
 
 
+def sample_random_vocab_id():
+    vid = random.randrange(tok.get_vocab_size())
+    while vid in [pad_token_id, mask_token_id, next_token_id]:
+        vid = random.randrange(tok.get_vocab_size())
+    return vid
+
+
 # Use the MLM to replace an entire instruction.  Note that we
 # have already figured out which token inds correspond to each
 # insn_num.
 def replace_toks(tokens, attn, inds):
     # in a copy of tokens, change all the tokens in instruction i to [MASK]
     tokens_masked = tokens.clone().detach()
-    for ind in inds:
-        tokens_masked[ind] = mask_token_id
-    # breakpoint()
-    return fill_in_masked(tokens_masked, attn)
+    sample_size = round(0.15 * len(inds))
+    chosen = set(random.sample(inds, sample_size))
+
+    masked_inds = []
+    trials = 10
+    data = []
+
+    for trial in range(trials):
+        for ind in inds:
+            if ind not in chosen:
+                continue
+            r = random.random()
+            if r < 0.8:
+                # 80%: true [MASK]
+                tokens_masked[ind] = mask_token_id
+                masked_inds.append(ind)
+            elif r < 0.8 + 0.1:
+                # 10%: random token
+                tokens_masked[ind] = sample_random_vocab_id()
+        # for ind in inds:
+        #     tokens_masked[ind] = mask_token_id
+        # breakpoint()
+        tokens_replaced, prob_repl = fill_in_masked(tokens_masked, attn)
+        data.append((tokens_replaced, prob_repl, masked_inds))
+    return data
 
 
 # Use the MLM to replace token @ ind. Mask it, use MLM to
@@ -196,41 +226,26 @@ def anomaly_map(pretok_disas_str):
         # distribution
 
         # replace tokens for just instruction i using the MLM
-        (tokens_replaced, prob_repl) = replace_toks(tokens, attn, inds)
+        trials = 10
+        lprs = torch.zeros(trials)
+        data = replace_toks(tokens, attn, inds)
+        # (tokens_replaced, prob_repl, masked_inds) = replace_toks(tokens, attn, inds)
         # predicted = decode(tokens_replaced)
-        lpr = pp(inds, tokens, tokens_replaced, prob_repl)
-        new_instr_txt = instr_dec(tokens_replaced, inds)
+        for trial in range(len(data)):
+            tokens_replaced, prob_repl, masked_inds = data[trial]
+            lpr = pp(masked_inds, tokens, tokens_replaced, prob_repl)
+            lprs[trial] = lpr
+            new_instr_txt = instr_dec(tokens_replaced, inds)
 
+        print(f"mean: {torch.mean(lprs)}")
+        print(f"std: {torch.std(lprs)}")
         print(f"log(p(new)/p(old)) = {lpr:.2f}\n")
         print(new_instr_txt)
 
         print(f"original:  {instr_txt}")
         print(f"predicted: {new_instr_txt}")
 
-        # print(f"Considering replacing each of {inds}")
-
-        # for ind in inds:
-        #     # try replacing just this ind, starting with tokens_replaced
-        #     (new_tokens_replaced, new_prob_repl) = replace_tok(tokens_replaced, attn, ind)
-        #     old_id = tokens_replaced[ind]
-        #     new_id = new_tokens_replaced[ind]
-        #     # token did not change
-        #     if new_id == old_id:
-        #         continue
-        #     old_p = new_prob_repl[ind][old_id]
-        #     new_p = new_prob_repl[ind][new_id]
-        #     if new_p < old_p:
-        #         breakpoint()
-        #     assert (new_p > old_p)
-        #     new_predicted = decode(new_tokens_replaced)
-        #     print(f"with tok {ind} replaced: {new_p/old_p} improvement")
-        #     lpr = pp(inds, tokens_replaced, new_tokens_replaced, new_prob_repl)
-        #     print(f"log(p(new)/p(old)) = {lpr:.2f}")
-        #     print(f"better:    {new_predicted}")
-        #     tokens_replaced = new_tokens_replaced
-        #     prob_repl = new_prob_repl
-
-        lpr = pp(inds, tokens, tokens_replaced, prob_repl)
+        lpr = pp(masked_inds, tokens, tokens_replaced, prob_repl)
         print(f"FINAL log(p(new)/p(old)) = {lpr:.2f}")
         lpri.append((instr_txt, new_instr_txt, lpr))
     return lpri
