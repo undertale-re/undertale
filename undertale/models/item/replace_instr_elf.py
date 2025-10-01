@@ -49,14 +49,16 @@
 import argparse
 import json
 import math
+import numpy as np
 import random
 import re
+from tqdm import tqdm
 
-import binaryninja
+#import binaryninja
 import r2pipe
 import torch
-from binaryninja.architecture import Architecture
-from binaryninja.enums import InstructionTextTokenType
+#from binaryninja.architecture import Architecture
+#from binaryninja.enums import InstructionTextTokenType
 from torch import argmax, softmax, tensor, where
 
 from . import tokenizer
@@ -114,8 +116,8 @@ def pp(inds, old_tokens, new_tokens, probs):
         lpn += math.log(np)
         # likelihood ratio for new token vs old one
         lr = np / op
-        print(f"({ot},{nt},{lr:.2f}) ", end="")
-        print("")
+        # print(f"({ot},{nt},{lr:.2f}) ", end="")
+        # print("")
         # in log domain, this corresponds to p(new token seq) / p(old token seq)
     return lpn - lpo
 
@@ -149,31 +151,23 @@ def sample_random_vocab_id():
 def replace_toks(tokens, attn, inds):
     # in a copy of tokens, change all the tokens in instruction i to [MASK]
     tokens_masked = tokens.clone().detach()
-    sample_size = round(0.15 * len(inds))
-    chosen = set(random.sample(inds, sample_size))
-
     masked_inds = []
-    trials = 10
-    data = []
-
-    for trial in range(trials):
-        for ind in inds:
-            if ind not in chosen:
-                continue
-            r = random.random()
-            if r < 0.8:
-                # 80%: true [MASK]
-                tokens_masked[ind] = mask_token_id
-                masked_inds.append(ind)
-            elif r < 0.8 + 0.1:
-                # 10%: random token
-                tokens_masked[ind] = sample_random_vocab_id()
-        # for ind in inds:
-        #     tokens_masked[ind] = mask_token_id
-        # breakpoint()
-        tokens_replaced, prob_repl = fill_in_masked(tokens_masked, attn)
-        data.append((tokens_replaced, prob_repl, masked_inds))
-    return data
+    for ind in inds:
+        # 15% of tokens we will choose to do something with
+        r = random.random()
+        if r < 0.15:
+            # not chosen
+            tokens_masked[ind] = mask_token_id
+            masked_inds.append(ind)
+        # elif r < 0.8 + 0.1:
+        #     # 10%: random token
+        #     tokens_masked[ind] = sample_random_vocab_id()
+        #     rand_inds.append(ind)
+        # else:
+        #     # psych -- we do nothing with remaining chosen ones
+        #     pass
+    fm = fill_in_masked(tokens_masked, attn)
+    return (masked_inds, fm)
 
 
 # Use the MLM to replace token @ ind. Mask it, use MLM to
@@ -225,6 +219,29 @@ def anomaly_map(pretok_disas_str):
         # instructions of lengths drawn from est length
         # distribution
 
+        lprs = []
+
+        print(f"\n{instr} {instr_txt}")
+        for i in tqdm(range(50)):
+
+            (masked_inds, fm) = replace_toks(tokens, attn, inds)
+            (tokens_replaced, prob_repl) = fm
+            lpr = pp(masked_inds, tokens, tokens_replaced, prob_repl)
+            lprs.append(lpr)
+            new_instr_txt = instr_dec(tokens_replaced, inds)
+             
+            # print(f"log(p(new)/p(old)) = {lpr:.2f}\n")
+            # print(new_instr_txt)
+            
+            # print(f"original:  {instr_txt}")
+            # print(f"predicted: {new_instr_txt}")
+
+
+        m = np.mean(lprs)
+        s = np.std(lprs)
+        print(f"   llr is {m} +/- {s}")
+        continue
+    
         # replace tokens for just instruction i using the MLM
         trials = 10
         lprs = torch.zeros(trials)
