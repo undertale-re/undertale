@@ -37,6 +37,18 @@ documentation][pages].
 Pull requests and issues are more than welcome. Please review the
 ``Development`` section of the documentation prior to contributing.
 
+## Publications
+
+| Date | Venue | Publication |
+| --- | --- | --- |
+| 04/30/2024 | [arXiv][arxiv] | [On Training a Neural Network To Explain Binaries][20240430-arxiv] |
+| 09/15/2025 | [IEEE HPEC][HPEC] | [Scaling Performance of Large Language Model Pretraining][20250915-hpec] |
+
+[arxiv]: https://arxiv.org/
+[HPEC]: https://ieee-hpec.org/
+[20240430-arxiv]: https://arxiv.org/abs/2404.19631
+[20250915-hpec]: https://arxiv.org/abs/2509.05258
+
 ### Disclaimer
 
 DISTRIBUTION STATEMENT A. Approved for public release: distribution unlimited.
