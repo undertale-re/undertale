@@ -102,6 +102,11 @@ class GoogleCompetitionReader(BaseDiskReader):
                 data = os.path.join(path, "raw_data.sqlar")
                 solutions = os.path.join(path, "solutions.sqlar")
 
+                # Missing solution data, skip this competition.
+                if solutions not in f.namelist():
+                    logger.warning(f"solutions missing for {competition}")
+                    continue
+
                 unpack_sqlar(f.extract(data, working.name), working.name)
                 unpack_sqlar(f.extract(solutions, working.name), working.name)
 
@@ -120,6 +125,13 @@ class GoogleCompetitionReader(BaseDiskReader):
 
                 # Parse competitor attempts.
                 attempts_path = os.path.join(working.name, "raw_data", "attempts")
+
+                # Missing attempt data, skip this competition.
+                if not os.path.isdir(attempts_path):
+                    logger.warning(f"attempts missing for {competition}")
+                    continue
+
+                total = 0
                 for file in os.listdir(attempts_path):
                     competitor = os.path.splitext(file)[0]
                     with open(
@@ -144,13 +156,16 @@ class GoogleCompetitionReader(BaseDiskReader):
                             continue
 
                         # Fetch source.
+                        source_name = f"{competitor}.{i}.{language.lower()}"
                         source_path = os.path.join(
-                            working.name,
-                            "solutions",
-                            f"{competitor}.{i}.{language.lower()}",
+                            working.name, "solutions", source_name
                         )
-                        with open(source_path, "r") as s:
-                            source = s.read()
+                        try:
+                            with open(source_path, "r") as s:
+                                source = s.read()
+                        except FileNotFoundError:
+                            logger.warning(f"solution not found: {source_name}")
+                            continue
 
                         # Finally, yield a Document.
                         data = {
@@ -161,6 +176,12 @@ class GoogleCompetitionReader(BaseDiskReader):
                         }
 
                         yield self.get_document_from_dict(data, filepath, attempt["id"])
+
+                        total += 1
+
+                logger.info(
+                    f"found {total} solutions to {len(tasks)} tasks from {competition}"
+                )
 
 
 def adapt_googlecompetition_from_raw(
@@ -176,11 +197,27 @@ def adapt_googlecompetition_from_raw(
 class GoogleCompetitions(Dataset):
     def get_pipeline(self, input, writer, parallelism):
         """"""
-        steps = [
-            GoogleCompetitionReader(
-                os.path.join(input, "gcj-archive-2023.zip"),
+
+        def googlecompetitions_reader_factory(archive: str):
+            return GoogleCompetitionReader(
+                os.path.join(input, archive),
                 adapter=adapt_googlecompetition_from_raw,
-            ),
+            )
+
+        steps = [
+            googlecompetitions_reader_factory("gcj-archive-2008-2017.zip"),
+            googlecompetitions_reader_factory("gcj-archive-2018.zip"),
+            googlecompetitions_reader_factory("gcj-archive-2019.zip"),
+            googlecompetitions_reader_factory("gcj-archive-2020.zip"),
+            googlecompetitions_reader_factory("gcj-archive-2021.zip"),
+            googlecompetitions_reader_factory("gcj-archive-2022.zip"),
+            googlecompetitions_reader_factory("gcj-archive-2023.zip"),
+            googlecompetitions_reader_factory("kickstart-archive-2013-2018.zip"),
+            googlecompetitions_reader_factory("kickstart-archive-2019.zip"),
+            googlecompetitions_reader_factory("kickstart-archive-2020.zip"),
+            googlecompetitions_reader_factory("kickstart-archive-2021.zip"),
+            googlecompetitions_reader_factory("kickstart-archive-2022.zip"),
+            googlecompetitions_reader_factory("hashcode-archive-2014-2022.zip"),
             # CppCompiler(),
             # GhidraDisassembler(),
         ]
