@@ -7,7 +7,7 @@ import os
 from transformers import PreTrainedTokenizerFast,AutoTokenizer, AutoConfig
 from tqdm import tqdm
 from . import tokenizer
-
+import time
 class SummarizerDataset(torch.utils.data.Dataset):
     
     
@@ -32,7 +32,7 @@ class SummarizerDataset(torch.utils.data.Dataset):
         self.normalize_prefix = normalize_prefix
         
 
-        # Figure out max context length from config (model-agnostic)
+        # Figure out max context length from config 
         if hasattr(config, "n_positions"):
             max_positions = config.n_positions
         elif hasattr(config, "max_position_embeddings"):
@@ -42,6 +42,7 @@ class SummarizerDataset(torch.utils.data.Dataset):
 
         # Enforce: prefix tokens + text tokens <= model limit
         self.max_seq_len = max_positions - prefix_length
+        
         
         
         self.dataset=dataset
@@ -69,25 +70,24 @@ class SummarizerDataset(torch.utils.data.Dataset):
     def __len__(self) -> int:
         return len(self.dataset)
 
-    def pad_tokens(self, item: int):
-        tokens = self.dataset['summary_tokens'][item]
-        tokens=torch.tensor(tokens, dtype=torch.int64)
-        padding = self.max_seq_len - tokens.shape[0]
-        if padding > 0:
-            tokens = torch.cat((tokens, torch.zeros(padding, dtype=torch.int64) - 1))
-            self.dataset['summary_tokens'][item] = tokens
-        elif padding < 0:
-            tokens = tokens[:self.max_seq_len]
-            self.dataset['summary_tokens'][item] = tokens
-        mask = tokens.ge(0)  # mask is zero where we out of sequence
-        tokens[~mask] = 0
-        mask = mask.float()
-        mask = torch.cat((torch.ones(self.prefix_length), mask), dim=0)  # adding prefix mask
-        return tokens, mask
+    # def pad_tokens(self, item: int):
+    #     tokens = self.dataset['summary_tokens'][item]
+    #     tokens=torch.tensor(tokens, dtype=torch.int64)
+    #     padding = self.max_seq_len - tokens.shape[0]
+    #     if padding > 0:
+    #         tokens = torch.cat((tokens, torch.zeros(padding, dtype=torch.int64) - 1))
+    #         self.dataset['summary_tokens'][item] = tokens
+    #     elif padding < 0:
+    #         tokens = tokens[:self.max_seq_len]
+    #         self.dataset['summary_tokens'][item] = tokens
+    #     mask = tokens.ge(0)  # mask is zero where we out of sequence
+    #     tokens[~mask] = 0
+    #     mask = mask.float()
+    #     mask = torch.cat((torch.ones(self.prefix_length), mask), dim=0)  # adding prefix mask
+    #     return tokens, mask
 
     def __getitem__(self, item: int):
-        tokens, mask = self.pad_tokens(item)
-          
+        tokens=self.dataset['summary_tokens'][item]
         if self.end2end:
             disassembly_info=self.dataset['disassembly'][item]
         else:
@@ -96,8 +96,8 @@ class SummarizerDataset(torch.utils.data.Dataset):
                 prefix = prefix.float()
                 prefix = prefix / prefix.norm(2, -1)
             disassembly_info=prefix
-                                                     
-        return tokens, mask, disassembly_info
+                                                      
+        return tokens, disassembly_info
     
 
 
@@ -105,17 +105,34 @@ class SummarizerDataset(torch.utils.data.Dataset):
 
 
 class CustomCollator:
-    def __init__(self, args):
+    def __init__(self, args,max_seq_len,device):
         
         self.tokenizer = tokenizer.load(args.tokenizer)
         self.max_length=args.tokenizer_size
 
         self.tok_fast= PreTrainedTokenizerFast(tokenizer_object=self.tokenizer)
 
-
+        self.max_seq_len=max_seq_len
+        self.prefix_length=args.prefix_length_const
+        self.device=device
 
     def __call__(self, batch):
-        tokens, masks, disassembly_infos = zip(*batch)
+        tokens,  disassembly_infos = zip(*batch)
+        token_size = len(tokens)
+        padded = torch.full((token_size, self.max_seq_len), -1, dtype=torch.long, device=self.device)
+
+        # single loop, no tensor creation inside loop
+        for i, seq in enumerate(tokens):
+            seq_len = min(len(seq), self.max_seq_len)
+            padded[i, :seq_len] = torch.tensor(seq[:seq_len], dtype=torch.long, device=self.device)
+
+        # vectorized mask
+        masks = padded.ge(0)
+        padded = padded.masked_fill_(~masks, 0)
+
+        # prefix mask (also vectorized)
+        prefix_mask = torch.ones((token_size, self.prefix_length), dtype=torch.float32, device=self.device)
+        masks = torch.cat((prefix_mask, masks.float()), dim=1)
         
         
         disassembly_batch=self.tok_fast(
@@ -125,10 +142,10 @@ class CustomCollator:
             return_tensors="pt",
             max_length=self.max_length
             )
-
+        
         return {
-            "tokens": torch.stack(tokens),
-            "mask": torch.stack(masks),
+            "tokens": padded,
+            "mask": masks,
             "disassembly_tokens": disassembly_batch['input_ids'],
             "disassembly_mask": disassembly_batch['attention_mask']
         }

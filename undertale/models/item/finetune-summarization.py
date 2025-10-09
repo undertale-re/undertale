@@ -26,7 +26,7 @@ from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 from lightning.pytorch.loggers import TensorBoardLogger
 from pytorch_lightning.strategies import DDPStrategy
 
-
+import time
 
 class ProgressBar(TQDMProgressBar):
     def get_metrics(self, trainer, model):
@@ -89,6 +89,7 @@ class SummarizeModel(LightningModule,torch.nn.Module):
         return self.model(text,encoder_embedding,mask,labels)
         
     def training_step(self, batch, batch_idx):
+
         tokens, mask,dissassembly_tokens,dissassembly_mask=batch['tokens'], batch['mask'],batch['disassembly_tokens'],batch['disassembly_mask'] 
         #tokens, mask = tokens.to(self.device),mask.to(self.device)
         # disassembly_info = disassembly_info.to(self.device, dtype=torch.float32)
@@ -96,11 +97,14 @@ class SummarizeModel(LightningModule,torch.nn.Module):
 
         if self.end2end:
             with torch.no_grad():
+
                 prefix=self.model.embed_assembly(dissassembly_tokens,dissassembly_mask)
+
         else:
             prefix=disassembly_info
-  
+          
         outputs = self(tokens, prefix,mask)
+
         logits = outputs.logits[:, self.prefix_length - 1: -1]
         loss = F.cross_entropy(logits.reshape(-1, logits.shape[-1]), tokens.flatten(), ignore_index=0)
         
@@ -259,7 +263,7 @@ if __name__ == "__main__":
     
     
     #assembly_tokenizer = tokenizer.load(args.tokenizer)
-    collator = CustomCollator(args)
+    collator = CustomCollator(args,train_dataset.max_seq_len,device)
     
     train_dataloader = DataLoader(
         train_dataset,
@@ -294,10 +298,10 @@ if __name__ == "__main__":
     
     progress = ProgressBar(leave=True)
     checkpoint = ModelCheckpoint(
-        filename="{epoch}-{train_loss:.2f}-{valid_f1:.2f}",
+        filename="{epoch}-{train_loss:.2f}-{val_loss:.2f}",
         save_top_k=-1,
     )
-    stop = EarlyStopping(monitor="valid_f1", mode="max", patience=5, min_delta=0.001)
+    stop = EarlyStopping(monitor="val_loss", mode="max", patience=5, min_delta=0.001)
     logger = TensorBoardLogger(
         save_dir=os.path.dirname(output),
         name=os.path.basename(output),
@@ -337,7 +341,8 @@ if __name__ == "__main__":
     trainer.fit(
         summarize_model,
         train_dataloaders=train_dataloader,
-        #val_dataloaders=val_dataloader,
+        val_dataloaders=val_dataloader,
         ckpt_path=args.summarizer_checkpoint,
     )
+
 
