@@ -1,3 +1,5 @@
+"""Custom logging utilities."""
+
 import logging
 import sys
 import typing

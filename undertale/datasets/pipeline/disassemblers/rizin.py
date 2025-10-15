@@ -1,3 +1,8 @@
+"""Rizin, a popular fork of Radare2.
+
+Rizin: https://rizin.re/.
+"""
+
 from datatrove.data import DocumentsPipeline
 from datatrove.pipeline.base import PipelineStep
 
@@ -16,6 +21,7 @@ class RizinDisassembler(PipelineStep):
     def run(
         self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
     ) -> DocumentsPipeline:
+        """"""
 
         import json
 

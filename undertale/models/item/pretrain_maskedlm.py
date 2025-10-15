@@ -1,3 +1,5 @@
+"""Pretrain a model on a Masked Language Modeling (MLM) task."""
+
 import argparse
 import logging
 import os

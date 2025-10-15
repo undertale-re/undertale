@@ -1,3 +1,5 @@
+"""Tokenization utilities for the ITEM model."""
+
 import logging
 
 from datatrove.data import DocumentsPipeline
@@ -22,6 +24,7 @@ class ITEMPretokenizer(PipelineStep):
     def run(
         self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
     ) -> DocumentsPipeline:
+        """"""
         from undertale.models.item.tokenizer import pretokenize
 
         if not data:
@@ -67,6 +70,7 @@ class ITEMTokenizer(PipelineStep):
     def run(
         self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
     ) -> DocumentsPipeline:
+        """"""
         from undertale.models.item import tokenizer
 
         if not data:

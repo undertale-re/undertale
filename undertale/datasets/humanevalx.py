@@ -1,11 +1,20 @@
-from datatrove.pipeline.readers import HuggingFaceDatasetReader
+"""The HumanEval-X multilingual code benchmark.
+
+C++ language subset, compiled.
+
+Data: https://huggingface.co/datasets/zai-org/humaneval-x.
+"""
+
+import os
+
+from datatrove.pipeline.readers import JsonlReader
 
 from .base import Dataset, main
 from .pipeline.compilers import CppCompiler
 from .pipeline.disassemblers import GhidraDisassembler
 
 
-def adapt_humanevalx_from_huggingface(
+def adapt_humanevalx_from_raw(
     self, data: dict, path: str, id_in_file: int | str
 ) -> dict:
     return {
@@ -17,11 +26,11 @@ def adapt_humanevalx_from_huggingface(
 
 class HumanEvalX(Dataset):
     def get_pipeline(self, input, writer, parallelism):
+        """"""
         steps = [
-            HuggingFaceDatasetReader(
-                "THUDM/humaneval-x",
-                {"name": "cpp", "split": "test"},
-                adapter=adapt_humanevalx_from_huggingface,
+            JsonlReader(
+                os.path.join(input, "cpp/data/humaneval.jsonl"),
+                adapter=adapt_humanevalx_from_raw,
             ),
             CppCompiler(),
             GhidraDisassembler(),

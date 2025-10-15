@@ -1,10 +1,10 @@
+"""Library to Instrument Executable Formats (LIEF).
+
+LIEF: https://lief.re/
+"""
+
 import io
 
-import cpp_demangle
-import itanium_demangler
-import lief
-import rust_demangler
-import unix_ar
 from datatrove.data import DocumentsPipeline
 from datatrove.pipeline.base import PipelineStep
 
@@ -13,15 +13,10 @@ class LIEFFunctionSegmenter(PipelineStep):
     type = "✂️ - SEGMENTER"
     name = "🪓 LIEF"
 
-    _requires_dependencies = [
-        "cpp_demangle",
-        "rust_demangler",
-        "unix_ar",
-        "itanium_demangler",
-        "lief",
-    ]
-
     def demangle(self, func_name):
+        import cpp_demangle
+        import itanium_demangler
+        import rust_demangler
         from datatrove.utils.logging import logger
 
         if func_name.startswith("_R"):
@@ -74,6 +69,10 @@ class LIEFFunctionSegmenter(PipelineStep):
             return func_name
 
     def run(self, docPipeline: DocumentsPipeline, rank: int = 0, world_size: int = 1):
+        """"""
+
+        import lief
+        import unix_ar
         from datatrove.data import Document
         from datatrove.utils.logging import logger
 

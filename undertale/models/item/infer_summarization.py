@@ -1,3 +1,5 @@
+"""Generate a summary for a piece of code given a finetuned model."""
+
 import argparse
 
 import torch
