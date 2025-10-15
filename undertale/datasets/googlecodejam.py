@@ -1,8 +1,10 @@
+import os
 from datatrove.pipeline.readers import ParquetReader
 
 from .base import Dataset, main
 from .pipeline.compilers import CppCompiler
 from .pipeline.disassemblers import GhidraDisassembler
+from .pipeline.summariziers import VLLMSummarizer
 
 
 def adapt_googlecodejam(self, data: dict, path: str, id_in_file: int | str) -> dict:
@@ -15,6 +17,7 @@ def adapt_googlecodejam(self, data: dict, path: str, id_in_file: int | str) -> d
 
 class GoogleCodeJam(Dataset):
     def get_pipeline(self, input, writer, parallelism):
+        server_loc = os.environ.get("SERVER_LOC", "NONE")
         steps = [
             ParquetReader(
                 data_folder="/home/st25587/undertale_shared/datasets/gcj_testset",
@@ -22,6 +25,7 @@ class GoogleCodeJam(Dataset):
             ),
             CppCompiler(),
             GhidraDisassembler(),
+            VLLMSummarizer(server_loc),
         ]
         steps.extend(writer)
 
@@ -30,3 +34,4 @@ class GoogleCodeJam(Dataset):
 
 if __name__ == "__main__":
     main(GoogleCodeJam)
+
