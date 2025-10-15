@@ -209,6 +209,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-a", "--accelerator", default="auto", help="accelerator to use"
     )
+    parser.add_argument("-num_epochs", type=int, default=10, help="number epochs to train model")
     parser.add_argument(
         "-d",
         "--devices",
@@ -332,7 +333,7 @@ if __name__ == "__main__":
         accelerator=args.accelerator,
         devices=args.devices,
         num_nodes=args.nodes,
-        max_epochs=1,
+        max_epochs=args.num_epochs,
         # Testing
         # log_every_n_steps=1,
         # limit_train_batches=2,
