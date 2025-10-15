@@ -69,5 +69,3 @@ class VLLMSummarizer(PipelineStep):
                 yield document
 
                 self.stat_update("summarized")
-
-                
