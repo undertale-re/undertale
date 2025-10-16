@@ -1,3 +1,5 @@
+"""Base classes and utilities for datasets."""
+
 import argparse
 import inspect
 import logging
@@ -19,10 +21,6 @@ logger = logging.getLogger(__name__)
 Pipeline = List[PipelineStep]
 
 
-class DatasetAlreadyExistsError(Exception):
-    """Raised when attempting to commit a dataset that already exists."""
-
-
 def adapt_to_flatten(self, document: Document) -> dict:
     sample = {}
 
@@ -42,7 +40,7 @@ def adapt_to_flatten_for_pretraining(self, document: Document) -> dict:
     }
 
 
-writers = {
+WRITERS = {
     "parquet": lambda output: [
         ParquetWriter(output, adapter=adapt_to_flatten, max_file_size=100 * 1024 * 1024)
     ],
@@ -54,15 +52,19 @@ writers = {
         )
     ],
 }
+"""Supported dataset writers."""
 
-default_writer = "parquet"
+DEFAULT_WRITER = "parquet"
+"""Default dataset writer."""
 
-executors = {
+EXECUTORS = {
     "local": LocalPipelineExecutor,
     "slurm": SlurmPipelineExecutor,
 }
+"""Supported dataset executors."""
 
-default_executor = "local"
+DEFAULT_EXECUTOR = "local"
+"""Default dataset executor."""
 
 
 class Dataset(metaclass=ABCMeta):
@@ -76,8 +78,8 @@ class Dataset(metaclass=ABCMeta):
 
     def __init__(
         self,
-        writer: str = default_writer,
-        executor: str = default_executor,
+        writer: str = DEFAULT_WRITER,
+        executor: str = DEFAULT_EXECUTOR,
         logging_directory: Optional[str] = None,
     ):
         self.writer = writer
@@ -99,7 +101,7 @@ class Dataset(metaclass=ABCMeta):
             pipeline: A list of pipeline steps.
         """
 
-        Executor = executors[self.executor]
+        Executor = EXECUTORS[self.executor]
         arguments = inspect.getfullargspec(Executor).args
         return Executor(
             pipeline,
@@ -113,7 +115,7 @@ class Dataset(metaclass=ABCMeta):
     ) -> PipelineExecutor:
         """Build and return the dataset processing pipeline.
 
-        This should make use of the `get_executor` method to wrap the
+        This should make use of the ``get_executor`` method to wrap the
         configured executor.
 
         Arguments:
@@ -124,7 +126,7 @@ class Dataset(metaclass=ABCMeta):
         """
 
     def build(self, input: str, output: str, parallelism: int = 1) -> None:
-        writer = writers[self.writer](output)
+        writer = WRITERS[self.writer](output)
         executor = self.get_pipeline(input, writer, parallelism)
 
         executor.run()
@@ -167,16 +169,16 @@ def build_parser(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "-e",
         "--executor",
-        choices=executors,
-        default=default_executor,
+        choices=EXECUTORS,
+        default=DEFAULT_EXECUTOR,
         help="executor on which to run the given pipeline",
     )
 
     parser.add_argument(
         "-w",
         "--writer",
-        choices=writers,
-        default=default_writer,
+        choices=WRITERS,
+        default=DEFAULT_WRITER,
         help="output writer (format)",
     )
 
@@ -196,19 +198,19 @@ def build_parser(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("output", help="output location")
 
 
-def main(dataset_class: Type[Dataset]) -> None:
+def main(cls: Type[Dataset]) -> None:
     """The CLI entrypoint for parsing a dataset.
 
-    This should be called in `__main__` for dataset modules.
+    This should be called in ``__main__`` for dataset modules.
 
     Arguments:
-        dataset_class: A dataset class to interact with.
+        cls: A dataset class to interact with.
     """
 
     undertale_logging.setup_logging()
 
     parser = argparse.ArgumentParser(
-        description=f"parsing utilities for {dataset_class.__name__}",
+        description=f"parsing utilities for {cls.__name__}",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
@@ -216,9 +218,19 @@ def main(dataset_class: Type[Dataset]) -> None:
 
     arguments = parser.parse_args()
 
-    dataset = dataset_class(writer=arguments.writer, executor=arguments.executor)
+    dataset = cls(writer=arguments.writer, executor=arguments.executor)
     dataset.build(
         input=arguments.input,
         output=arguments.output,
         parallelism=arguments.parallelism,
     )
+
+
+__all__ = [
+    "Dataset",
+    "WRITERS",
+    "DEFAULT_WRITER",
+    "EXECUTORS",
+    "DEFAULT_EXECUTOR",
+    "main",
+]

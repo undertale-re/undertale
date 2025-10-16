@@ -1,3 +1,11 @@
+"""The Google Code Jam programming competition archives.
+
+Several years of Google Code Jam programming competitions, C and C++ language
+solutions, compiled and aligned with challenge problem descriptions.
+
+Data: https://zibada.guru/gcj/
+"""
+
 import os
 
 from datatrove.pipeline.readers import ParquetReader
@@ -8,7 +16,9 @@ from .pipeline.disassemblers import GhidraDisassembler
 from .pipeline.summarizers import VLLMSummarizer
 
 
-def adapt_googlecodejam(self, data: dict, path: str, id_in_file: int | str) -> dict:
+def adapt_googlecodejam_from_raw(
+    self, data: dict, path: str, id_in_file: int | str
+) -> dict:
     return {
         "id": data["row"],
         "text": data["source"],
@@ -18,11 +28,12 @@ def adapt_googlecodejam(self, data: dict, path: str, id_in_file: int | str) -> d
 
 class GoogleCodeJam(Dataset):
     def get_pipeline(self, input, writer, parallelism):
+        """"""
         server_loc = os.environ.get("SERVER_LOC", "NONE")
         steps = [
             ParquetReader(
                 data_folder="/home/st25587/undertale_shared/datasets/gcj_testset",
-                adapter=adapt_googlecodejam,
+                adapter=adapt_googlecodejam_from_raw,
             ),
             CppCompiler(),
             GhidraDisassembler(),

@@ -1,4 +1,7 @@
-"""
+"""A collection of Windows binaries built from open-source code.
+
+Data: https://assemblage-dataset.net/.
+
 This is a big dataset. In order to create it, you will have to arrange
 for enough disk space.  Also, note that the code for parsing was
 developed and run on a machine with 512GB RAM.  Takes about 1.5 hours
@@ -34,9 +37,11 @@ from datatrove.pipeline.base import PipelineStep
 from datatrove.pipeline.readers import ParquetReader
 from datatrove.pipeline.writers import ParquetWriter
 
-from ..base import DEFAULT_DATASETS_DIRECTORY, Dataset, main
+from ..base import Dataset, main
 from ..pipeline.disassemblers import RadareDisassembler, RizinDisassembler
 from ..pipeline.pairs import PairwiseContrastive
+
+DEFAULT_DATASETS_DIRECTORY = "./"
 
 
 class AssemblageWindowsReader(PipelineStep):
@@ -52,6 +57,7 @@ class AssemblageWindowsReader(PipelineStep):
         self.first_time = self.last_time
 
     def run(self, data, rank: int = 0, world_size: int = 1) -> DocumentsPipeline:
+        """"""
         import os
         import random
         import shutil
@@ -268,6 +274,7 @@ class AssemblageWindows(Dataset):
     name = "assemblage-windows"
 
     def get_pipeline(self, input, writer, parallelism):
+        """"""
         from datatrove.utils.logging import logger
 
         if input == "binaries":
