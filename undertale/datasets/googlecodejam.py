@@ -1,10 +1,11 @@
 import os
+
 from datatrove.pipeline.readers import ParquetReader
 
 from .base import Dataset, main
 from .pipeline.compilers import CppCompiler
 from .pipeline.disassemblers import GhidraDisassembler
-from .pipeline.summariziers import VLLMSummarizer
+from .pipeline.summarizers import VLLMSummarizer
 
 
 def adapt_googlecodejam(self, data: dict, path: str, id_in_file: int | str) -> dict:
@@ -34,4 +35,3 @@ class GoogleCodeJam(Dataset):
 
 if __name__ == "__main__":
     main(GoogleCodeJam)
-
