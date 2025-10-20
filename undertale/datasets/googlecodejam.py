@@ -6,8 +6,6 @@ solutions, compiled and aligned with challenge problem descriptions.
 Data: https://zibada.guru/gcj/
 """
 
-import os
-
 from datatrove.pipeline.readers import ParquetReader
 
 from .base import Dataset, main
@@ -29,7 +27,6 @@ def adapt_googlecodejam_from_raw(
 class GoogleCodeJam(Dataset):
     def get_pipeline(self, input, writer, parallelism):
         """"""
-        server_loc = os.environ.get("SERVER_LOC", "NONE")
         steps = [
             ParquetReader(
                 data_folder="/home/st25587/undertale_shared/datasets/gcj_testset",
@@ -37,7 +34,7 @@ class GoogleCodeJam(Dataset):
             ),
             CppCompiler(),
             GhidraDisassembler(),
-            VLLMSummarizer(server_loc),
+            VLLMSummarizer(),
         ]
         steps.extend(writer)
 
