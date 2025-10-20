@@ -39,6 +39,20 @@ def predict(inputs, tok, model, pretokenized=False, masked=False):
     output, attns = model(tokens.unsqueeze(0), mask.unsqueeze(0), attn_weights=True)
     output = output.squeeze()
 
+    masked_tokens = torch.where(tokens == tok.token_to_id(tokenizer.TOKEN_MASK))[0]
+    logits = output[masked_tokens]
+    probs = torch.softmax(logits, dim=-1)
+    topk_probs, topk_indices = torch.topk(probs, k=5, dim=-1)
+
+    topk = {}
+    for token_position, probabilities, columns in zip(
+        masked_tokens, topk_probs, topk_indices
+    ):
+        topk[token_position.item()] = [
+            (tok.decode([column]), round(probability.item(), 4))
+            for column, probability in zip(columns, probabilities)
+        ]
+
     filled = torch.where(
         tokens == tok.token_to_id(tokenizer.TOKEN_MASK),
         torch.argmax(output, dim=-1),
@@ -51,7 +65,7 @@ def predict(inputs, tok, model, pretokenized=False, masked=False):
     print("Masked Inputs:".ljust(17) + f"{inputs}")
     print("Predicted:".ljust(17) + f"{predicted}")
 
-    return attns, mask, predicted.split(" ")
+    return attns, mask, predicted.split(" "), topk
 
 
 def remove_padded_tokens(mask, attns):
