@@ -52,14 +52,10 @@ def pretokenize(disassembly: str) -> str:
         split = instruction.split(" ", maxsplit=1)
 
         # Hardware lock instruction prefix (e.g., 'xrelease lock add ...')
-        if split[0] in ["xacquire", "xrelease"]:
-            assert len(split) == 2
-            prefix, remainder = split
-            pretokens.append(prefix)
-            split = remainder.split(" ", maxsplit=1)
-
-        # Instruction prefix (e.g., 'lock add ...')
+        # or Instruction prefix (e.g., 'lock add ...').
         if split[0] in [
+            "xacquire",
+            "xrelease",
             "lock",
             "bnd",
             "notrack",
@@ -76,7 +72,7 @@ def pretokenize(disassembly: str) -> str:
 
         # Instruction without operands (e.g., `ret`).
         if len(split) == 1:
-            pretokens.append(split[0])
+            pretokens.extend([split[0], TOKEN_NEXT])
             continue
         else:
             mnemonic, operands = split
@@ -113,7 +109,7 @@ def pretokenize(disassembly: str) -> str:
 
                 pretokens.append("[")
 
-                # Base, offset, multiplier syntax
+                # Base, offset, multiplier syntax.
                 split = re.split(r"(\+|-|\*)", operand)
                 split = [o.strip() for o in split]
 
