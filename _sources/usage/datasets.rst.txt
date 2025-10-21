@@ -50,3 +50,19 @@ something like:
     ...
 
 Where ``path`` is the path to the saved dataset directory.
+
+VLLM Server Integration
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Some datasets make use of a `VLLM <https://github.com/vllm-project/vllm>`_
+server to generate summaries of code. Assuming you already have a VLLM server
+running (see their documentation for details on how to set that up), to build a
+dataset pipeline with a VLLM step, you need to set the ``VLLM_SERVER_ADDRESS``
+environment variable like:
+
+.. code-block:: bash
+
+    export VLLM_SERVER_ADDRESS=http://my.vllm.server:8000/v1
+
+Additionally, if your VLLM server requires an API key, you will need to set the
+``VLLM_API_KEY`` environment variable.

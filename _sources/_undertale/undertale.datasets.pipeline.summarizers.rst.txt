@@ -1,0 +1,13 @@
+summarizers
+===========
+
+.. automodule:: undertale.datasets.pipeline.summarizers
+
+   
+.. rubric:: Modules
+
+.. autosummary::
+   :toctree:
+   :recursive:
+
+   vllm

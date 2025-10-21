@@ -15,4 +15,4 @@ pipeline
    formatters
    pairs
    segmenters
-   summariziers
+   summarizers

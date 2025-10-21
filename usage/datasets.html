@@ -75,6 +75,19 @@ something like:</p>
 </div>
 <p>Where <code class="docutils literal notranslate"><span class="pre">path</span></code> is the path to the saved dataset directory.</p>
 </section>
+<section id="vllm-server-integration">
+<h2>VLLM Server Integration<a class="headerlink" href="#vllm-server-integration" title="Link to this heading">¶</a></h2>
+<p>Some datasets make use of a <a class="reference external" href="https://github.com/vllm-project/vllm">VLLM</a>
+server to generate summaries of code. Assuming you already have a VLLM server
+running (see their documentation for details on how to set that up), to build a
+dataset pipeline with a VLLM step, you need to set the <code class="docutils literal notranslate"><span class="pre">VLLM_SERVER_ADDRESS</span></code>
+environment variable like:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">VLLM_SERVER_ADDRESS</span><span class="o">=</span>http://my.vllm.server:8000/v1
+</pre></div>
+</div>
+<p>Additionally, if your VLLM server requires an API key, you will need to set the
+<code class="docutils literal notranslate"><span class="pre">VLLM_API_KEY</span></code> environment variable.</p>
+</section>
 </section>
 
 
@@ -126,6 +139,7 @@ something like:</p>
 <li class="toctree-l3"><a class="reference internal" href="#build-a-dataset">Build a Dataset</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#explore-a-dataset-with-a-shell">Explore a Dataset with a Shell</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#use-a-dataset-in-a-script">Use a Dataset in a Script</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#vllm-server-integration">VLLM Server Integration</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="modeling.html">Modeling</a></li>

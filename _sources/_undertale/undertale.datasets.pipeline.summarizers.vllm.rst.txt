@@ -1,0 +1,12 @@
+vllm
+====
+
+.. automodule:: undertale.datasets.pipeline.summarizers.vllm
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      VLLMSummarizer
+   
