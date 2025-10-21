@@ -17,8 +17,8 @@ from datatrove.data import DocumentsPipeline
 from datatrove.pipeline.readers.base import BaseDiskReader
 
 from .base import Dataset, main
+from .pipeline.compilers import CppCompiler
 
-# from .pipeline.compilers import CppCompiler
 # from .pipeline.disassemblers import GhidraDisassembler
 
 logger = logging.getLogger(__name__)
@@ -77,6 +77,8 @@ SUPPORTED_LANGUAGES = ["C", "CPP"]
 
 
 class GoogleCompetitionReader(BaseDiskReader):
+    """"""
+
     name = "💻 Google Competition"
 
     def read_file(self, filepath: str) -> DocumentsPipeline:
@@ -218,7 +220,7 @@ class GoogleCompetitions(Dataset):
             googlecompetitions_reader_factory("kickstart-archive-2021.zip"),
             googlecompetitions_reader_factory("kickstart-archive-2022.zip"),
             googlecompetitions_reader_factory("hashcode-archive-2014-2022.zip"),
-            # CppCompiler(),
+            CppCompiler(),
             # GhidraDisassembler(),
         ]
         steps.extend(writer)

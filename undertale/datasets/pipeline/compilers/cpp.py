@@ -51,8 +51,10 @@ class CppCompiler(PipelineStep):
 
                 objectfile = os.path.join(working.name, "source.o")
 
+                compiler = os.environ.get("CC", "g++")
+
                 process = subprocess.run(
-                    f"g++ -c {sourcefile} -o {objectfile}",
+                    f"{compiler} -c {sourcefile} -o {objectfile}",
                     cwd=working.name,
                     shell=True,
                     stdout=subprocess.PIPE,
