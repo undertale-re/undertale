@@ -6,7 +6,7 @@ from datatrove.pipeline.readers import ParquetReader
 
 from ... import logging as undertale_logging
 from ..base import Dataset, build_parser
-from ..pipeline.formatters import ITEMTokenizer
+from ..pipeline.pairs import PairwiseContrastive
 
 
 def adapt_dataset_from_parquet(
@@ -14,19 +14,19 @@ def adapt_dataset_from_parquet(
 ) -> dict:
     return {
         "id": data.pop("id", id_in_file),
-        "text": data.pop("code"),
+        "text": "PAIRWISE",  # TODO needed this hardcoded value for the adapter to work
         "metadata": data,
     }
 
 
-class Tokenizer(Dataset):
-    def __init__(self, *args, tokenizer: str, equiv_classes: bool, **kwargs):
+class Pairs(Dataset):
+    def __init__(self, *args, num_samples: int, negative_multiple: float, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.tokenizer = tokenizer
-        self.equiv_classes = equiv_classes
+        self.num_samples = num_samples
+        self.negative_multiple = negative_multiple
         print(
-            f"Tokenizer in tokenize.py: tokenizer={tokenizer} equiv_classes={equiv_classes}"
+            f"PairwiseContrastive in PairwiseContrastive.py: num_samples={num_samples} negative_multiple={negative_multiple}"
         )
 
     def get_pipeline(self, input, writer, parallelism):
@@ -35,19 +35,18 @@ class Tokenizer(Dataset):
                 input,
                 adapter=adapt_dataset_from_parquet,
             ),
-            ITEMTokenizer(self.tokenizer, self.equiv_classes),
+            PairwiseContrastive(self.num_samples, self.negative_multiple),
         ]
         steps.extend(writer)
 
         return self.get_executor(
             steps,
-            # venv_path=os.path.join(f"{Path.home()}/.conda/envs", "undertale"),
             venv_path=os.path.join(f"{Path.home()}/venv", "undertale"),
             time="48:00:00",
             cpus_per_task=1,
             mem_per_cpu_gb=8,
             tasks=parallelism,
-            job_name="tokenize",
+            job_name="PairWiseContrastive",
             partition="xeon-p8",
             sbatch_args={
                 "distribution": "cyclic:cyclic",
@@ -59,30 +58,25 @@ if __name__ == "__main__":
     undertale_logging.setup_logging()
 
     parser = argparse.ArgumentParser(
-        description="parsing utilities for Tokenizer",
+        description="parsing utilities for PairWiseContrastive",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
     build_parser(parser)
 
-    parser.add_argument(
-        "-t", "--tokenizer", required=True, help="path to trained tokenizer file"
-    )
+    parser.add_argument("-s", "--num_samples", required=True, help="number of samples")
 
     parser.add_argument(
-        "-q",
-        "--equiv-classes",
-        action="store_true",
-        help="set this to true if your dataset has equiv_class info and you want that threaded through",
+        "-m", "--negative_multiple", required=True, help="negative multiple"
     )
 
     arguments = parser.parse_args()
 
-    dataset = Tokenizer(
+    dataset = Pairs(
         writer=arguments.writer,
         executor=arguments.executor,
-        tokenizer=arguments.tokenizer,
-        equiv_classes=arguments.equiv_classes,
+        num_samples=int(arguments.num_samples),
+        negative_multiple=float(arguments.negative_multiple),
     )
     dataset.build(
         input=arguments.input,

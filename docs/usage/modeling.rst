@@ -62,6 +62,7 @@ a given pretokenized text):
         -c pretrain-maskedlm/version_0/checkpoints/model.ckpt \
         "xor rax [MASK]"
 
+
 Fine-Tuning (Contrastive Embeddings)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -81,3 +82,21 @@ Inference
 """""""""
 
 Coming soon...
+
+Model Checkpoint Inspection
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+You can inspect any model checkpoint and print out metadata about training,
+hyperparameters, layer shapes, and even weight vector values with a simple
+model inspection helper script:
+
+.. code-block:: bash
+
+    # Print basic metadata.
+    python -m undertale.models.scripts.inspect /path/to/model.ckpt
+
+    # Print layer shapes.
+    python -m undertale.models.scripts.inspect /path/to/model.ckpt --shapes
+
+    # Print layer shapes and weight vectors.
+    python -m undertale.models.scripts.inspect /path/to/model.ckpt --weights
