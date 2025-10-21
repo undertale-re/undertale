@@ -10,6 +10,7 @@ item
    :toctree:
    :recursive:
 
+   evaluate_maskedlm
    finetune_embedding
    finetune_summarization
    infer_embedding
