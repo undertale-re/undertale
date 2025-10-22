@@ -22,7 +22,7 @@ dependencies:
 
 .. code-block:: bash
 
-    sudo bash dependencies/development.{operating-system}.sh
+    bash dependencies/development.{operating-system}.sh
 
 Where ``{operating-system}`` is either ``ubuntu`` or ``macos``.
 
