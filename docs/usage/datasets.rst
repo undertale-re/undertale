@@ -38,7 +38,7 @@ To load a dataset into a Python shell, run:
 Use a Dataset in a Script
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To write a scirpt that uses a dataset that has already been parsed, you can do
+To write a script that uses a dataset that has already been parsed, you can do
 something like:
 
 .. code-block:: python
