@@ -1,7 +1,10 @@
 from math import sqrt
 from typing import Optional
 
+import torch
+import torch.nn.functional as nnf
 from lightning import LightningModule
+from numpy import np
 from sklearn.metrics import f1_score
 from torch import (
     Tensor,
@@ -14,21 +17,17 @@ from torch import (
     long,
     roll,
     softmax,
-    stack,
     zeros,
 )
 from torch.nn import GELU, Dropout, Embedding, LayerNorm, Linear, Module, ModuleList
 from torch.nn.functional import cross_entropy
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import LambdaLR
-
-from .tokenizer import SPECIAL_TOKENS, TOKEN_NEXT
-
 from transformers import GPT2LMHeadModel
-import torch
-from .model_connector import MLP, TransformerConnector
+
 from . import tokenizer
-from torch import nn
+from .model_connector import MLP, TransformerConnector
+from .tokenizer import SPECIAL_TOKENS, TOKEN_NEXT
 
 
 class Defaults:
@@ -358,102 +357,107 @@ class TransformerEncoderForSequenceClassification(Module):
 
         return output
 
-    
-    
+
 class TransformerEncoderForSequenceSummarization(Module):
-    '''
+    """
     code based on https://github.com/rmokady/CLIP_prefix_caption/blob/main/train.py
-    
-    '''
+
+    """
+
     def __init__(
         self,
         assembly_checkpoint,
         connector_config,
         llm_checkpoint,
         end2end=True,
-        tune_llm=True
+        tune_llm=True,
     ):
         super().__init__()
-        
-        self.tune_llm=tune_llm  
-            
-        
-        self.assembly_checkpoint=assembly_checkpoint
-        self.assembly_model=None
+
+        self.tune_llm = tune_llm
+
+        self.assembly_checkpoint = assembly_checkpoint
+        self.assembly_model = None
         if end2end:
-            self.assembly_encoder=TransformerEncoderForMaskedLM.load_from_checkpoint(assembly_checkpoint)
-        
-        
+            self.assembly_encoder = TransformerEncoderForMaskedLM.load_from_checkpoint(
+                assembly_checkpoint
+            )
+
         try:
             self.llm = GPT2LMHeadModel.from_pretrained(llm_checkpoint)
         except:
             print("downloading gpt2 from huggingface...")
             self.llm = GPT2LMHeadModel.from_pretrained("gpt2")
             self.llm.save_pretrained(llm_checkpoint)
-         
-        
+
         if not self.tune_llm:
             for param in self.llm.parameters():
                 param.requires_grad = False
             self.llm.eval()
         else:
             self.llm.train()
-            
-            
+
         self.llm_embedding_size = self.llm.transformer.wte.weight.shape[1]
-        self.prefix_length_const=connector_config.prefix_length_const
-        prefix_length_assembly=connector_config.prefix_length_assembly
-        
+        self.prefix_length_const = connector_config.prefix_length_const
+        prefix_length_assembly = connector_config.prefix_length_assembly
 
-        output_size=self.llm_embedding_size*self.prefix_length_const
-        hidden_size=output_size//2
-        
-        
+        output_size = self.llm_embedding_size * self.prefix_length_const
+        hidden_size = output_size // 2
+
         if connector_config.model_type.lower() == "mlp":
-            self.connector = MLP((connector_config.prefix_size_const, hidden_size,
-                                     output_size))
+            self.connector = MLP(
+                (connector_config.prefix_size_const, hidden_size, output_size)
+            )
         else:
-            self.connector = TransformerConnector(connector_config.prefix_size, self.llm_embedding_size, self.prefix_length_const,
-                                                                     prefix_length_assembly, connector_config.num_layers)
-        
-        
-    def forward(self,text_tokens,encoder_embedding,mask=None,labels=None):
-        embedding_text = self.llm.transformer.wte(text_tokens)
-        encoder_embedding=encoder_embedding.mean(dim=1)
-        prefixes = self.connector(encoder_embedding).view(-1, self.prefix_length_const, self.llm_embedding_size)
+            self.connector = TransformerConnector(
+                connector_config.prefix_size,
+                self.llm_embedding_size,
+                self.prefix_length_const,
+                prefix_length_assembly,
+                connector_config.num_layers,
+            )
 
-        
+    def forward(self, text_tokens, encoder_embedding, mask=None, labels=None):
+        embedding_text = self.llm.transformer.wte(text_tokens)
+        encoder_embedding = encoder_embedding.mean(dim=1)
+        prefixes = self.connector(encoder_embedding).view(
+            -1, self.prefix_length_const, self.llm_embedding_size
+        )
 
         embedding_cat = torch.cat((prefixes, embedding_text), dim=1)
 
         if labels is not None:
-            dummy_token = self.get_dummy_token(tokens.shape[0], tokens.device)
-            labels = torch.cat((dummy_token, tokens), dim=1)
-        
-        
+            dummy_token = self.get_dummy_token(text_tokens.shape[0], text_tokens.device)
+            labels = torch.cat((dummy_token, text_tokens), dim=1)
+
         out = self.llm(inputs_embeds=embedding_cat, labels=labels, attention_mask=mask)
 
-        
         return out
-    
-    def embed_assembly(self,assembly_tokens,assembly_mask=None):
-        
-        if self.assembly_model==None:
-            self.assembly_encoder=TransformerEncoderForMaskedLM.load_from_checkpoint(self.assembly_checkpoint)
+
+    def embed_assembly(self, assembly_tokens, assembly_mask=None):
+
+        if self.assembly_model is None:
+            self.assembly_encoder = TransformerEncoderForMaskedLM.load_from_checkpoint(
+                self.assembly_checkpoint
+            )
         if self.assembly_encoder.training:
             self.assembly_encoder.eval()
         return self.assembly_encoder.encoder(assembly_tokens, assembly_mask)
-    
+
     def get_dummy_token(self, batch_size: int, device: torch.device) -> torch.Tensor:
-        return torch.zeros(batch_size, self.prefix_length_const, dtype=torch.int64, device=device)
-        
+        return torch.zeros(
+            batch_size, self.prefix_length_const, dtype=torch.int64, device=device
+        )
+
     def generate_beam(
+        self,
         beam_size: int = 5,
         prefix=None,
         embed=None,
         entry_length=67,
         temperature=1.0,
-        stop_token: str = "."):
+        stop_token: str = ".",
+    ):
 
         self.llm.eval()
         stop_token_index = self.tokenizer.encode(stop_token)[0]
@@ -519,8 +523,8 @@ class TransformerEncoderForSequenceSummarization(Module):
         output_texts = [output_texts[i] for i in order]
         return output_texts
 
-
-    def generate2(self,
+    def generate2(
+        self,
         tokens=None,
         prefix=None,
         embed=None,
@@ -528,11 +532,10 @@ class TransformerEncoderForSequenceSummarization(Module):
         entry_length=67,  # maximum number of words
         top_p=0.8,
         temperature=1.0,
-        stop_token: str = "."):
-        
-        
+        stop_token: str = ".",
+    ):
+
         self.llm.eval()
-        generated_num = 0
         generated_list = []
         stop_token_index = self.tokenizer.encode(stop_token)[0]
         filter_value = -float("Inf")
@@ -554,7 +557,9 @@ class TransformerEncoderForSequenceSummarization(Module):
 
                     outputs = self.llm(inputs_embeds=generated)
                     logits = outputs.logits
-                    logits = logits[:, -1, :] / (temperature if temperature > 0 else 1.0)
+                    logits = logits[:, -1, :] / (
+                        temperature if temperature > 0 else 1.0
+                    )
                     sorted_logits, sorted_indices = torch.sort(logits, descending=True)
                     cumulative_probs = torch.cumsum(
                         nnf.softmax(sorted_logits, dim=-1), dim=-1
@@ -582,7 +587,6 @@ class TransformerEncoderForSequenceSummarization(Module):
                 generated_list.append(output_text)
 
         return generated_list[0]
-
 
 
 __all__ = [
