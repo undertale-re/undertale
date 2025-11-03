@@ -32,7 +32,7 @@ class GhidraFunctionSegmenter(PipelineStep):
         import pickle
         import tempfile
 
-        import pyhidra
+        import pyghidra
         from datatrove.data import Document
 
         if not data:
@@ -48,13 +48,19 @@ class GhidraFunctionSegmenter(PipelineStep):
                 with open(binary, "wb") as f:
                     f.write(code)
 
-                with pyhidra.open_program(binary) as api:
+                with pyghidra.open_program(binary) as api:
                     program = api.getCurrentProgram()
                     listing = program.getListing()
 
                     for function in listing.getFunctions(True):
                         # Skip non-local functions.
-                        if function.isExternal() or function.isThunk():
+                        from ghidra.program.model.block import BasicBlockModel
+                        from ghidra.util.task import TaskMonitor
+
+                        block = BasicBlockModel(program).getCodeBlockAt(
+                            function.getEntryPoint(), TaskMonitor.DUMMY
+                        )
+                        if function.isExternal() or function.isThunk() or not block:
                             continue
 
                         base = program.getAddressMap().getImageBase().getOffset()
@@ -74,6 +80,7 @@ class GhidraFunctionSegmenter(PipelineStep):
                         metadata["cfg"] = pickle.dumps(graph)
                         metadata["disassembly"] = disassembly
                         metadata["decompilation"] = decompilation
+                        metadata["function_name"] = function.getName()
 
                         yield Document(
                             id=f"{document.id}:{start}",

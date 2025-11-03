@@ -13,7 +13,12 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
     type = "✂️ - SEGMENTER"
     name = "B - Binary Ninja"
 
-    def __init__(self):
+    def __init__(self, arch=None, platform=None):
+        architectures = {"x86": "x86", "x64": "x86_64", "arm64": "aarch64"}
+
+        self.arch = architectures.get(arch, None)
+        self.platform = platform
+
         super().__init__()
 
     def run(
@@ -37,7 +42,6 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
         SKIP_TYPES = [
             SymbolType.ImportedFunctionSymbol,
             SymbolType.ExternalSymbol,
-            SymbolType.LibraryFunctionSymbol,
             SymbolType.ImportAddressSymbol,
             SymbolType.SymbolicFunctionSymbol,
         ]
@@ -57,15 +61,21 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
             code = document.text
             data_buffer = binaryninja.DataBuffer(code)
             bv = binaryninja.load(source=data_buffer)
+            bv.arch = self.arch
+            bv.platform = (
+                binaryninja.Platform[self.platform]
+                if self.platform is not None
+                else bv.arch.standalone_platform
+            )
+            bv.update_analysis()
 
             for fn in bv.functions:
                 if (
                     fn.is_thunk
                     or fn.symbol.type in SKIP_TYPES
-                    or fn.name.startswith("_Z")
+                    or fn.symbol.short_name.startswith("_Z")
                 ):
                     continue
-                fn_name = fn.name
 
                 disassembly = []
                 graph = nx.Graph()
@@ -140,7 +150,7 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
 
                 metadata["cfg"] = pickle.dumps(graph)
                 metadata["disassembly"] = disassembly
-                metadata["function_name"] = fn_name
+                metadata["function_name"] = fn.symbol.short_name
                 metadata["decompilation"] = decompilation
 
                 yield Document(
