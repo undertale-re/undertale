@@ -41,8 +41,8 @@ def adapt_to_flatten_for_pretraining(self, document: Document) -> dict:
 
 
 WRITERS = {
-    "parquet": lambda output: [
-        ParquetWriter(output, adapter=adapt_to_flatten, max_file_size=100 * 1024 * 1024)
+    "parquet": lambda output, size=100 * 1024 * 1024: [
+        ParquetWriter(output, adapter=adapt_to_flatten, max_file_size=size)
     ],
     "pretraining": lambda output: [
         ParquetWriter(
