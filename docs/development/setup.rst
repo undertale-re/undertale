@@ -22,7 +22,7 @@ dependencies:
 
 .. code-block:: bash
 
-    sudo bash dependencies/development.{operating-system}.sh
+    bash dependencies/development.{operating-system}.sh
 
 Where ``{operating-system}`` is either ``ubuntu`` or ``macos``.
 
@@ -102,3 +102,16 @@ but here are a few tips.
 
         GHIDRA_INSTALL_DIR=/opt/ghidra/11.4.1/ \
             python -m undertale ...
+
+Clang vs GCC on MacOS
+"""""""""""""""""""""
+
+MacOS comes with Clang by default (``gcc`` and ``g++`` are actually just
+aliases to Clang). Some of our datasets require specifically GCC's versions of
+the standard libraries. The MacOS prerequisites scripts will install GCC via
+``brew``, but in order to use it for compilation with the ``CppCompiler``
+pipeline step, you need to set the ``CC`` environment variable like:
+
+.. code-block:: bash
+
+    export CC="/opt/homebrew/bin/g++-15"
