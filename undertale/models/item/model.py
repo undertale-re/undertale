@@ -1,5 +1,6 @@
 """Model implementation."""
 
+import os
 from math import sqrt
 from typing import Optional
 
@@ -332,31 +333,44 @@ class TransformerEncoderForSequenceSimilarity(Module):
     pass
 
 
-class TransformerEncoderForSequenceClassification(Module):
+class TransformerEncoderForSequenceClassification(LightningModule, Module):
     def __init__(
         self,
         classes: int,
-        depth: int,
         hidden_dimensions: int,
-        vocab_size: int,
-        input_size: int,
-        heads: int,
-        intermediate_dimensions: int,
         dropout: float,
+        lr: float,
+        encoder_depth: int = 1,
+        encoder_hidden_dimensions: int = 1,
+        vocab_size: int = 1,
+        input_size: int = 1,
+        heads: int = 1,
+        intermediate_dimensions: int = 1,
+        encoder_eps: float = 1e-3,
+        encoder_loc: str = "",
     ):
         super().__init__()
 
-        self.encoder = TransformerEncoder(
-            depth,
-            hidden_dimensions,
-            vocab_size,
-            input_size,
-            heads,
-            intermediate_dimensions,
-            dropout,
-        )
+        if os.path.isfile(encoder_loc):
+            self.encoder = TransformerEncoderForMaskedLM.load_from_checkpoint(
+                encoder_loc
+            ).encoder
+        else:
+            self.encoder = TransformerEncoder(
+                encoder_depth,
+                encoder_hidden_dimensions,
+                vocab_size,
+                input_size,
+                heads,
+                intermediate_dimensions,
+                dropout,
+                encoder_eps,
+            )
+
         self.dropout = Dropout(dropout)
         self.head = Linear(hidden_dimensions, classes)
+        self.lr = lr
+        self.steps_per_epoch = None
 
     def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
         """"""
@@ -366,6 +380,38 @@ class TransformerEncoderForSequenceClassification(Module):
         output = self.head(hidden)
 
         return output
+
+    def training_step(self, batch, index):
+        """"""
+        pred = self(batch.input_ids)
+        loss = cross_entropy(pred.view(-1, pred.size(-1)), batch.labels.view(-1))
+        self.log("train_loss", loss, prog_bar=True, sync_dist=True)
+        self.log("lr", self.trainer.optimizers[0].param_groups[0]["lr"], sync_dist=True)
+
+        return loss
+
+    def validation_step(self, batch, index):
+        """"""
+
+    def configure_optimizers(self):
+        """"""
+        optimizer = AdamW(self.parameters(), lr=self.lr)
+
+        def constant_with_linear_warmup(step):
+            if self.steps_per_epoch is None:
+                return 1
+            return min(step / self.warmup * self.steps_per_epoch, 1)
+
+        scheduler = LambdaLR(optimizer, constant_with_linear_warmup)
+
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "interval": "step",
+                "frequency": 1,
+            },
+        }
 
 
 class LanguageConnector(Module):
