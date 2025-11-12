@@ -33,7 +33,7 @@ class HumanEvalX(Dataset):
                 adapter=adapt_humanevalx_from_raw,
             ),
             CppCompiler(),
-            BinaryNinjaFunctionSegmenter(arch="x64", platform="linux-x86_64"),
+            BinaryNinjaFunctionSegmenter(),
         ]
         steps.extend(writer)
 
