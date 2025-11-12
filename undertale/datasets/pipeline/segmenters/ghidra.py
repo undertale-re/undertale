@@ -30,6 +30,7 @@ class GhidraFunctionSegmenter(PipelineStep):
         """"""
         import os
         import pickle
+        import re
         import tempfile
 
         import pyghidra
@@ -48,27 +49,20 @@ class GhidraFunctionSegmenter(PipelineStep):
                 with open(binary, "wb") as f:
                     f.write(code)
 
+                comdat_group = re.compile(r"^\.group.*")
                 with pyghidra.open_program(binary) as api:
                     program = api.getCurrentProgram()
                     listing = program.getListing()
 
                     for function in listing.getFunctions(True):
                         # Skip non-local functions.
-                        from ghidra.program.model.block import BasicBlockModel
-                        from ghidra.util.task import TaskMonitor
 
-                        block = BasicBlockModel(program).getCodeBlockAt(
-                            function.getEntryPoint(), TaskMonitor.DUMMY
-                        )
-                        if function.isExternal() or function.isThunk() or not block:
+                        if (
+                            function.isExternal()
+                            or function.isThunk()
+                            or bool(comdat_group.search(str(function.getEntryPoint())))
+                        ):
                             continue
-
-                        base = program.getAddressMap().getImageBase().getOffset()
-                        body = function.getBody()
-                        start = body.getMinAddress().getOffset()
-                        end = body.getMaxAddress().getOffset()
-
-                        code = code[start - base : end - base]
 
                         # Also disassemble, decompile, and build the CFG.
                         graph, disassembly, decompilation = build_control_flow_graph(
@@ -78,13 +72,15 @@ class GhidraFunctionSegmenter(PipelineStep):
                         metadata = document.metadata.copy()
 
                         metadata["cfg"] = pickle.dumps(graph)
-                        metadata["disassembly"] = disassembly
                         metadata["decompilation"] = decompilation
                         metadata["function_name"] = function.getName()
 
+                        body = function.getBody()
+                        start = body.getMinAddress().getOffset()
+
                         yield Document(
                             id=f"{document.id}:{start}",
-                            text=code,
+                            text=disassembly,
                             metadata=metadata,
                         )
 
