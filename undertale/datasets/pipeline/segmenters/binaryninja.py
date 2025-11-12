@@ -13,14 +13,6 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
     type = "✂️ - SEGMENTER"
     name = "B - Binary Ninja"
 
-    def __init__(self, arch=None, platform=None):
-        architectures = {"x86": "x86", "x64": "x86_64", "arm64": "aarch64"}
-
-        self.arch = architectures.get(arch, None)
-        self.platform = platform
-
-        super().__init__()
-
     def run(
         self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
     ) -> DocumentsPipeline:
@@ -31,8 +23,7 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
 
         import binaryninja
         import networkx as nx
-        from binaryninja import SymbolType
-        from binaryninja.enums import InstructionTextTokenType
+        from binaryninja import InstructionTextTokenType, SymbolType
         from datatrove.data import Document
 
         def remove_braces(text):
@@ -59,15 +50,8 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
 
         for document in data:
             code = document.text
-            data_buffer = binaryninja.DataBuffer(code)
-            bv = binaryninja.load(source=data_buffer)
-            bv.arch = self.arch
-            bv.platform = (
-                binaryninja.Platform[self.platform]
-                if self.platform is not None
-                else bv.arch.standalone_platform
-            )
-            bv.update_analysis()
+            buffer = binaryninja.DataBuffer(contents=code)
+            bv = binaryninja.load(source=buffer)
 
             for fn in bv.functions:
                 if (
@@ -77,13 +61,14 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
                 ):
                     continue
 
+                nodes = {}
                 disassembly = []
                 graph = nx.Graph()
-                nodes = {}
-                code = bv.read(fn.start, fn.total_bytes)
 
                 for block in fn.basic_blocks:
                     block_disassembly = []
+
+                    # find the first symbol token (function/data/external) and replace it with the address in hex
                     for line in block.disassembly_text:
                         idx, symbol_token = next(
                             (
@@ -95,6 +80,7 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
                         )
                         if symbol_token:
                             line.tokens[idx].text = f"0x{symbol_token.value:x}"
+
                         disasm_str = "".join(
                             token.text
                             for token in line.tokens
@@ -149,13 +135,12 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
                 metadata = document.metadata.copy()
 
                 metadata["cfg"] = pickle.dumps(graph)
-                metadata["disassembly"] = disassembly
                 metadata["function_name"] = fn.symbol.short_name
                 metadata["decompilation"] = decompilation
 
                 yield Document(
                     id=f"{document.id}:{fn.start}",
-                    text=code,
+                    text=disassembly,
                     metadata=metadata,
                 )
 
