@@ -72,15 +72,19 @@ class GhidraFunctionSegmenter(PipelineStep):
                         metadata = document.metadata.copy()
 
                         metadata["cfg"] = pickle.dumps(graph)
+                        metadata["disassembly"] = disassembly
                         metadata["decompilation"] = decompilation
                         metadata["function_name"] = function.getName()
 
+                        base = program.getAddressMap().getImageBase().getOffset()
                         body = function.getBody()
                         start = body.getMinAddress().getOffset()
+                        end = body.getMaxAddress().getOffset()
+                        code = code[start - base : end - base]
 
                         yield Document(
                             id=f"{document.id}:{start}",
-                            text=disassembly,
+                            text=code,
                             metadata=metadata,
                         )
 

@@ -135,12 +135,15 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
                 metadata = document.metadata.copy()
 
                 metadata["cfg"] = pickle.dumps(graph)
+                metadata["disassembly"] = disassembly
                 metadata["function_name"] = fn.symbol.short_name
                 metadata["decompilation"] = decompilation
 
+                code = bv.read(fn.start, fn.highest_address)
+
                 yield Document(
                     id=f"{document.id}:{fn.start}",
-                    text=disassembly,
+                    text=code,
                     metadata=metadata,
                 )
 
