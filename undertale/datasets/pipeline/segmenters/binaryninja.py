@@ -55,7 +55,9 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
             return re.sub(r" \{.*?\}", "", text)
 
         def get_relative_offset(bv, line):
-            info = bv.arch.get_instruction_info(bv.read(line.address, 16), line.address)
+            info = bv.arch.get_instruction_info(
+                data=bv.read(addr=line.address, length=16), address=line.address
+            )
 
             for branch in info.branches:
                 if branch.type in KEEP_BRANCH_TYPES and branch.target is not None:
@@ -172,7 +174,7 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
                 metadata["function_name"] = fn.symbol.short_name
                 metadata["decompilation"] = decompilation
 
-                code = bv.read(fn.start, fn.highest_address)
+                code = bv.read(addr=fn.start, length=fn.highest_address - fn.start)
 
                 yield Document(
                     id=f"{document.id}:{fn.start}",
