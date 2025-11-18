@@ -56,7 +56,7 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
 
         def get_relative_offset(bv, line):
             info = bv.arch.get_instruction_info(
-                data=bv.read(addr=line.address, length=16), address=line.address
+                data=bv.read(addr=line.address, length=16), addr=line.address
             )
 
             for branch in info.branches:
@@ -110,7 +110,7 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
                         )
                         if symbol_token:
                             line.tokens[idx].text = f"0x{symbol_token.value:x}"
-                            line.token[idx].token = (
+                            line.tokens[idx].type = (
                                 InstructionTextTokenType.PossibleAddressToken
                             )
 
