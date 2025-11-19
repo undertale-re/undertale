@@ -13,9 +13,6 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
     type = "✂️ - SEGMENTER"
     name = "B - Binary Ninja"
 
-    def __init__(self):
-        super().__init__()
-
     def run(
         self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
     ) -> DocumentsPipeline:
@@ -26,23 +23,17 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
 
         import binaryninja
         import networkx as nx
-        from binaryninja import SymbolType
-        from binaryninja.enums import InstructionTextTokenType
+        from binaryninja import BranchType, InstructionTextTokenType, SymbolType
         from datatrove.data import Document
 
-        def remove_braces(text):
-            # Matches ' {' followed by any characters (non-greedy) until the next '}'
-            return re.sub(r" \{.*?\}", "", text)
-
-        SKIP_TYPES = [
+        SKIP_FUNCTION_TYPES = [
             SymbolType.ImportedFunctionSymbol,
             SymbolType.ExternalSymbol,
-            SymbolType.LibraryFunctionSymbol,
             SymbolType.ImportAddressSymbol,
             SymbolType.SymbolicFunctionSymbol,
         ]
 
-        SKIP_TOKENS = [
+        SKIP_INSTRUCTION_TOKENS = [
             InstructionTextTokenType.StackVariableToken,
             InstructionTextTokenType.TagToken,
         ]
@@ -53,27 +44,61 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
             InstructionTextTokenType.ExternalSymbolToken,
         ]
 
+        KEEP_BRANCH_TYPES = [
+            BranchType.CallDestination,
+            BranchType.TrueBranch,
+            BranchType.UnconditionalBranch,
+        ]
+
+        def remove_braces(text):
+            # Matches ' {' followed by any characters (non-greedy) until the next '}'
+            return re.sub(r" \{.*?\}", "", text)
+
+        def get_relative_offset(bv, line):
+            info = bv.arch.get_instruction_info(
+                data=bv.read(addr=line.address, length=16), addr=line.address
+            )
+
+            for branch in info.branches:
+                if branch.type in KEEP_BRANCH_TYPES and branch.target is not None:
+                    relative_offset = branch.target - line.address
+
+                    for idx, token in enumerate(line.tokens):
+                        if (
+                            token.type
+                            in [
+                                InstructionTextTokenType.IntegerToken,
+                                InstructionTextTokenType.PossibleAddressToken,
+                                InstructionTextTokenType.CodeRelativeAddressToken,
+                            ]
+                            and hasattr(token, "value")
+                            and token.value == branch.target
+                        ):
+                            sign = "+" if relative_offset >= 0 else "-"
+                            line.tokens[idx].text = f"{sign}0x{abs(relative_offset):x}"
+            return line
+
         for document in data:
             code = document.text
-            data_buffer = binaryninja.DataBuffer(code)
-            bv = binaryninja.load(source=data_buffer)
+            buffer = binaryninja.DataBuffer(contents=code)
+            bv = binaryninja.load(source=buffer)
 
             for fn in bv.functions:
                 if (
                     fn.is_thunk
-                    or fn.symbol.type in SKIP_TYPES
-                    or fn.name.startswith("_Z")
+                    or fn.symbol.type in SKIP_FUNCTION_TYPES
+                    or fn.symbol.short_name.startswith("_Z")
                 ):
                     continue
-                fn_name = fn.name
 
+                nodes = {}
                 disassembly = []
                 graph = nx.Graph()
-                nodes = {}
-                code = bv.read(fn.start, fn.total_bytes)
 
                 for block in fn.basic_blocks:
                     block_disassembly = []
+
+                    # find the first symbol token (function/data/external) and replace it with the address in hex
                     for line in block.disassembly_text:
                         idx, symbol_token = next(
                             (
@@ -85,10 +110,16 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
                         )
                         if symbol_token:
                             line.tokens[idx].text = f"0x{symbol_token.value:x}"
+                            line.tokens[idx].type = (
+                                InstructionTextTokenType.PossibleAddressToken
+                            )
+
+                        line = get_relative_offset(bv, line=line)
+
                         disasm_str = "".join(
                             token.text
                             for token in line.tokens
-                            if token.type not in SKIP_TOKENS
+                            if token.type not in SKIP_INSTRUCTION_TOKENS
                         )
                         disasm_str = " ".join(disasm_str.strip().split())
                         if "Does" in disasm_str:  # { Does not return }
@@ -140,8 +171,10 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
 
                 metadata["cfg"] = pickle.dumps(graph)
                 metadata["disassembly"] = disassembly
-                metadata["function_name"] = fn_name
+                metadata["function_name"] = fn.symbol.short_name
                 metadata["decompilation"] = decompilation
+
+                code = bv.read(addr=fn.start, length=fn.highest_address - fn.start)
 
                 yield Document(
                     id=f"{document.id}:{fn.start}",
