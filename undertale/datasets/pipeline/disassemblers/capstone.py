@@ -44,6 +44,8 @@ class CapstoneDisassembler(PipelineStep):
         self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
     ) -> DocumentsPipeline:
         """"""
+        import hashlib
+
         import capstone
 
         if not data:
@@ -65,6 +67,7 @@ class CapstoneDisassembler(PipelineStep):
                 disassembly = "\n".join(disassembly)
 
                 document.metadata["disassembly"] = disassembly
+                document.metadata["bytes_sha256"] = hashlib.sha256(code).hexdigest()
 
                 yield document
 

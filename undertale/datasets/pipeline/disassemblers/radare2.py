@@ -23,6 +23,7 @@ class RadareDisassembler(PipelineStep):
     ) -> DocumentsPipeline:
         """"""
 
+        import hashlib
         import json
 
         import r2pipe
@@ -77,6 +78,7 @@ class RadareDisassembler(PipelineStep):
                 disassembly = "\n".join(disassembly)
 
                 document.metadata["disassembly"] = disassembly
+                document.metadata["bytes_sha256"] = hashlib.sha256(code).hexdigest()
 
                 yield document
                 self.stat_update("disassembled")

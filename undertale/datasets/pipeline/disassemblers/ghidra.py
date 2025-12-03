@@ -174,6 +174,7 @@ class GhidraDisassembler(PipelineStep):
         self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
     ) -> DocumentsPipeline:
         """"""
+        import hashlib
         import os
         import pickle
         import tempfile
@@ -210,6 +211,7 @@ class GhidraDisassembler(PipelineStep):
                 document.metadata["cfg"] = pickle.dumps(graph)
                 document.metadata["disassembly"] = disassembly
                 document.metadata["decompilation"] = decompilation
+                document.metadata["bytes_sha256"] = hashlib.sha256(code).hexdigest()
 
                 yield document
 

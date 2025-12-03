@@ -21,6 +21,7 @@ class BinaryNinjaDisassembler(PipelineStep):
     ) -> DocumentsPipeline:
         """."""
 
+        import hashlib
         import pickle
         import re
 
@@ -136,6 +137,7 @@ class BinaryNinjaDisassembler(PipelineStep):
             metadata["cfg"] = pickle.dumps(graph)
             metadata["disassembly"] = disassembly
             metadata["decompilation"] = decompilation
+            metadata["bytes_sha256"] = hashlib.sha256(code).hexdigest()
 
             yield Document(
                 id=f"{document.id}:{fn.start}",
