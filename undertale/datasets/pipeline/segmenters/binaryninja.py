@@ -18,6 +18,7 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
     ) -> DocumentsPipeline:
         """"""
 
+        import hashlib
         import pickle
         import re
 
@@ -167,14 +168,15 @@ class BinaryNinjaFunctionSegmenter(PipelineStep):
 
                 decompilation = "\n".join(decompilation)
 
+                code = bv.read(addr=fn.start, length=fn.highest_address - fn.start)
+
                 metadata = document.metadata.copy()
 
                 metadata["cfg"] = pickle.dumps(graph)
                 metadata["disassembly"] = disassembly
                 metadata["function_name"] = fn.symbol.short_name
                 metadata["decompilation"] = decompilation
-
-                code = bv.read(addr=fn.start, length=fn.highest_address - fn.start)
+                metadata["bytes_sha256"] = hashlib.sha256(code).hexdigest()
 
                 yield Document(
                     id=f"{document.id}:{fn.start}",

@@ -28,6 +28,7 @@ class GhidraFunctionSegmenter(PipelineStep):
         self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
     ) -> DocumentsPipeline:
         """"""
+        import hashlib
         import os
         import pickle
         import re
@@ -69,18 +70,20 @@ class GhidraFunctionSegmenter(PipelineStep):
                             api, function.getEntryPoint(), ipcfg=False
                         )
 
+                        base = program.getAddressMap().getImageBase().getOffset()
+                        body = function.getBody()
+                        start = body.getMinAddress().getOffset()
+                        end = body.getMaxAddress().getOffset()
+
+                        code = code[start - base : end - base]
+
                         metadata = document.metadata.copy()
 
                         metadata["cfg"] = pickle.dumps(graph)
                         metadata["disassembly"] = disassembly
                         metadata["decompilation"] = decompilation
                         metadata["function_name"] = function.getName()
-
-                        base = program.getAddressMap().getImageBase().getOffset()
-                        body = function.getBody()
-                        start = body.getMinAddress().getOffset()
-                        end = body.getMaxAddress().getOffset()
-                        code = code[start - base : end - base]
+                        metadata["bytes_sha256"] = hashlib.sha256(code).hexdigest()
 
                         yield Document(
                             id=f"{document.id}:{start}",

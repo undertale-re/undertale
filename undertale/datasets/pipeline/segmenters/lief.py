@@ -71,6 +71,8 @@ class LIEFFunctionSegmenter(PipelineStep):
     def run(self, docPipeline: DocumentsPipeline, rank: int = 0, world_size: int = 1):
         """"""
 
+        import hashlib
+
         import lief
         import unix_ar
         from datatrove.data import Document
@@ -200,6 +202,7 @@ class LIEFFunctionSegmenter(PipelineStep):
                             "package": doc["package"],
                             "flake": doc["properties"]["flake"],
                             "language": doc["properties"]["language"],
+                            "bytes_sha256": hashlib.sha256(bytes(content)).hexdigest(),
                         },
                     )
                 except Exception as e:

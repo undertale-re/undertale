@@ -29,6 +29,7 @@ class RizinFunctionSegmentAndDisassemble(PipelineStep):
     ) -> DocumentsPipeline:
         """"""
 
+        import hashlib
         import json
         import os
         import tempfile
@@ -74,6 +75,7 @@ class RizinFunctionSegmentAndDisassemble(PipelineStep):
                                 "disassembly": disassembly,
                                 "function_name": fun_name,
                                 "architecture": ij["bin"]["arch"],
+                                "bytes_sha256": hashlib.sha256(code).hexdigest(),
                             },
                         )
 
