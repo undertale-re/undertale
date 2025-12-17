@@ -11,7 +11,7 @@ class SourceDataset(Dataset):
 
 
 class SummarizedMixin(DataFrameModel):
-    Summary: Series[str]
+    summary: Series[str]
 
 
 class SummarizedSourceDataset(SummarizedMixin, SourceDataset):
