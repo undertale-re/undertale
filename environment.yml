@@ -1,0 +1,12 @@
+name: undertale
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.12
+  - pip
+  - gcc
+  - gxx
+  - pip:
+    - "-c constraints.txt"
+    - "."

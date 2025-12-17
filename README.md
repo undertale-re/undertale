@@ -14,20 +14,19 @@ evaluations involved in the Undertale program.
 
 ## Installation
 
-To install Undertale and frozen dependencies from `constraints.txt`, after
-cloning this repo run:
+We use [Conda][conda] for managing dependencies. To set up Undertale with all
+of its dependencies in a Conda environment, run:
 
 ```bash
-pip install . -c constraints.txt
+conda env create -f environment.yml
+conda activate undertale
 ```
+
+[conda]: https://docs.conda.io/
 
 ## Usage
 
-Undertale is essentially a collection of scripts invoked via module call, like:
-
-```bash
-python -m undertale.{module} ...
-```
+Coming soon...
 
 For more details on available scripts and usage information, see the [full
 documentation][pages].
@@ -76,4 +75,4 @@ may violate any copyrights that exist in this work.
 [documentation-image]: https://img.shields.io/badge/docs-latest-green.svg
 [pages]: https://undertale-re.github.io/undertale/
 [license-image]: https://img.shields.io/badge/license-MIT-green.svg
-[mitll]: ./LICENSE.txt
+[mitll]: ./LICENSE.txtS

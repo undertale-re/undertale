@@ -1,27 +1,36 @@
-"""Custom logging utilities."""
-
-import logging
 import sys
 import typing
+from logging import (
+    CRITICAL,
+    DEBUG,
+    ERROR,
+    INFO,
+    WARNING,
+    FileHandler,
+    Filter,
+    Formatter,
+    StreamHandler,
+    getLogger,
+)
 
 LEVELS = {
-    "debug": logging.DEBUG,
-    "info": logging.INFO,
-    "warning": logging.WARNING,
-    "error": logging.ERROR,
-    "critical": logging.CRITICAL,
+    "debug": DEBUG,
+    "info": INFO,
+    "warning": WARNING,
+    "error": ERROR,
+    "critical": CRITICAL,
 }
 
 
-class CharacterLevelFilter(logging.Filter):
+class CharacterLevelFilter(Filter):
     """Adds logging level as a single character for formatting."""
 
     CHARACTERS = {
-        logging.DEBUG: "-",
-        logging.INFO: "+",
-        logging.WARNING: "!",
-        logging.ERROR: "*",
-        logging.CRITICAL: "#",
+        DEBUG: "-",
+        INFO: "+",
+        WARNING: "!",
+        ERROR: "*",
+        CRITICAL: "#",
     }
 
     def filter(self, record):
@@ -29,7 +38,7 @@ class CharacterLevelFilter(logging.Filter):
         return True
 
 
-class ColorLevelFilter(logging.Filter):
+class ColorLevelFilter(Filter):
     """Adds logging level as a color for formatting."""
 
     WHITE_DIM = "\x1b[37;2m"
@@ -41,11 +50,11 @@ class ColorLevelFilter(logging.Filter):
     NULL = END
 
     COLORS = {
-        logging.DEBUG: WHITE_DIM,
-        logging.INFO: WHITE,
-        logging.WARNING: YELLOW,
-        logging.ERROR: RED,
-        logging.CRITICAL: RED_BOLD,
+        DEBUG: WHITE_DIM,
+        INFO: WHITE,
+        WARNING: YELLOW,
+        ERROR: RED,
+        CRITICAL: RED_BOLD,
     }
 
     def filter(self, record):
@@ -54,7 +63,7 @@ class ColorLevelFilter(logging.Filter):
 
 
 def setup_logging(
-    level: int = logging.INFO,
+    level: int = INFO,
     colors: bool = True,
     stream: bool = True,
     file: typing.Optional[str] = None,
@@ -72,7 +81,7 @@ def setup_logging(
         clear: Remove all other handlers from the root logger.
     """
 
-    root = logging.getLogger()
+    root = getLogger()
     root.setLevel(level)
 
     if clear:
@@ -86,9 +95,9 @@ def setup_logging(
         if colors and sys.stderr.isatty():
             format = f"%(levelcolor)s{format}{ColorLevelFilter.END}"
 
-        formatter = logging.Formatter(format)
+        formatter = Formatter(format)
 
-        handler = logging.StreamHandler()
+        handler = StreamHandler()
         handler.setLevel(level)
         handler.addFilter(CharacterLevelFilter())
         handler.addFilter(ColorLevelFilter())
@@ -100,9 +109,9 @@ def setup_logging(
     if file:
         format = "[%(asctime)s %(levelname)-8s]: %(message)s"
 
-        formatter = logging.Formatter(format)
+        formatter = Formatter(format)
 
-        handler = logging.FileHandler(file)
+        handler = FileHandler(file)
         handler.setLevel(level)
 
         handler.setFormatter(formatter)
@@ -110,4 +119,10 @@ def setup_logging(
         root.addHandler(handler)
 
 
-__all__ = ["setup_logging"]
+def get_logger(*args, **kwargs):
+    """Passthrough to `logging.getLogger()`."""
+
+    return getLogger(*args, **kwargs)
+
+
+__all__ = ["setup_logging", "get_logger"]

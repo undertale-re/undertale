@@ -1,5 +1,4 @@
 [flake8]
-exclude = .git,__pycache__,.eggs,build
 ignore =
     # E265 block comment should start with '# '
     E265,
@@ -16,4 +15,3 @@ ignore =
     # black will take care of line wrapping
     # E501 line too long
     E501
-doctests = true
