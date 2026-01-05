@@ -7,6 +7,7 @@ from undertale.exceptions import PathDoesNotExist
 from undertale.logging import get_logger
 from undertale.pipeline import Client, Cluster, DatasetPipelineArgumentParser, fanout
 from undertale.pipeline.cpp import compile_cpp
+from undertale.pipeline.dedupe import dedupe_by_sha256
 from undertale.pipeline.parquet import resize_parquet
 from undertale.pipeline.tarfile import extract_tarfile
 from undertale.utils import assert_path_does_not_exist, assert_path_exists
@@ -84,8 +85,11 @@ if __name__ == "__main__":
             chunks=arguments.parallelism,
         )
         compiled = fanout(client, compile_cpp, chunks, f"{arguments.output}-compiled")
+        deduped = dedupe_by_sha256(
+            compiled, f"{arguments.output}-deduped", "binary", client
+        )
         merged = client.submit(
-            resize_parquet, compiled, f"{arguments.output}", size="100MB"
+            resize_parquet, deduped, f"{arguments.output}", size="100MB"
         )
 
         merged.result()

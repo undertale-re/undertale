@@ -5,6 +5,7 @@ from datetime import datetime
 from os import listdir
 from os.path import basename, exists, isdir, join
 from tempfile import TemporaryDirectory
+from typing import List
 from unittest import TestCase
 
 from dask.dataframe import from_pandas
@@ -15,6 +16,7 @@ from undertale.exceptions import EnvironmentError as LocalEnvironmentError
 from undertale.exceptions import PathError, SchemaError
 from undertale.pipeline import Cluster
 from undertale.pipeline.cpp import compile_cpp
+from undertale.pipeline.dedupe import dedupe_by_sha256
 from undertale.pipeline.json import merge_json
 from undertale.pipeline.parquet import resize_parquet
 from undertale.pipeline.tarfile import extract_tarfile
@@ -436,6 +438,33 @@ class TestPipelineCpp(TestCase):
         loaded = read_parquet(path)
 
         self.assertEqual(len(loaded), 1)
+
+
+class TestPipelineDedupe(TestCase):
+    @staticmethod
+    def mock_dataset(frames: List[DataFrame], working: str, name: str) -> List[str]:
+        paths = []
+        for i, frame in enumerate(frames):
+            path = join(working, f"{name}-{str(i)}")
+            frame.to_parquet(path)
+            paths.append(path)
+
+        return paths
+
+    def test_dedupe(self):
+        with TemporaryDirectory() as working:
+            data = [
+                DataFrame({"value": [b"a", b"b", b"a", b"c", b"b"]}),
+                DataFrame({"value": [b"a", b"b", b"a", b"c", b"d"]}),
+            ]
+            dataset = self.mock_dataset(data, working, "dataset.parquet")
+
+            path = join(working, "deduped.parquet")
+            dedupe_by_sha256(dataset, path, "value")
+
+            deduped = read_parquet(path)
+
+            self.assertEqual(len(deduped), 4)
 
 
 if __name__ == "__main__":
