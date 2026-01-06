@@ -1,3 +1,4 @@
+import hashlib
 import os
 import subprocess
 from datetime import datetime
@@ -7,6 +8,22 @@ from typing import Iterable, Optional
 
 from ..exceptions import EnvironmentError as LocalEnvironmentError
 from ..exceptions import PathDoesNotExist, PathExists
+
+
+def hash(data: bytes) -> str:
+    """Compute the cryptographic hash of the given bytes.
+
+    This is the common hashing algorithm used for uniqueness everywhere in this
+    project.
+
+    Arguments:
+        data: The data from which to compute a hash.
+
+    Returns:
+        A string representing the hexdigest of the hash of ``data``.
+    """
+
+    return hashlib.sha256(data).hexdigest()
 
 
 def timestamp(time: Optional[datetime] = None) -> str:

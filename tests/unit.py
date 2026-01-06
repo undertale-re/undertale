@@ -24,8 +24,24 @@ from undertale.utils import (
     assert_path_does_not_exist,
     assert_path_exists,
     find,
+    hash,
     timestamp,
 )
+
+
+class TestUtilitiesHash(TestCase):
+    def test_hash_produces_identical_values(self):
+        def check(value: bytes) -> None:
+            self.assertEqual(hash(value), hash(value))
+
+        check(b"foo")
+        check(b"bar")
+        check(b"baz")
+
+    def test_hash_no_collisions(self):
+        self.assertNotEqual(hash(b"foo"), hash(b"bar"))
+        self.assertNotEqual(hash(b"bar"), hash(b"baz"))
+        self.assertNotEqual(hash(b"foo"), hash(b"baz"))
 
 
 class TestUtilitiesTimestamp(TestCase):
