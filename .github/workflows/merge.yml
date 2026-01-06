@@ -22,7 +22,7 @@ jobs:
           conda env update -f environment.development.yml
       - name: Build Documentation
         run: |
-          sphinx-build -W -b html docs build/documentation
+          conda run -n undertale sphinx-build -W -b html docs build/documentation
       - uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
