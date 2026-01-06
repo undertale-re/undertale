@@ -1,3 +1,5 @@
+"""Tar file parsing."""
+
 import tarfile
 
 from ..exceptions import InvalidFileType
@@ -8,6 +10,16 @@ logger = get_logger(__name__)
 
 
 def extract_tarfile(input: str, output: str) -> str:
+    """Decompress a given tarfile.
+
+    Arguments:
+        input: Path to the tar input file.
+        output: Path to the output directory to create.
+
+    Returns:
+        The output directory created.
+    """
+
     logger.info(f"extracting {input!r} to {output!r}")
 
     input = assert_path_exists(input)
@@ -23,6 +35,16 @@ def extract_tarfile(input: str, output: str) -> str:
 
 
 def compress_tarfile(input: str, output: str) -> str:
+    """Decompress a given directory into a tarfile.
+
+    Arguments:
+        input: Path to the input directory.
+        output: Path to the output tarfile to create.
+
+    Returns:
+        The output tarfile created.
+    """
+
     raise NotImplementedError()
 
 

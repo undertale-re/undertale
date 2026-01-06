@@ -1,3 +1,5 @@
+"""JSON parsing."""
+
 import json
 from typing import List
 

@@ -1,3 +1,6 @@
+"""Exception classes."""
+
+
 class Error(Exception):
     """Base class for all exceptions."""
 

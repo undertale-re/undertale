@@ -1,3 +1,5 @@
+"""Custom Dask wrappers and utilities."""
+
 from os.path import basename, join
 from typing import Callable, List, Optional
 
@@ -90,7 +92,7 @@ def fanout(
         A list of futures for the results returned by ``function``.
 
     Warning:
-        This function will block on ``inputs`` and then materialize it. You
+        This function will block on ``inputs`` and then materializes it. You
         should probably not plan to pass a lot of data through ``inputs``,
         instead pass a list of filenames to process.
     """

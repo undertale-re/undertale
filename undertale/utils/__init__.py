@@ -1,3 +1,5 @@
+"""Utilities and helper scripts."""
+
 import hashlib
 import os
 import subprocess

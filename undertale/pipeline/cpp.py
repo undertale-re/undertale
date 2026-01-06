@@ -1,3 +1,5 @@
+"""C/C++ compilation."""
+
 from os.path import join
 from subprocess import PIPE, run
 from tempfile import TemporaryDirectory
@@ -64,6 +66,10 @@ def compile_cpp(
 
     Returns:
         The path to the generated parquet file.
+
+    Raises:
+        SchemaError: If the input dataset does not match
+            :py:class:`SourceDataset <undertale.schema.SourceDataset>`.
     """
 
     logger.info(f"compiling C/C++ source {input!r} to {output!r}")

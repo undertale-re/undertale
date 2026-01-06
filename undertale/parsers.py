@@ -1,8 +1,10 @@
+"""Argument parsers."""
+
 from argparse import ArgumentParser as ArgparseArgumentParser
 from argparse import Namespace
 
-from ..logging import setup_logging
-from .dask import CLUSTER_TYPES
+from .logging import setup_logging
+from .pipeline.dask import CLUSTER_TYPES
 
 
 class ArgumentParser(ArgparseArgumentParser):
@@ -33,3 +35,6 @@ class DatasetPipelineArgumentParser(ArgumentParser):
             default="local",
             help="cluster type",
         )
+
+
+__all__ = ["DatasetPipelineArgumentParser"]

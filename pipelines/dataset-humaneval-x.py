@@ -5,7 +5,8 @@ from pandas import DataFrame
 
 from undertale.exceptions import PathDoesNotExist
 from undertale.logging import get_logger
-from undertale.pipeline import Client, Cluster, DatasetPipelineArgumentParser, fanout
+from undertale.parsers import DatasetPipelineArgumentParser
+from undertale.pipeline import Client, Cluster, fanout
 from undertale.pipeline.cpp import compile_cpp
 from undertale.pipeline.parquet import resize_parquet
 from undertale.pipeline.tarfile import extract_tarfile

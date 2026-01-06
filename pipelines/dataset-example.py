@@ -5,7 +5,8 @@ from time import sleep
 from typing import List
 
 from undertale.logging import get_logger
-from undertale.pipeline import Client, Cluster, DatasetPipelineArgumentParser, fanout
+from undertale.parsers import DatasetPipelineArgumentParser
+from undertale.pipeline import Client, Cluster, fanout
 from undertale.pipeline.json import merge_json
 from undertale.utils import assert_path_does_not_exist, assert_path_exists
 
