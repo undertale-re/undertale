@@ -4,7 +4,7 @@ from typing import Optional
 import torch
 import torch.nn.functional as nnf
 from lightning import LightningModule
-from numpy import np
+import numpy as np
 from sklearn.metrics import f1_score
 from torch import (
     Tensor,
@@ -23,7 +23,7 @@ from torch.nn import GELU, Dropout, Embedding, LayerNorm, Linear, Module, Module
 from torch.nn.functional import cross_entropy
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import LambdaLR
-from transformers import GPT2LMHeadModel
+from transformers import GPT2LMHeadModel, AutoTokenizer
 
 from . import tokenizer
 from .model_connector import MLP, TransformerConnector
@@ -375,7 +375,8 @@ class TransformerEncoderForSequenceSummarization(Module):
         super().__init__()
 
         self.tune_llm = tune_llm
-
+        
+        
         self.assembly_checkpoint = assembly_checkpoint
         self.assembly_model = None
         if end2end:
@@ -389,6 +390,17 @@ class TransformerEncoderForSequenceSummarization(Module):
             print("downloading gpt2 from huggingface...")
             self.llm = GPT2LMHeadModel.from_pretrained("gpt2")
             self.llm.save_pretrained(llm_checkpoint)
+            
+            
+        try:
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                llm_checkpoint, local_files_only=True
+            )
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to load model/tokenizer from {llm_checkpoint}. "
+                f"Make sure you download it first.\n{e}"
+            )
 
         if not self.tune_llm:
             for param in self.llm.parameters():

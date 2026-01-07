@@ -12,7 +12,7 @@ from lightning.pytorch.loggers import TensorBoardLogger
 
 # from pytorch_lightning.strategies import DDPStrategy
 from torch.optim import AdamW
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, RandomSampler
 from transformers import get_linear_schedule_with_warmup
 
 from undertale.datasets.base import Dataset
@@ -32,42 +32,53 @@ class ProgressBar(TQDMProgressBar):
 
 
 class ValidationCallback(Callback):
-    def __init__(self, dataloader, tok):
-        pass
+    def __init__(self, dataloader, save_dir="validation_outputs", end2end=False, max_batches=5):
+        super().__init__()
+        self.dataloader = dataloader
+        self.save_dir = save_dir
+        self.end2end = end2end
+        self.max_batches = max_batches
+        os.makedirs(save_dir, exist_ok=True)
 
+    def on_validation_epoch_end(self, trainer, pl_module):
+        # Only run on rank 0 in DDP to avoid duplicate files / races
+        if not trainer.is_global_zero:
+            return
 
-#         super().__init__()
-#         self.dataloader = dataloader
-#         self.tokenizer = tok
+        outputs = []
+        was_training = pl_module.training
+        pl_module.eval()
 
-#     def on_validation_end(self, trainer, pl_module):
-#         for batch in self.dataloader:
-#             input_ids = batch.input_ids.to(pl_module.device)
-#             attention_mask = batch.attention_mask.to(pl_module.device)
-#             output = pl_module(input_ids, attention_mask)
-#             filled = torch.where(
-#                 input_ids == self.tokenizer.token_to_id(tokenizer.TOKEN_MASK),
-#                 torch.argmax(output, dim=-1),
-#                 input_ids,
-#             )
-#             input_seq = (
-#                 self.tokenizer.decode(input_ids[0].tolist(), skip_special_tokens=False)
-#                 .replace("[NEXT]", "\n")
-#                 .replace("[PAD]", "")
-#                 .strip()
-#             )
-#             predicted = self.tokenizer.decode(
-#                 filled[0].tolist(), skip_special_tokens=False
-#             )
-#             predicted = (
-#                 predicted.replace(tokenizer.TOKEN_PAD, "")
-#                 .replace("[NEXT]", "\n")
-#                 .strip()
-#             )
-#             if isinstance(pl_module.logger.experiment, SummaryWriter):
-#                 pl_module.logger.experiment.add_text(
-#                     "mask prediction", f"input: {input_seq}\n\noutput:{predicted}"
-# )
+        device = pl_module.device
+
+        with torch.no_grad():
+            for i, batch in enumerate(self.dataloader):
+                if i >= self.max_batches:
+                    break
+
+                tokens = batch["tokens"].to(device)
+                mask = batch["mask"].to(device)
+                dis_tokens = batch["disassembly_tokens"].to(device)
+                dis_mask = batch["disassembly_mask"].to(device)
+
+                if self.end2end:
+                    prefix = pl_module.model.embed_assembly(dis_tokens, dis_mask)
+                else:
+                    prefix = dis_tokens
+
+                text = pl_module.model.generate2(embed=prefix)
+                outputs.append(text)
+
+        if was_training:
+            pl_module.train()
+
+        path = os.path.join(self.save_dir, f"epoch_{trainer.current_epoch}.txt")
+        with open(path, "w") as f:
+            for t in outputs:
+                f.write(str(t) + "\n\n")
+
+        trainer.print(f"Saved validation outputs to {path}")
+
 
 
 class SummarizeModel(LightningModule, torch.nn.Module):
@@ -79,14 +90,14 @@ class SummarizeModel(LightningModule, torch.nn.Module):
         self.lr = lr
 
         self.warmup_steps = warmup_steps
-        self.end2end = True
+        self.end2end = end2end
 
     def forward(self, text, encoder_embedding, mask=None, labels=None):
 
         return self.model(text, encoder_embedding, mask, labels)
 
     def training_step(self, batch, batch_idx):
-
+        
         tokens, mask, dissassembly_tokens, dissassembly_mask = (
             batch["tokens"],
             batch["mask"],
@@ -344,7 +355,7 @@ if __name__ == "__main__":
         filename="{epoch}-{train_loss:.2f}-{val_loss:.2f}",
         save_top_k=-1,
     )
-    stop = EarlyStopping(monitor="val_loss", mode="max", patience=5, min_delta=0.001)
+    stop = EarlyStopping(monitor="val_loss", mode="min", patience=5, min_delta=0.001)
     logger = TensorBoardLogger(
         save_dir=os.path.dirname(output),
         name=os.path.basename(output),
@@ -352,17 +363,21 @@ if __name__ == "__main__":
     )
 
     if args.validation:
-        pass
-        # random_sampler = RandomSampler(dataset["test"], num_samples=5)
-        # random_validation = DataLoader(
-        #     dataset["test"],
-        #     sampler=random_sampler,
-        #     batch_size=1,
-        #     collate_fn=collator,
-        #     num_workers=1,
-        # )
-        # validation_check = ValidationCallback(random_validation, tok)
-        # callbacks = [progress, checkpoint, stop, validation_check]
+
+        random_sampler = RandomSampler(val_dataset, num_samples=5)
+        random_validation = DataLoader(
+            val_dataset,
+            sampler=random_sampler,
+            batch_size=1,
+            collate_fn=collator,
+            num_workers=0,
+        )
+
+        validation_check = ValidationCallback(
+            random_validation, end2end=args.end2end
+        )
+        callbacks = [progress, checkpoint, stop, validation_check]
+
     else:
         callbacks = [progress, checkpoint, stop]
 
