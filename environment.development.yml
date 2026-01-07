@@ -4,6 +4,7 @@ channels:
   - defaults
 dependencies:
   - pip
+  - make
   - pip:
     - "-c constraints.txt"
     - "-e .[development]"
