@@ -56,10 +56,42 @@ the repository run:
 Or other `supported sphinx output formats
 <https://www.sphinx-doc.org/en/master/usage/builders/index.html>`_.
 
+Testing
+^^^^^^^
+
+To run tests, run:
+
+.. code-block:: bash
+
+    python tests/unit.py --verbose
+
 Extras
 ^^^^^^
 
 Binary Ninja Setup
 """"""""""""""""""
 
-Coming soon...
+To work with binary data, you'll need to have a `Binary Ninja
+<https://binary.ninja/>`_ license (Commercial or Ultimate). In general, you
+should follow `their installation instructions
+<https://docs.binary.ninja/getting-started.html#installing-binary-ninja>`_.
+
+Once Binary Ninja is installed, to set up the API bindings, locate
+``install_api.py`` in the ``scripts`` directory in your Binary Ninja
+installation path.
+
+On MacOS, for example, this is located at:
+
+.. code-block:: bash
+
+    /Applications/Binary\ Ninja.app/Contents/Resources/scripts/install_api.py
+
+Run this script with the same Python environment where Undertale is installed
+to set up Binary Ninja's Python API bindings. To verify that everything is
+working correctly, run the binary unit tests:
+
+.. code-block:: bash
+
+    python tests/unit.py --verbose TestPipelineBinary
+
+Verify that the binary analysis tests pass and are not skipped.

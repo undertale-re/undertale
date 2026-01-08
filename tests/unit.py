@@ -5,15 +5,16 @@ from datetime import datetime
 from os import listdir
 from os.path import basename, exists, isdir, join
 from tempfile import TemporaryDirectory
-from unittest import TestCase
+from unittest import SkipTest, TestCase
 
 from dask.dataframe import from_pandas
 from pandas import DataFrame, read_parquet
-from utils import main
+from utils import load_resource, main
 
 from undertale.exceptions import EnvironmentError as LocalEnvironmentError
 from undertale.exceptions import PathError, SchemaError
 from undertale.pipeline import Cluster
+from undertale.pipeline.binary import segment_and_disassemble_binary
 from undertale.pipeline.cpp import compile_cpp
 from undertale.pipeline.json import merge_json
 from undertale.pipeline.parquet import resize_parquet
@@ -408,6 +409,10 @@ class TestPipelineCpp(TestCase):
 
         return path
 
+    @classmethod
+    def setUpClass(cls):
+        cls.simple_source = load_resource("source/42/42.c").decode()
+
     def test_cpp_compile_invalid_schema(self):
         working = TemporaryDirectory()
 
@@ -421,7 +426,7 @@ class TestPipelineCpp(TestCase):
     def test_cpp_compile_simple(self):
         working = TemporaryDirectory()
 
-        sources = DataFrame([{"id": "1", "source": "int main() { return 42; }"}])
+        sources = DataFrame([{"id": "1", "source": self.simple_source}])
         dataset = self.mock_dataset(sources, working, "dataset.parquet")
 
         path = join(working.name, "compiled.parquet")
@@ -441,7 +446,7 @@ class TestPipelineCpp(TestCase):
         sources = DataFrame(
             [
                 {"id": "1", "source": "foo"},
-                {"id": "2", "source": "int main() { return 42; }"},
+                {"id": "2", "source": self.simple_source},
             ]
         )
         dataset = self.mock_dataset(sources, working, "dataset.parquet")
@@ -452,6 +457,47 @@ class TestPipelineCpp(TestCase):
         loaded = read_parquet(path)
 
         self.assertEqual(len(loaded), 1)
+
+
+class TestPipelineBinary(TestCase):
+    def mock_dataset(
+        self, frame: DataFrame, working: TemporaryDirectory, name: str
+    ) -> str:
+        path = join(working.name, name)
+        frame.to_parquet(path)
+
+        return path
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            import binaryninja  # noqa:  F401
+        except ImportError:
+            raise SkipTest("BinaryNinja is not installed - skipping binary tests")
+
+        cls.simple_source = load_resource("source/42/42.c").decode()
+        cls.simple_binary = load_resource("binaries/42.elf")
+
+    def test_binary_segment_and_disassemble_simple(self):
+        working = TemporaryDirectory()
+
+        sources = DataFrame(
+            [{"id": "1", "source": self.simple_source, "binary": self.simple_binary}]
+        )
+        dataset = self.mock_dataset(sources, working, "dataset.parquet")
+
+        path = join(working.name, "disassembled.parquet")
+        segment_and_disassemble_binary(dataset, path)
+
+        loaded = read_parquet(path)
+
+        filtered = loaded[loaded["name"] == "main"]
+
+        self.assertEqual(len(filtered), 1)
+
+        disassembly = filtered.get("disassembly").values[0]
+
+        self.assertIn("42", disassembly)
 
 
 if __name__ == "__main__":
