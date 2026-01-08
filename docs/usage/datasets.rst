@@ -4,22 +4,29 @@ Datasets
 Build a Dataset
 ^^^^^^^^^^^^^^^
 
-To build a dataset, call the dataset module directly:
+To build a dataset, call the dataset pipeline script from the ``pipelines``
+directory:
 
 .. code-block:: bash
 
-    python -m undertale.datasets.{dataset} {input} {output}
+    python pipelines/dataset-{dataset}.py {input} {output}
 
-For example, to build the HumanEval-X dataset from the raw dataset at
-``humanevalx-raw/`` and save it to a directory called ``humanevalx/``, run:
+For example, to build the HumanEval-X dataset from the raw dataset snapshot at
+``humaneval-x-raw/20251114-100300.tgz`` and save it to a directory called
+``humaneval-x/``, run:
 
 .. code-block:: bash
 
     # Parse the HumanEvalX dataset.
-    python -m undertale.datasets.humanevalx humanevalx-raw/ humanevalx/
+    python pipelines/dataset-humaneval-x.py \
+        humaneval-x-raw/20251114-100300.tgz \
+        humaneval-x
 
     # Parse the HumanEvalX dataset with 8 parallel processes.
-    python -m undertale.datasets.humanevalx humanevalx-raw/ humanevalx/ --parallelism 8
+    python pipelines/dataset-humaneval-x.py \
+        humaneval-x-raw/20251114-100300.tgz \
+        humaneval-x \
+        --parallelism 8
 
 
 Explore a Dataset with a Shell
@@ -29,40 +36,25 @@ To load a dataset into a Python shell, run:
 
 .. code-block:: bash
 
-    python -m undertale.datasets.scripts.shell {path}
+    python -m undertale.utils.datasets.shell {path}
 
     # Load the HumanEval-X dataset into a shell.
-    python -m undertale.dataset.scripts.shell humanevalx/
+    python -m undertale.utils.datasets.shell humaneval-x/
 
 
 Use a Dataset in a Script
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To write a script that uses a dataset that has already been parsed, you can do
-something like:
+Final datasets are simply large directories of parquet. Datasets can be loaded
+in Python in all the usual ways you would load parquet - for example,  with
+``pandas``:
 
 .. code-block:: python
 
-    from undertale.datasets.base import Dataset
+    import pandas
 
-    dataset = Dataset.load(path)
+    dataset = pandas.read_parquet(path)
 
     ...
 
 Where ``path`` is the path to the saved dataset directory.
-
-VLLM Server Integration
-^^^^^^^^^^^^^^^^^^^^^^^
-
-Some datasets make use of a `VLLM <https://github.com/vllm-project/vllm>`_
-server to generate summaries of code. Assuming you already have a VLLM server
-running (see their documentation for details on how to set that up), to build a
-dataset pipeline with a VLLM step, you need to set the ``VLLM_SERVER_ADDRESS``
-environment variable like:
-
-.. code-block:: bash
-
-    export VLLM_SERVER_ADDRESS=http://my.vllm.server:8000/v1
-
-Additionally, if your VLLM server requires an API key, you will need to set the
-``VLLM_API_KEY`` environment variable.

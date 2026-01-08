@@ -1,15 +1,15 @@
 repos:
 -   repo: https://github.com/pappasam/toml-sort
-    rev: v0.24.2
+    rev: v0.24.3
     hooks:
       - id: toml-sort
         args: [--in-place]
 -   repo: https://github.com/pycqa/isort
-    rev: 6.0.1
+    rev: 7.0.0
     hooks:
     -   id: isort
 -   repo: https://github.com/psf/black
-    rev: 25.1.0
+    rev: 25.11.0
     hooks:
     -   id: black
 -   repo: https://github.com/pycqa/flake8
@@ -17,3 +17,8 @@ repos:
     hooks:
     -   id: flake8
         language_version: python3
+-   repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.18.2
+    hooks:
+    -   id: mypy
+        args: [--ignore-missing-imports]

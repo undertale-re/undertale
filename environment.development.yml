@@ -1,0 +1,10 @@
+name: undertale
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - pip
+  - make
+  - pip:
+    - "-c constraints.txt"
+    - "-e .[development]"
