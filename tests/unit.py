@@ -2,8 +2,8 @@ import json
 import os
 import tarfile
 from datetime import datetime
-from os import listdir
-from os.path import basename, exists, isdir, join
+from os import listdir, makedirs
+from os.path import basename, exists, isdir, isfile, join
 from tempfile import TemporaryDirectory
 from unittest import SkipTest, TestCase
 
@@ -20,9 +20,10 @@ from undertale.pipeline.json import merge_json
 from undertale.pipeline.parquet import resize_parquet
 from undertale.pipeline.tarfile import extract_tarfile
 from undertale.utils import (
-    assert_path_does_not_exist,
     assert_path_exists,
     find,
+    get_or_create_directory,
+    get_or_create_file,
     hash,
     timestamp,
 )
@@ -78,13 +79,18 @@ class TestUtilitiesAsserts(TestCase):
         with self.assertRaises(PathError):
             assert_path_exists("foo/bar/baz")
 
-    def test_assert_path_does_not_exist_existing_directory(self):
+    def test_get_or_create_file_nonexistent(self):
         working = TemporaryDirectory()
 
-        with self.assertRaises(PathError):
-            assert_path_does_not_exist(working.name)
+        target = join(working.name, "test.txt")
 
-    def test_assert_path_does_not_exist_existing_file(self):
+        target, created = get_or_create_file(target)
+
+        self.assertTrue(created)
+        self.assertTrue(exists(target))
+        self.assertTrue(isfile(target))
+
+    def test_get_or_create_file_existing(self):
         working = TemporaryDirectory()
 
         target = join(working.name, "test.txt")
@@ -92,21 +98,33 @@ class TestUtilitiesAsserts(TestCase):
         with open(target, "w"):
             pass
 
-        with self.assertRaises(PathError):
-            assert_path_does_not_exist(target)
+        target, created = get_or_create_file(target)
 
-    def test_assert_path_does_not_exist_nonexistent(self):
-        assert_path_does_not_exist("foo/bar/baz")
+        self.assertFalse(created)
+        self.assertTrue(exists(target))
 
-    def test_assert_path_does_not_exist_nonexistent_create(self):
+    def test_get_or_create_directory_nonexistent(self):
         working = TemporaryDirectory()
 
         target = join(working.name, "test")
 
-        assert_path_does_not_exist(target, create=True)
+        target, created = get_or_create_directory(target)
 
+        self.assertTrue(created)
         self.assertTrue(exists(target))
         self.assertTrue(isdir(target))
+
+    def test_get_or_create_directory_existing(self):
+        working = TemporaryDirectory()
+
+        target = join(working.name, "test")
+
+        makedirs(target)
+
+        target, created = get_or_create_directory(target)
+
+        self.assertFalse(created)
+        self.assertTrue(exists(target))
 
 
 class TestUtilitiesFind(TestCase):
@@ -476,13 +494,20 @@ class TestPipelineBinary(TestCase):
             raise SkipTest("BinaryNinja is not installed - skipping binary tests")
 
         cls.simple_source = load_resource("source/42/42.c").decode()
-        cls.simple_binary = load_resource("binaries/42.elf")
+        cls.simple_binary_x86_64_elf = load_resource("binaries/42.x86_64.elf")
+        cls.simple_binary_arm_macho = load_resource("binaries/42.arm.macho")
 
-    def test_binary_segment_and_disassemble_simple(self):
+    def test_binary_segment_and_disassemble_simple_x86_64_elf(self):
         working = TemporaryDirectory()
 
         sources = DataFrame(
-            [{"id": "1", "source": self.simple_source, "binary": self.simple_binary}]
+            [
+                {
+                    "id": "1",
+                    "source": self.simple_source,
+                    "binary": self.simple_binary_x86_64_elf,
+                }
+            ]
         )
         dataset = self.mock_dataset(sources, working, "dataset.parquet")
 
@@ -492,6 +517,33 @@ class TestPipelineBinary(TestCase):
         loaded = read_parquet(path)
 
         filtered = loaded[loaded["name"] == "main"]
+
+        self.assertEqual(len(filtered), 1)
+
+        disassembly = filtered.get("disassembly").values[0]
+
+        self.assertIn("42", disassembly)
+
+    def test_binary_segment_and_disassemble_simple_arm_macho(self):
+        working = TemporaryDirectory()
+
+        sources = DataFrame(
+            [
+                {
+                    "id": "1",
+                    "source": self.simple_source,
+                    "binary": self.simple_binary_arm_macho,
+                }
+            ]
+        )
+        dataset = self.mock_dataset(sources, working, "dataset.parquet")
+
+        path = join(working.name, "disassembled.parquet")
+        segment_and_disassemble_binary(dataset, path)
+
+        loaded = read_parquet(path)
+
+        filtered = loaded[loaded["name"] == "_main"]
 
         self.assertEqual(len(filtered), 1)
 

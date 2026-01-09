@@ -10,7 +10,7 @@ from pandera.errors import SchemaError as PanderaSchemaError
 from ..exceptions import SchemaError
 from ..logging import get_logger
 from ..schema import SourceDataset
-from ..utils import assert_path_does_not_exist, assert_path_exists, find
+from ..utils import assert_path_exists, find, get_or_create_file
 
 logger = get_logger(__name__)
 
@@ -23,6 +23,8 @@ def compile(row: Series) -> bytes:
         f.write(row["source"])
 
     binary_path = join(working.name, "sample")
+
+    logger.debug(f"compiling {row['id']}")
 
     gpp = find("g++")
     process = run(
@@ -72,10 +74,13 @@ def compile_cpp(
             :py:class:`SourceDataset <undertale.schema.SourceDataset>`.
     """
 
-    logger.info(f"compiling C/C++ source {input!r} to {output!r}")
-
     input = assert_path_exists(input)
-    output = assert_path_does_not_exist(output)
+    output, created = get_or_create_file(output)
+
+    if not created:
+        return output
+
+    logger.info(f"compiling C/C++ source {input!r} to {output!r}")
 
     frame = read_parquet(input)
 

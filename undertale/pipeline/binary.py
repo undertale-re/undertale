@@ -9,7 +9,7 @@ from ..exceptions import EnvironmentError as LocalEnvironmentError
 from ..exceptions import SchemaError
 from ..logging import get_logger
 from ..schema import BinaryDataset
-from ..utils import assert_path_does_not_exist, assert_path_exists
+from ..utils import assert_path_exists, get_or_create_file
 
 logger = get_logger(__name__)
 
@@ -18,7 +18,11 @@ def segment_and_disassemble(row: Series) -> DataFrame:
     import binaryninja
     from binaryninja import InstructionTextTokenType, SymbolType
 
+    binaryninja.disable_default_log()
+
     view = binaryninja.load(source=row["binary"])
+
+    logger.debug(f"segmenting and disassembling {row['id']}")
 
     functions = []
     for function in view.functions:
@@ -63,7 +67,10 @@ def segment_and_disassemble(row: Series) -> DataFrame:
             for line in block.disassembly_text:
                 for token in line.tokens:
                     if annotation:
-                        if token.type == InstructionTextTokenType.AnnotationToken:
+                        if (
+                            token.type == InstructionTextTokenType.AnnotationToken
+                            and token.text.strip() == "}"
+                        ):
                             annotation = False
                         continue
                     match token.type:
@@ -86,6 +93,7 @@ def segment_and_disassemble(row: Series) -> DataFrame:
                         # addresses, symbols.
                         case (
                             InstructionTextTokenType.IntegerToken
+                            | InstructionTextTokenType.FloatingPointToken
                             | InstructionTextTokenType.PossibleAddressToken
                             | InstructionTextTokenType.ImportToken
                             | InstructionTextTokenType.CodeRelativeAddressToken
@@ -108,7 +116,18 @@ def segment_and_disassemble(row: Series) -> DataFrame:
                                     disassembly.extend(["rip", "+"])
                                 case _:
                                     raise ValueError(
-                                        f"unhandled keyword token: {token}"
+                                        f"unhandled keyword token: {line} ({token})"
+                                    )
+                        # Operation token - parsing required.
+                        case InstructionTextTokenType.OperationToken:
+                            text = token.text.strip()
+                            match text:
+                                # Immediate value prefix - ignored.
+                                case "#":
+                                    pass
+                                case _:
+                                    raise ValueError(
+                                        f"unhandled operation token: {line} ({token})"
                                     )
                         # Ignore token.
                         #
@@ -126,7 +145,12 @@ def segment_and_disassemble(row: Series) -> DataFrame:
                         #
                         # Ignore all tokens until the next annotation token is reached.
                         case InstructionTextTokenType.AnnotationToken:
-                            annotation = True
+                            if token.text.strip().startswith("{"):
+                                annotation = True
+                            else:
+                                raise ValueError(
+                                    f"unexpected annotation token {line} ({token})"
+                                )
                         case _:
                             import code
 
@@ -134,7 +158,7 @@ def segment_and_disassemble(row: Series) -> DataFrame:
                             exit()
 
                             raise ValueError(
-                                f"unhandled token type: {token} ({token.type})"
+                                f"unhandled token type: {line} ({token}:{token.type.name}))"
                             )
 
         function = {
@@ -148,6 +172,8 @@ def segment_and_disassemble(row: Series) -> DataFrame:
             function["source"] = row["source"]
 
         functions.append(function)
+
+    logger.info(f"successfully segmented and disassembled {row['id']}")
 
     return DataFrame(functions)
 
@@ -171,15 +197,18 @@ def segment_and_disassemble_binary(input: str, output: str) -> str:
             :py:class:`BinaryDataset <undertale.schema.BinaryDataset>`.
     """
 
+    input = assert_path_exists(input)
+    output, created = get_or_create_file(output)
+
+    if not created:
+        return output
+
     try:
         import binaryninja  # noqa: F401
     except EnvironmentError:
         raise LocalEnvironmentError("Binary Ninja API bindings are not installed")
 
     logger.info(f"segmenting and disassembling binaries {input!r} to {output!r}")
-
-    input = assert_path_exists(input)
-    output = assert_path_does_not_exist(output)
 
     frame = read_parquet(input)
 

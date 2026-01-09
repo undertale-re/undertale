@@ -7,7 +7,7 @@ from typing import List, Optional
 from dask.dataframe import read_parquet
 
 from ..logging import get_logger
-from ..utils import assert_path_does_not_exist, assert_path_exists
+from ..utils import assert_path_exists, get_or_create_directory
 
 logger = get_logger(__name__)
 
@@ -51,18 +51,19 @@ def resize_parquet(
     if chunks is not None and size is not None:
         raise ValueError("only one of `chunks` or `size` may be specified")
 
-    logger.info(f"resizing {input!r} to {output!r} (chunks={chunks})")
-
     if isinstance(input, str):
         input = assert_path_exists(input)
     else:
         input = [assert_path_exists(i) for i in input]
 
-    output = assert_path_does_not_exist(output)
+    output, created = get_or_create_directory(output)
 
-    frame = read_parquet(input)
-    frame = frame.repartition(npartitions=chunks, partition_size=size)
-    frame.to_parquet(output, write_index=False, schema=None)
+    if created:
+        logger.info(f"resizing {input!r} to {output!r} (chunks={chunks})")
+
+        frame = read_parquet(input)
+        frame = frame.repartition(npartitions=chunks, partition_size=size)
+        frame.to_parquet(output, write_index=False, schema=None)
 
     return [join(output, f) for f in listdir(output)]
 
