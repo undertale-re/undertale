@@ -68,6 +68,8 @@ To run tests, run:
 Extras
 ^^^^^^
 
+.. _development-binary-ninja-setup:
+
 Binary Ninja Setup
 """"""""""""""""""
 
