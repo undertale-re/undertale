@@ -99,6 +99,7 @@ def segment_and_disassemble(row: Series) -> DataFrame:
                             | InstructionTextTokenType.CodeRelativeAddressToken
                             | InstructionTextTokenType.DataSymbolToken
                             | InstructionTextTokenType.CodeSymbolToken
+                            | InstructionTextTokenType.ExternalSymbolToken
                         ):
                             disassembly.append(str(token.value))
                         # Keyword token - parsing required.
@@ -109,7 +110,7 @@ def segment_and_disassemble(row: Series) -> DataFrame:
                         case InstructionTextTokenType.KeywordToken:
                             text = token.text.strip()
                             match text:
-                                case "byte" | "word" | "dword" | "qword":
+                                case "byte" | "word" | "dword" | "qword" | "xmmword":
                                     disassembly.append(text)
                                 # Instruction pointer relative address.
                                 case "rel":
@@ -122,6 +123,9 @@ def segment_and_disassemble(row: Series) -> DataFrame:
                         case InstructionTextTokenType.OperationToken:
                             text = token.text.strip()
                             match text:
+                                # Arethmetic operators:
+                                case "+" | "-" | "*":
+                                    disassembly.append(text)
                                 # Immediate value prefix - ignored.
                                 case "#":
                                     pass
@@ -152,11 +156,6 @@ def segment_and_disassemble(row: Series) -> DataFrame:
                                     f"unexpected annotation token {line} ({token})"
                                 )
                         case _:
-                            import code
-
-                            code.interact(local=locals())
-                            exit()
-
                             raise ValueError(
                                 f"unhandled token type: {line} ({token}:{token.type.name}))"
                             )
