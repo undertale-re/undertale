@@ -1,4 +1,5 @@
-from .dask import Client, Cluster, fanout
-from .parsers import DatasetPipelineArgumentParser
+"""Functional pipeline steps and utilities."""
 
-__all__ = ["Cluster", "Client", "fanout", "DatasetPipelineArgumentParser"]
+from .dask import Client, Cluster, fanout, flush, merge
+
+__all__ = ["Cluster", "Client", "merge", "fanout", "flush"]

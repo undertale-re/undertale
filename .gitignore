@@ -3,6 +3,8 @@
 *.json
 *.jsonl
 *.parquet
+*.out
+*.err
 
 *.DS_Store
 

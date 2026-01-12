@@ -1,17 +1,32 @@
+"""Tar file parsing."""
+
 import tarfile
 
 from ..exceptions import InvalidFileType
 from ..logging import get_logger
-from ..utils import assert_path_does_not_exist, assert_path_exists
+from ..utils import assert_path_exists, get_or_create_directory
 
 logger = get_logger(__name__)
 
 
 def extract_tarfile(input: str, output: str) -> str:
-    logger.info(f"extracting {input!r} to {output!r}")
+    """Decompress a given tarfile.
+
+    Arguments:
+        input: Path to the tar input file.
+        output: Path to the output directory to create.
+
+    Returns:
+        The output directory created.
+    """
 
     input = assert_path_exists(input)
-    output = assert_path_does_not_exist(output, create=True)
+    output, created = get_or_create_directory(output)
+
+    if not created:
+        return output
+
+    logger.info(f"extracting {input!r} to {output!r}")
 
     try:
         with tarfile.open(input, "r") as f:
@@ -23,6 +38,16 @@ def extract_tarfile(input: str, output: str) -> str:
 
 
 def compress_tarfile(input: str, output: str) -> str:
+    """Decompress a given directory into a tarfile.
+
+    Arguments:
+        input: Path to the input directory.
+        output: Path to the output tarfile to create.
+
+    Returns:
+        The output tarfile created.
+    """
+
     raise NotImplementedError()
 
 

@@ -26,10 +26,8 @@ conda activate undertale
 
 ## Usage
 
-Coming soon...
-
-For more details on available scripts and usage information, see the [full
-documentation][pages].
+For more details on available scripts and usage information, see the ``Usage``
+section of the documentation.
 
 ## Contributing
 
@@ -75,4 +73,4 @@ may violate any copyrights that exist in this work.
 [documentation-image]: https://img.shields.io/badge/docs-latest-green.svg
 [pages]: https://undertale-re.github.io/undertale/
 [license-image]: https://img.shields.io/badge/license-MIT-green.svg
-[mitll]: ./LICENSE.txtS
+[mitll]: ./LICENSE.txt

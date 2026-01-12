@@ -1,13 +1,19 @@
 import json
+from os import listdir
 from os.path import join
 from random import randint
 from time import sleep
 from typing import List
 
 from undertale.logging import get_logger
-from undertale.pipeline import Client, Cluster, DatasetPipelineArgumentParser, fanout
+from undertale.parsers import DatasetPipelineArgumentParser
+from undertale.pipeline import Client, Cluster, fanout
 from undertale.pipeline.json import merge_json
-from undertale.utils import assert_path_does_not_exist, assert_path_exists
+from undertale.utils import (
+    assert_path_exists,
+    get_or_create_directory,
+    get_or_create_file,
+)
 
 logger = get_logger(__name__)
 
@@ -25,7 +31,10 @@ def generate_numbers(output: str, size: int = 64) -> List[str]:
         A list of paths to generated files.
     """
 
-    output = assert_path_does_not_exist(output, create=True)
+    output, created = get_or_create_directory(output)
+
+    if not created:
+        return [join(output, f) for f in listdir(output)]
 
     logger.info(f"generating {size} inputs")
 
@@ -57,7 +66,10 @@ def process_number(input: str, output: str, delay: int = 0) -> str:
     """
 
     input = assert_path_exists(input)
-    output = assert_path_does_not_exist(output)
+    output, created = get_or_create_file(output)
+
+    if not created:
+        return output
 
     logger.info(f"processing {input}")
 

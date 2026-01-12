@@ -7,7 +7,7 @@ from dask.distributed import Future
 from pandera.typing import Series
 
 from ..logging import get_logger
-from ..utils import assert_path_does_not_exist, assert_path_exists
+from ..utils import assert_path_exists, get_or_create_directory
 
 logger = get_logger(__name__)
 
@@ -49,7 +49,7 @@ def dedupe_by_sha256(
     else:
         input = [assert_path_exists(i) for i in input]
 
-    output = assert_path_does_not_exist(output)
+    output, _ = get_or_create_directory(output)
 
     frame = read_parquet(input)
 
