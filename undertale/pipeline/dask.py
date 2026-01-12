@@ -135,3 +135,16 @@ def fanout(
         results = [join(output, f) for f in listdir(output)]
 
     return merge(client, results)
+
+
+def flush(client: DaskClient) -> None:
+    """Flush the dask client and gracefully shutdown workers.
+
+    This should be run at the end of pipelines to ensure graceful worker
+    shutdown and work completion.
+
+    Arguments:
+        client: The Dask Client where tasks are run.
+    """
+
+    client.retire_workers(close_workers=True, remove=True)

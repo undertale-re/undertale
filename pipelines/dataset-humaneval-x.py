@@ -6,7 +6,7 @@ from pandas import DataFrame
 from undertale.exceptions import PathDoesNotExist
 from undertale.logging import get_logger
 from undertale.parsers import DatasetPipelineArgumentParser
-from undertale.pipeline import Client, Cluster, fanout
+from undertale.pipeline import Client, Cluster, fanout, flush
 from undertale.pipeline.binary import segment_and_disassemble_binary
 from undertale.pipeline.cpp import compile_cpp
 from undertale.pipeline.parquet import resize_parquet
@@ -100,5 +100,7 @@ if __name__ == "__main__":
         )
 
         merged.result()
+
+        flush(client)
 
     logger.info("processing complete")
