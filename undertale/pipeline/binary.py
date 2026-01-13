@@ -123,12 +123,28 @@ def segment_and_disassemble(row: Series) -> DataFrame:
                         case InstructionTextTokenType.OperationToken:
                             text = token.text.strip()
                             match text:
-                                # Arethmetic operators:
+                                # Arethmetic operators.
                                 case "+" | "-" | "*":
                                     disassembly.append(text)
                                 # Immediate value prefix - ignored.
                                 case "#":
                                     pass
+                                # Colon operator is somewhat complex.
+                                case ":":
+                                    # Segment register offset syntax (x86).
+                                    if disassembly[-1] in [
+                                        "cs",
+                                        "ds",
+                                        "es",
+                                        "ss",
+                                        "fs",
+                                        "gs",
+                                    ]:
+                                        disassembly.append("+")
+                                    else:
+                                        raise ValueError(
+                                            f"unhandled ':' operator: {line} ({token})"
+                                        )
                                 case _:
                                     raise ValueError(
                                         f"unhandled operation token: {line} ({token})"
