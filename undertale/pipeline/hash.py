@@ -32,9 +32,9 @@ def hash_column(input: str, output: str, column: str) -> str:
     new_column = f"{column}_hash"
     frame[new_column] = frame[column].apply(hutil)
 
-    logger.info("successfully hashed the dataset")
-
     frame.to_parquet(output, schema=None)
+
+    logger.info("successfully hashed the dataset")
 
     return output
 

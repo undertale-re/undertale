@@ -7,8 +7,7 @@ from undertale.exceptions import PathDoesNotExist
 from undertale.logging import get_logger
 from undertale.parsers import DatasetPipelineArgumentParser
 from undertale.pipeline import Client, Cluster, fanout, flush
-
-# from undertale.pipeline.binary import segment_and_disassemble_binary
+from undertale.pipeline.binary import segment_and_disassemble_binary
 from undertale.pipeline.cpp import compile_cpp
 from undertale.pipeline.dedupe import dedupe_by_hash
 from undertale.pipeline.hash import hash_column
@@ -80,12 +79,6 @@ if __name__ == "__main__":
         Client(cluster) as client,
     ):
         logger.info("processing dataset")
-        logger.info(f"DASHBOARD: {client.dashboard_link}")
-
-        import time
-
-        time.sleep(15)
-        # http://127.0.0.1:8787/status
 
         extracted = client.submit(
             extract_tarfile, arguments.input, f"{arguments.output}-extracted"
@@ -98,17 +91,17 @@ if __name__ == "__main__":
             chunks=arguments.parallelism,
         )
         compiled = fanout(client, compile_cpp, chunks, f"{arguments.output}-compiled")
-        # disassembled = fanout(
-        #     client,
-        #     segment_and_disassemble_binary,
-        #     compiled,
-        #     f"{arguments.output}-disassembled",
-        # )
+        disassembled = fanout(
+            client,
+            segment_and_disassemble_binary,
+            compiled,
+            f"{arguments.output}-disassembled",
+        )
         column = "binary"
         hashed = fanout(
             client,
             hash_column,
-            compiled,
+            disassembled,
             f"{arguments.output}-hashed-{column}",
             column=column,
         )
