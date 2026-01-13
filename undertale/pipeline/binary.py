@@ -123,7 +123,7 @@ def segment_and_disassemble(row: Series) -> DataFrame:
                         case InstructionTextTokenType.OperationToken:
                             text = token.text.strip()
                             match text:
-                                # Arethmetic operators.
+                                # Arithmetic operators.
                                 case "+" | "-" | "*":
                                     disassembly.append(text)
                                 # Immediate value prefix - ignored.
