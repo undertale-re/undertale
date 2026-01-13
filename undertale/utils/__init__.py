@@ -6,10 +6,13 @@ import subprocess
 from datetime import datetime
 from os import makedirs
 from os.path import abspath, exists, expanduser, isfile
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Tuple
 
 from ..exceptions import EnvironmentError as LocalEnvironmentError
-from ..exceptions import PathDoesNotExist, PathExists
+from ..exceptions import PathDoesNotExist
+from ..logging import get_logger
+
+logger = get_logger(__name__)
 
 
 def hash(data: bytes) -> str:
@@ -64,29 +67,49 @@ def assert_path_exists(path: str) -> str:
     return absolute
 
 
-def assert_path_does_not_exist(path: str, create: bool = False) -> str:
-    """Assert that a given path does not exist.
+def get_or_create_file(path: str) -> Tuple[str, bool]:
+    """Get the given file, creating it if it doesn't already exist.
 
     Arguments:
-        path: The path to check.
-        create: If ``True``, create the given path (a directory).
+        path: The path to the file to get or create.
 
     Returns:
-        The absolute version of the given path.
-
-    Raises:
-        PathExists: If the given path exists.
+        The absolute version of the given path and a boolean indicating if it
+        was created by this function.
     """
 
     absolute = abspath(expanduser(path))
 
     if exists(absolute):
-        raise PathExists(f"{path}: path already exists")
+        logger.warning(f"{path!r} already exists")
+        return absolute, False
 
-    if create:
-        makedirs(absolute)
+    with open(absolute, "w"):
+        pass
 
-    return absolute
+    return absolute, True
+
+
+def get_or_create_directory(path: str) -> Tuple[str, bool]:
+    """Get the given directory, creating it if it doesn't already exist.
+
+    Arguments:
+        path: The path to the directory to get or create.
+
+    Returns:
+        The absolute version of the given path and a boolean indicating if it
+        was created by this function.
+    """
+
+    absolute = abspath(expanduser(path))
+
+    if exists(absolute):
+        logger.warning(f"{path!r} already exists")
+        return absolute, False
+
+    makedirs(absolute)
+
+    return absolute, True
 
 
 def find(
@@ -159,4 +182,10 @@ def find(
     raise LocalEnvironmentError(message)
 
 
-__all__ = ["timestamp", "assert_path_exists", "assert_path_does_not_exist", "find"]
+__all__ = [
+    "timestamp",
+    "assert_path_exists",
+    "get_or_create_file",
+    "get_or_create_directory",
+    "find",
+]

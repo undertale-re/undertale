@@ -56,10 +56,59 @@ the repository run:
 Or other `supported sphinx output formats
 <https://www.sphinx-doc.org/en/master/usage/builders/index.html>`_.
 
+Testing
+^^^^^^^
+
+To run tests, run:
+
+.. code-block:: bash
+
+    python tests/unit.py --verbose
+
 Extras
 ^^^^^^
+
+.. _development-binary-ninja-setup:
 
 Binary Ninja Setup
 """"""""""""""""""
 
-Coming soon...
+To work with binary data, you'll need to have a `Binary Ninja
+<https://binary.ninja/>`_ license (Commercial or Ultimate). In general, you
+should follow `their installation instructions
+<https://docs.binary.ninja/getting-started.html#installing-binary-ninja>`_.
+
+Once Binary Ninja is installed, to set up the API bindings, locate
+``install_api.py`` in the ``scripts`` directory in your Binary Ninja
+installation path. For example:
+
+.. code-block:: bash
+
+    # Ubuntu
+    <install-path>/scripts/install_api.py
+
+    # MacOS
+    /Applications/Binary\ Ninja.app/Contents/Resources/scripts/install_api.py
+
+Run this script with the same Python environment where Undertale is installed
+to set up Binary Ninja's Python API bindings.
+
+You'll also need to ensure your Binary Ninja license key is set up. Typically
+this is done by starting Binary Ninja for the first time and using the license
+file you were given when you purchased the product. In a headless environment
+(where you cannot start the GUI application), you can simply place this license
+file in the following location and the API will work as expected (this is not
+well documented):
+
+.. code-block:: bash
+
+    ~/.binaryninja/license.dat
+
+Finally, to verify that everything is working correctly, run the binary unit
+tests:
+
+.. code-block:: bash
+
+    python tests/unit.py --verbose TestPipelineBinary
+
+Verify that the binary analysis tests pass and are not skipped.

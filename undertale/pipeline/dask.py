@@ -1,5 +1,6 @@
 """Custom Dask wrappers and utilities."""
 
+from os import listdir
 from os.path import basename, join
 from typing import Callable, List, Optional
 
@@ -7,8 +8,10 @@ from dask.distributed import Client as DaskClient
 from dask.distributed import Future, LocalCluster, WorkerPlugin
 from dask_jobqueue import SLURMCluster
 
-from ..logging import setup_logging
-from ..utils import assert_path_does_not_exist
+from ..logging import get_logger, setup_logging
+from ..utils import get_or_create_directory
+
+logger = get_logger(__name__)
 
 
 def Cluster(
@@ -73,13 +76,35 @@ def Client(*args, **kwargs):
     return client
 
 
+def merge(client: DaskClient, objects: List) -> Future:
+    """Merge a list of objects into a single future.
+
+    This is somehow not functionality that Dask provides natively, but is
+    useful if you need to express a joint dependency on several
+    objects/futures.
+
+    Arguments:
+        client: The Dask Client where tasks should be issued.
+        objects: A list of objects to be merged - can be Futures of objects.
+
+    Returns:
+        A single Future wrapping the list of objects
+    """
+
+    return client.submit(lambda x: x, objects)
+
+
 def fanout(
     client: DaskClient, function: Callable, inputs: Future, output: str, **kwargs
-) -> List[Future]:
+) -> Future:
     """Executes a given callable across all elements of some iterable Future.
 
     The given callable should expect a single input file path and generate a
     single output file, returning its path.
+
+    This is equivalent to the following::
+
+        [ function(i, output, **kwargs) for i in inputs ]
 
     Arguments:
         client: The Dask Client where tasks should be issued.
@@ -89,7 +114,8 @@ def fanout(
         **kwargs: Any other keyword arguments to be passed to ``function``.
 
     Returns:
-        A list of futures for the results returned by ``function``.
+        A future representing a list of results returned by ``function``
+        applied to each of ``inputs``.
 
     Warning:
         This function will block on ``inputs`` and then materializes it. You
@@ -97,10 +123,28 @@ def fanout(
         instead pass a list of filenames to process.
     """
 
-    output = assert_path_does_not_exist(output, create=True)
+    output, created = get_or_create_directory(output)
 
-    futures = []
-    for input in inputs.result():
-        futures.append(client.submit(function, input, join(output, basename(input))))
+    results = []
+    if created:
+        for input in inputs.result():
+            results.append(
+                client.submit(function, input, join(output, basename(input)))
+            )
+    else:
+        results = [join(output, f) for f in listdir(output)]
 
-    return futures
+    return merge(client, results)
+
+
+def flush(client: DaskClient) -> None:
+    """Flush the dask client and gracefully shutdown workers.
+
+    This should be run at the end of pipelines to ensure graceful worker
+    shutdown and work completion.
+
+    Arguments:
+        client: The Dask Client where tasks are run.
+    """
+
+    client.retire_workers(close_workers=True, remove=True)

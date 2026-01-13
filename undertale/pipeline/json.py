@@ -4,7 +4,7 @@ import json
 from typing import List
 
 from ..logging import get_logger
-from ..utils import assert_path_does_not_exist, assert_path_exists
+from ..utils import assert_path_exists, get_or_create_file
 
 logger = get_logger(__name__)
 
@@ -39,9 +39,12 @@ def merge_json(inputs: List[str], output: str) -> str:
         The path to the merged JSON output file.
     """
 
-    logger.info(f"merging {len(inputs)} results to {output!r}")
+    output, created = get_or_create_file(output)
 
-    output = assert_path_does_not_exist(output)
+    if not created:
+        return output
+
+    logger.info(f"merging {len(inputs)} results to {output!r}")
 
     merged = []
     for input in inputs:

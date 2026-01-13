@@ -40,16 +40,43 @@ class BinaryDatasetWithSource(BinaryDataset, SourceDataset):
     """Binaries with source code."""
 
 
-class SummarizedBinaryDatasetWithSource(SummarizedMixin, BinaryDatasetWithSource):
-    """Summarized binaries with source code."""
+class FunctionDataset(BinaryDataset):
+    """Individual functions."""
+
+    name: Series[str]
+    """The name of the function."""
+
+
+class FunctionDatasetWithSource(FunctionDataset, SourceDataset):
+    """Functions with source code."""
+
+
+class DisassembledFunctionDataset(FunctionDataset):
+    """Disassembled functions."""
+
+    disassembly: Series[str]
+
+
+class DisassembledFunctionDatasetWithSource(DisassembledFunctionDataset, SourceDataset):
+    """Disassembled functions with source code."""
+
+
+class SummarizedDisassembledFunctionDatasetWithSource(
+    SummarizedMixin, DisassembledFunctionDatasetWithSource
+):
+    """Summarized, disassembled functions with source code."""
 
 
 __all__ = [
     "Dataset",
+    "SummarizedMixin",
     "SourceDataset",
     "SummarizedSourceDataset",
     "BinaryDataset",
     "BinaryDatasetWithSource",
-    "SummarizedMixin",
-    "SummarizedBinaryDatasetWithSource",
+    "FunctionDataset",
+    "FunctionDatasetWithSource",
+    "DisassembledFunctionDataset",
+    "DisassembledFunctionDatasetWithSource",
+    "SummarizedDisassembledFunctionDatasetWithSource",
 ]

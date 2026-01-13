@@ -29,3 +29,12 @@ You can then activate the environment:
 .. code-block:: bash
 
     conda activate undertale
+
+Extras
+^^^^^^
+
+Binary Ninja Setup
+""""""""""""""""""
+
+Binary Ninja is required for any pipelines that parse binary data - see
+:ref:`development-binary-ninja-setup` for more details.

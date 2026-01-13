@@ -6,11 +6,12 @@ from pandas import DataFrame
 from undertale.exceptions import PathDoesNotExist
 from undertale.logging import get_logger
 from undertale.parsers import DatasetPipelineArgumentParser
-from undertale.pipeline import Client, Cluster, fanout
+from undertale.pipeline import Client, Cluster, fanout, flush
+from undertale.pipeline.binary import segment_and_disassemble_binary
 from undertale.pipeline.cpp import compile_cpp
 from undertale.pipeline.parquet import resize_parquet
 from undertale.pipeline.tarfile import extract_tarfile
-from undertale.utils import assert_path_does_not_exist, assert_path_exists
+from undertale.utils import assert_path_exists, get_or_create_directory
 
 logger = get_logger(__name__)
 
@@ -26,10 +27,13 @@ def parse_samples(input: str, output: str) -> str:
         The path to extracted sample output.
     """
 
-    logger.info(f"parsing HumanEval-X samples from {input!r} to {output!r}")
-
     input = assert_path_exists(input)
-    output = assert_path_does_not_exist(output, create=True)
+    output, created = get_or_create_directory(output)
+
+    if not created:
+        return output
+
+    logger.info(f"parsing HumanEval-X samples from {input!r} to {output!r}")
 
     cpp = "cpp/data/humaneval.jsonl"
     source = join(input, cpp)
@@ -85,10 +89,18 @@ if __name__ == "__main__":
             chunks=arguments.parallelism,
         )
         compiled = fanout(client, compile_cpp, chunks, f"{arguments.output}-compiled")
+        disassembled = fanout(
+            client,
+            segment_and_disassemble_binary,
+            compiled,
+            f"{arguments.output}-disassembled",
+        )
         merged = client.submit(
-            resize_parquet, compiled, f"{arguments.output}", size="100MB"
+            resize_parquet, disassembled, f"{arguments.output}", size="100MB"
         )
 
         merged.result()
+
+        flush(client)
 
     logger.info("processing complete")

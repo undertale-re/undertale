@@ -1,9 +1,25 @@
 import sys
 from argparse import ArgumentParser
+from os.path import dirname, join
 from unittest import TestLoader, TextTestRunner
 
 from undertale import __title__
 from undertale.logging import CRITICAL, setup_logging
+
+
+def load_resource(path: str) -> bytes:
+    """Load a testing resource by path.
+
+    Arguments:
+        path: The path to the testing resource relative to the root of the
+            test directory.
+
+    Returns:
+        The content of the requested resource as bytes.
+    """
+
+    with open(join(dirname(__file__), path), "rb") as f:
+        return f.read()
 
 
 def main(name: str) -> None:
