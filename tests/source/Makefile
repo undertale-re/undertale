@@ -1,6 +1,7 @@
 PROJECTS := \
+	42 \
 	hello \
-	42
+    canary
 
 BUILD := build
 
