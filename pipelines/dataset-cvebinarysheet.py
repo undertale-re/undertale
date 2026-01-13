@@ -26,7 +26,6 @@ def parse_samples(input: str, output: str) -> str:
     input = assert_path_exists(input)
     if not os.path.isdir(output):
         os.mkdir(output)
-    # output = assert_path_does_not_exist(output, True)
 
     logger.info(f"parsing cvebinarysheet samples from {input!r} to {output!r}")
 
@@ -36,10 +35,9 @@ def parse_samples(input: str, output: str) -> str:
             if os.path.isdir(join(input, project, version)):
                 for floc in os.listdir(join(input, project, version)):
                     if os.path.isfile(join(input, project, version, floc)):
-
                         with open(join(input, project, version, floc), "rb") as f:
                             document: dict[str, Union[str, bytes]] = {
-                                "code": f.read(),
+                                "code": f.read(int(1e6)),
                                 "project": project,
                                 "version": version,
                                 "filename": floc,
@@ -47,8 +45,6 @@ def parse_samples(input: str, output: str) -> str:
                         documents.append(document)
         data = pd.DataFrame.from_dict(documents)
         data.to_parquet(join(output, f"{project}.par"))
-        # with open(join(output, f'{project}.json'), "w") as f:
-        #     json.dump(documents, f)
 
     return output
 
