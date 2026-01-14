@@ -128,16 +128,9 @@ def fanout(
     results = []
     if created:
         for input in inputs.result():
-            if kwargs:
-                results.append(
-                    client.submit(
-                        function, input, join(output, basename(input)), **kwargs
-                    )
-                )
-            else:
-                results.append(
-                    client.submit(function, input, join(output, basename(input)))
-                )
+            results.append(
+                client.submit(function, input, join(output, basename(input)), **kwargs)
+            )
     else:
         results = [join(output, f) for f in listdir(output)]
 
