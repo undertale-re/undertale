@@ -22,7 +22,7 @@ def segment_and_disassemble(row: Series) -> DataFrame:
 
     view = binaryninja.load(source=row["binary"])
 
-    logger.debug(f"segmenting and disassembling {row['id']}")
+    logger.info(f"segmenting and disassembling {row['id']}")
 
     functions = []
     for function in view.functions:
@@ -187,8 +187,6 @@ def segment_and_disassemble(row: Series) -> DataFrame:
             function["source"] = row["source"]
 
         functions.append(function)
-
-    logger.info(f"successfully segmented and disassembled {row['id']}")
 
     return DataFrame(functions)
 
