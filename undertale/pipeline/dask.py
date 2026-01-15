@@ -95,7 +95,7 @@ def merge(client: DaskClient, objects: List) -> Future:
 
 
 def fanout(
-    client: DaskClient, function: Callable, inputs: Future, output: str, **kwargs
+    client: DaskClient, function: Callable, inputs: Future, output: str, *args, **kwargs
 ) -> Future:
     """Executes a given callable across all elements of some iterable Future.
 
@@ -111,6 +111,7 @@ def fanout(
         function: A callable function to run on each input.
         inputs: A Future containing a list of object over which to run.
         output: The output location where processed results should go.
+        *args: Any other arguments to be passed to ``function``.
         **kwargs: Any other keyword arguments to be passed to ``function``.
 
     Returns:
@@ -129,7 +130,9 @@ def fanout(
     if created:
         for input in inputs.result():
             results.append(
-                client.submit(function, input, join(output, basename(input)), **kwargs)
+                client.submit(
+                    function, input, join(output, basename(input)), *args, **kwargs
+                )
             )
     else:
         results = [join(output, f) for f in listdir(output)]

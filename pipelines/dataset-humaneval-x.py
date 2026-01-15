@@ -9,9 +9,10 @@ from undertale.parsers import DatasetPipelineArgumentParser
 from undertale.pipeline import Client, Cluster, fanout, flush
 from undertale.pipeline.binary import segment_and_disassemble_binary
 from undertale.pipeline.cpp import compile_cpp
-from undertale.pipeline.dedupe import dedupe_by_hash
-from undertale.pipeline.hash import hash_column
-from undertale.pipeline.parquet import resize_parquet
+from undertale.pipeline.parquet import (
+    hash_parquet_column,
+    resize_parquet,
+)
 from undertale.pipeline.tarfile import extract_tarfile
 from undertale.utils import assert_path_exists, get_or_create_directory
 
@@ -97,24 +98,25 @@ if __name__ == "__main__":
             compiled,
             f"{arguments.output}-disassembled",
         )
-        column = "binary"
         hashed = fanout(
             client,
-            hash_column,
+            hash_parquet_column,
             disassembled,
-            f"{arguments.output}-hashed-{column}",
-            column=column,
+            f"{arguments.output}-hashed",
+            column="binary",
+            target="binary_hash",
         )
         merged = client.submit(
-            resize_parquet, hashed, f"{arguments.output}", size="100MB"
+            resize_parquet,
+            hashed,
+            arguments.output,
+            size="100MB",
+            deduplicate=["binary_hash"],
+            drop=["binary_hash"],
         )
 
         dataset = merged.result()
 
-        dedupe_by_hash(
-            dataset, f"{arguments.output}-deduped-by-{column}", f"{column}_hash"
-        )
-
         flush(client)
 
-        logger.info("processing complete")
+    logger.info("processing complete")

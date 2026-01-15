@@ -5,7 +5,6 @@ from datetime import datetime
 from os import listdir, makedirs
 from os.path import basename, exists, isdir, isfile, join
 from tempfile import TemporaryDirectory
-from typing import List
 from unittest import SkipTest, TestCase
 
 from dask.dataframe import from_pandas
@@ -17,10 +16,8 @@ from undertale.exceptions import PathError, SchemaError
 from undertale.pipeline import Cluster
 from undertale.pipeline.binary import segment_and_disassemble_binary
 from undertale.pipeline.cpp import compile_cpp
-from undertale.pipeline.dedupe import dedupe_by_hash
-from undertale.pipeline.hash import hash_column
 from undertale.pipeline.json import merge_json
-from undertale.pipeline.parquet import resize_parquet
+from undertale.pipeline.parquet import hash_parquet_column, resize_parquet
 from undertale.pipeline.tarfile import extract_tarfile
 from undertale.utils import (
     assert_path_exists,
@@ -333,6 +330,30 @@ class TestPipelineParquet(TestCase):
 
         return path
 
+    def test_parquet_hash_column_invalid_schema(self):
+        working = TemporaryDirectory()
+        dataset = self.mock_dataset(working, "dataset", size=10)
+
+        with self.assertRaises(SchemaError):
+            hash_parquet_column(dataset, join(working.name, "hashed"), "mordor", "hash")
+
+    def test_parquet_hash_column_simple(self):
+        working = TemporaryDirectory()
+
+        data = b"\xde\xad\xbe\xef"
+        dataset = [{"id": i, "data": data} for i in range(10)]
+
+        frame = DataFrame(dataset)
+        path = join(working.name, "dataset")
+        frame.to_parquet(path)
+
+        hashed = hash_parquet_column(path, join(working.name, "hashed"), "data", "hash")
+
+        loaded = read_parquet(hashed)
+
+        self.assertIn("hash", loaded.columns)
+        self.assertEqual(loaded["hash"][0], hash(data))
+
     def test_parquet_resize_chunks_and_size(self):
         with self.assertRaises(ValueError):
             resize_parquet("", "", chunks=10, size=10)
@@ -421,6 +442,65 @@ class TestPipelineParquet(TestCase):
 
         self.assertEqual(len(loaded), 100)
 
+    def test_parquet_resize_deduplicate_invalid_schema(self):
+        working = TemporaryDirectory()
+        dataset = self.mock_dataset(working, "dataset", size=10)
+
+        with self.assertRaises(SchemaError):
+            path = join(working.name, "resized")
+            resize_parquet(dataset, path, chunks=1, deduplicate=["foo"])
+
+    def test_parquet_resize_deduplicate_simple(self):
+        working = TemporaryDirectory()
+
+        dataset = [{"id": i} for i in range(10)]
+        dataset += [
+            {"id": 1337},
+            {"id": 1337},
+            {"id": 1337},
+            {"id": 1338},
+            {"id": 301},
+            {"id": 302},
+            {"id": 303},
+            {"id": 1338},
+        ]
+
+        frame = DataFrame(dataset)
+        path = join(working.name, "dataset")
+        frame.to_parquet(path)
+
+        output = join(working.name, "resized")
+        resize_parquet(path, output, chunks=1, deduplicate=["id"])
+
+        loaded = read_parquet(output)
+
+        self.assertEqual(len(loaded), 15)
+        self.assertEqual(len(set(loaded["id"])), 15)
+
+    def test_parquet_resize_drop_invalid_schema(self):
+        working = TemporaryDirectory()
+        dataset = self.mock_dataset(working, "dataset", size=10)
+
+        with self.assertRaises(SchemaError):
+            path = join(working.name, "resized")
+            resize_parquet(dataset, path, chunks=1, drop=["foo"])
+
+    def test_parquet_resize_drop_simple(self):
+        working = TemporaryDirectory()
+
+        dataset = [{"id": i, "foo": "bar"} for i in range(10)]
+
+        frame = DataFrame(dataset)
+        path = join(working.name, "dataset")
+        frame.to_parquet(path)
+
+        output = join(working.name, "resized")
+        resize_parquet(path, output, chunks=1, drop=["foo"])
+
+        loaded = read_parquet(output)
+
+        self.assertNotIn("foo", loaded.columns)
+
 
 class TestPipelineCpp(TestCase):
     @staticmethod
@@ -478,86 +558,6 @@ class TestPipelineCpp(TestCase):
         loaded = read_parquet(path)
 
         self.assertEqual(len(loaded), 1)
-
-
-class TestPipelineHash(TestCase):
-    @staticmethod
-    def mock_dataset(frame: DataFrame, working: TemporaryDirectory, name: str) -> str:
-        path = join(working.name, name)
-        frame.to_parquet(path)
-
-        return path
-
-    def setUp(self):
-        self.working = TemporaryDirectory()
-        self.addCleanup(self.working.cleanup)
-
-        self.code = b"foo"
-        frame = DataFrame([{"id": "1", "source": "foo", "binary": self.code}])
-
-        self.dataset = self.mock_dataset(frame, self.working, "compiled.parquet")
-        self.output = join(self.working.name, "hashed.parquet")
-
-    def test_hash_column_invalid_schema(self):
-        with self.assertRaises(SchemaError):
-            hash_column(self.dataset, self.output, "mordor")
-
-    def test_hash_column_exists(self):
-        column = "binary"
-        hashed = hash_column(self.dataset, self.output, column)
-
-        hashed = read_parquet(hashed)
-
-        self.assertIn(f"{column}_hash", hashed.columns)
-
-    def test_hash_column_simple(self):
-        column = "binary"
-        hashed = hash_column(self.dataset, self.output, column)
-
-        hashed = read_parquet(hashed)
-        self.assertEqual(hashed[f"{column}_hash"][0], hash(self.code))
-
-
-class TestPipelineDedupe(TestCase):
-    @staticmethod
-    def mock_dataset(
-        frames: List[DataFrame], working: TemporaryDirectory, name: str
-    ) -> List[str]:
-        paths = []
-        for i, frame in enumerate(frames):
-            path = join(working.name, f"{name}-{str(i)}")
-            frame.to_parquet(path)
-            paths.append(path)
-
-        return paths
-
-    def setUp(self):
-        self.working = TemporaryDirectory()
-        self.addCleanup(self.working.cleanup)
-
-        bin1 = [b"a", b"b", b"a", b"c", b"b"]
-        bin2 = [b"a", b"b", b"a", b"c", b"d"]
-        data = [
-            DataFrame({"binary": bin1, "binary_hash": [hash(x) for x in bin1]}),
-            DataFrame({"binary": bin2, "binary_hash": [hash(x) for x in bin2]}),
-        ]
-
-        self.dataset = self.mock_dataset(data, self.working, "disassembled.parquet")
-        self.output = join(self.working.name, "deduped.parquet")
-
-    def test_dedupe_invalid_schema(self):
-        with self.assertRaises(SchemaError):
-            dedupe_by_hash(self.dataset, self.output, "mordor")
-
-    def test_dedupe_simple(self):
-        column = "binary_hash"
-        deduped = dedupe_by_hash(self.dataset, self.output, column)
-
-        deduped = read_parquet(deduped)
-
-        self.assertEqual(len(deduped), 4)
-        self.assertEqual(set(deduped["binary"]), set({b"a", b"b", b"c", b"d"}))
-        self.assertNotIn(column, deduped.columns)
 
 
 class TestPipelineBinary(TestCase):
