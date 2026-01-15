@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import tarfile
 from datetime import datetime
@@ -13,7 +14,7 @@ from utils import load_resource, main
 
 from undertale.exceptions import EnvironmentError as LocalEnvironmentError
 from undertale.exceptions import PathError, SchemaError
-from undertale.pipeline import Cluster
+from undertale.pipeline import Client, Cluster, fanout, flush
 from undertale.pipeline.binary import segment_and_disassemble_binary
 from undertale.pipeline.cpp import compile_cpp
 from undertale.pipeline.json import merge_json
@@ -171,6 +172,34 @@ class TestPipelineDask(TestCase):
     def test_cluster_unsupported_type(self):
         with self.assertRaises(ValueError):
             Cluster("foo")
+
+    def test_fanout_error_no_side_effects(self):
+        working = TemporaryDirectory()
+
+        def silence_logging():
+            logging.getLogger("distributed").setLevel(logging.CRITICAL)
+
+        class Expected(Exception):
+            pass
+
+        def generate():
+            raise Expected()
+
+        output = join(working.name, "output")
+
+        try:
+            with Cluster(type="local") as cluster, Client(cluster) as client:
+                client.run(silence_logging)
+
+                generated = client.submit(generate)
+                result = fanout(client, lambda x: x, generated, output)
+
+                result.result()
+                flush(client)
+        except Expected:
+            pass
+
+        self.assertFalse(exists(output))
 
 
 class TestPipelineJSON(TestCase):
