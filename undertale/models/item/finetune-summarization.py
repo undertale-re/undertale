@@ -32,23 +32,39 @@ class ProgressBar(TQDMProgressBar):
 
 
 class ValidationCallback(Callback):
-    def __init__(self, dataloader, save_dir="validation_outputs", end2end=False, max_batches=5):
+    def __init__(
+        self,
+        dataloader,
+        
+        end2end=False,
+        max_batches=5,
+        args=None,
+    ):
         super().__init__()
+
         self.dataloader = dataloader
-        self.save_dir = save_dir
+        self.save_dir = args.generated_output_paths
         self.end2end = end2end
         self.max_batches = max_batches
+        
+        # ---- generation config (EXPLICIT) ----
+        self.beam = args.beam
+        self.num_beams = args.num_beams
+        self.temperature=args.temperature
+        self.max_new_tokens = args.max_new_tokens
+
+
+        self.do_sample = False
+
         os.makedirs(save_dir, exist_ok=True)
 
     def on_validation_epoch_end(self, trainer, pl_module):
-        # Only run on rank 0 in DDP to avoid duplicate files / races
         if not trainer.is_global_zero:
             return
 
         outputs = []
         was_training = pl_module.training
         pl_module.eval()
-
         device = pl_module.device
 
         with torch.no_grad():
@@ -61,21 +77,50 @@ class ValidationCallback(Callback):
                 dis_tokens = batch["disassembly_tokens"].to(device)
                 dis_mask = batch["disassembly_mask"].to(device)
 
+                # ---------------- encoder path (UNCHANGED) ----------------
                 if self.end2end:
-                    prefix = pl_module.model.embed_assembly(dis_tokens, dis_mask)
+                    encoder_embedding = pl_module.model.embed_assembly(
+                        dis_tokens, dis_mask
+                    )
+                    encoder_embedding = encoder_embedding.mean(dim=1)
                 else:
-                    prefix = dis_tokens
+                    encoder_embedding = dis_tokens
+                    if encoder_embedding.dim() == 3:
+                        encoder_embedding = encoder_embedding.mean(dim=1)
 
-                text = pl_module.model.generate2(embed=prefix)
-                outputs.append(text)
+                prefixes = pl_module.model.connector(encoder_embedding).view(
+                    -1,
+                    pl_module.model.prefix_length_const,
+                    pl_module.model.llm_embedding_size,
+                )
+
+                # ---------------- generation ----------------
+                text = pl_module.model.generate(
+                    embed=prefixes,
+                    entry_length=self.max_new_tokens,
+                    do_sample=self.do_sample,
+                    temperature=self.temperature,
+                    beam=self.beam,
+                    num_beams=self.num_beams,
+                )
+                prefix_len = pl_module.model.prefix_length_const
+                token_mask = mask[:, prefix_len:]
+                caption = pl_module.model.tokenizer.decode(
+                    tokens[0][token_mask[0] == 1], skip_special_tokens=True
+                )
+                outputs.append([caption, text])
 
         if was_training:
             pl_module.train()
 
-        path = os.path.join(self.save_dir, f"epoch_{trainer.current_epoch}.txt")
+        path = os.path.join(
+            self.save_dir, f"epoch_{trainer.current_epoch}.txt"
+        )
         with open(path, "w") as f:
-            for t in outputs:
-                f.write(str(t) + "\n\n")
+            for cap, pred in outputs:
+                f.write(f"GROUND TRUTH CAPTION:\n{cap}\n\n")
+                f.write(f"PREDICTED CAPTION:\n{pred}\n\n")
+                f.write("_________________\n")
 
         trainer.print(f"Saved validation outputs to {path}")
 
@@ -106,7 +151,6 @@ class SummarizeModel(LightningModule, torch.nn.Module):
         )
         # tokens, mask = tokens.to(self.device),mask.to(self.device)
         # disassembly_info = disassembly_info.to(self.device, dtype=torch.float32)
-
         if self.end2end:
             with torch.no_grad():
 
@@ -122,9 +166,8 @@ class SummarizeModel(LightningModule, torch.nn.Module):
         loss = F.cross_entropy(
             logits.reshape(-1, logits.shape[-1]), tokens.flatten(), ignore_index=0
         )
-
+        
         self.log("train_loss", loss)
-
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -153,7 +196,6 @@ class SummarizeModel(LightningModule, torch.nn.Module):
         )
 
         self.log("val_loss", loss)
-
         return loss
 
     def configure_optimizers(self):
@@ -203,15 +245,40 @@ if __name__ == "__main__":
         "--model_type", type=str, default="transformer", help="model for connector"
     )
     parser.add_argument(
+        "--beam",
+        action="store_true",
+        help="whether to use beam search for generation of text",
+    )
+    
+    parser.add_argument(
+        "--num_beams",
+        type=int,
+        default=5,
+        help="if beam is toggled, number of beams to use",
+    )
+    parser.add_argument(
+        "--max_new_tokens",
+        type=int,
+        default=150,
+        help="max number tokens for generation",
+    )
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=1.0,
+        help="temperature for generation",
+    )
+
+    parser.add_argument(
         "--prefix_length_const",
         type=int,
-        default=10,
+        default=40, #i increased from 10 (without tuning with llm)
         help="length for additional prefix constant tokens",
     )
     parser.add_argument(
         "--prefix_length_assembly",
         type=int,
-        default=10,
+        default=40, #i increased from 10 (without tuning with llm)
         help="break down assembly output into sequence length",
     )
     parser.add_argument(
@@ -254,15 +321,15 @@ if __name__ == "__main__":
         "-warmup",
         "--warmup_steps",
         type=int,
-        default=5000,
+        default=1, #used to be 50000
         help="number of warmup steps",
     )
-    parser.add_argument("--lr", type=float, default=2e-5, help="learning rate")
+    parser.add_argument("--lr", type=float, default=1e-4, help="learning rate") #used to be 2e-5
     parser.add_argument(
         "-a", "--accelerator", default="auto", help="accelerator to use"
     )
     parser.add_argument(
-        "-num_epochs", type=int, default=10, help="number epochs to train model"
+        "-num_epochs", type=int, default=50, help="number epochs to train model"
     )
     parser.add_argument(
         "-d",
@@ -280,6 +347,12 @@ if __name__ == "__main__":
         "--validation",
         action="store_true",
         help="whether to output validation examples",
+    )
+    parser.add_argument(
+        "--generated_output_paths",
+        default="./validation_outputs",
+        type=str
+        help="where to output validation examples",
     )
 
     args = parser.parse_args()
@@ -320,7 +393,7 @@ if __name__ == "__main__":
     )
 
     # assembly_tokenizer = tokenizer.load(args.tokenizer)
-    collator = CustomCollator(args, train_dataset.max_seq_len, device)
+    collator = CustomCollator(args, train_dataset.max_seq_len, device,train_dataset.pad_id)
 
     train_dataloader = DataLoader(
         train_dataset, shuffle=True, batch_size=args.batch_size, collate_fn=collator
@@ -374,9 +447,10 @@ if __name__ == "__main__":
         )
 
         validation_check = ValidationCallback(
-            random_validation, end2end=args.end2end
+            random_validation, end2end=args.end2end,args=args
         )
         callbacks = [progress, checkpoint, stop, validation_check]
+       
 
     else:
         callbacks = [progress, checkpoint, stop]
@@ -388,6 +462,8 @@ if __name__ == "__main__":
         warmup_steps=args.warmup_steps,
         end2end=args.end2end,
     )
+
+    sample = val_dataloader.dataset[0]
 
     trainer = Trainer(
         strategy="ddp_find_unused_parameters_true",

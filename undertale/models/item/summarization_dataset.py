@@ -39,6 +39,7 @@ class SummarizerDataset(torch.utils.data.Dataset):
 
         self.prefix_length = prefix_length
         self.normalize_prefix = normalize_prefix
+        self.pad_id=0
 
         # Figure out max context length from config
         if hasattr(config, "n_positions"):
@@ -50,7 +51,7 @@ class SummarizerDataset(torch.utils.data.Dataset):
 
         # Enforce: prefix tokens + text tokens <= model limit
         self.max_seq_len = max_positions - prefix_length
-
+        print(self.max_seq_len,"max len")
         self.dataset = dataset
         if end2end:
             self.tokenize_dataset(token_batchsize)
@@ -102,13 +103,13 @@ class SummarizerDataset(torch.utils.data.Dataset):
 
 
 class CustomCollator:
-    def __init__(self, args, max_seq_len, device):
+    def __init__(self, args, max_seq_len, device,pad_id):
 
         self.tokenizer = tokenizer.load(args.tokenizer)
         self.max_length = args.tokenizer_size
 
         self.tok_fast = PreTrainedTokenizerFast(tokenizer_object=self.tokenizer)
-
+        self.pad_id=pad_id
         self.max_seq_len = max_seq_len
         self.prefix_length = args.prefix_length_const
         self.device = device
@@ -120,23 +121,22 @@ class CustomCollator:
             (token_size, self.max_seq_len), -1, dtype=torch.long, device=self.device
         )
 
-        # single loop, no tensor creation inside loop
+     
         for i, seq in enumerate(tokens):
             seq_len = min(len(seq), self.max_seq_len)
             padded[i, :seq_len] = torch.tensor(
                 seq[:seq_len], dtype=torch.long, device=self.device
             )
-
+        
         # vectorized mask
         masks = padded.ge(0)
-        padded = padded.masked_fill_(~masks, 0)
-
+        
+        padded = padded.masked_fill_(~masks, self.pad_id)
         # prefix mask (also vectorized)
         prefix_mask = torch.ones(
             (token_size, self.prefix_length), dtype=torch.float32, device=self.device
         )
         masks = torch.cat((prefix_mask, masks.float()), dim=1)
-
         disassembly_batch = self.tok_fast(
             disassembly_infos,
             truncation=True,
@@ -150,4 +150,5 @@ class CustomCollator:
             "mask": masks,
             "disassembly_tokens": disassembly_batch["input_ids"],
             "disassembly_mask": disassembly_batch["attention_mask"],
+            
         }
