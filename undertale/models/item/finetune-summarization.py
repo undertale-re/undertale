@@ -56,7 +56,7 @@ class ValidationCallback(Callback):
 
         self.do_sample = False
 
-        os.makedirs(save_dir, exist_ok=True)
+        os.makedirs(self.save_dir, exist_ok=True)
 
     def on_validation_epoch_end(self, trainer, pl_module):
         if not trainer.is_global_zero:
@@ -351,7 +351,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--generated_output_paths",
         default="./validation_outputs",
-        type=str
+        type=str,
         help="where to output validation examples",
     )
 
