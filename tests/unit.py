@@ -17,7 +17,7 @@ from undertale.pipeline import Cluster
 from undertale.pipeline.binary import segment_and_disassemble_binary
 from undertale.pipeline.cpp import compile_cpp
 from undertale.pipeline.json import merge_json
-from undertale.pipeline.parquet import resize_parquet
+from undertale.pipeline.parquet import hash_parquet_column, resize_parquet
 from undertale.pipeline.tarfile import extract_tarfile
 from undertale.utils import (
     assert_path_exists,
@@ -330,6 +330,30 @@ class TestPipelineParquet(TestCase):
 
         return path
 
+    def test_parquet_hash_column_invalid_schema(self):
+        working = TemporaryDirectory()
+        dataset = self.mock_dataset(working, "dataset", size=10)
+
+        with self.assertRaises(SchemaError):
+            hash_parquet_column(dataset, join(working.name, "hashed"), "mordor", "hash")
+
+    def test_parquet_hash_column_simple(self):
+        working = TemporaryDirectory()
+
+        data = b"\xde\xad\xbe\xef"
+        dataset = [{"id": i, "data": data} for i in range(10)]
+
+        frame = DataFrame(dataset)
+        path = join(working.name, "dataset")
+        frame.to_parquet(path)
+
+        hashed = hash_parquet_column(path, join(working.name, "hashed"), "data", "hash")
+
+        loaded = read_parquet(hashed)
+
+        self.assertIn("hash", loaded.columns)
+        self.assertEqual(loaded["hash"][0], hash(data))
+
     def test_parquet_resize_chunks_and_size(self):
         with self.assertRaises(ValueError):
             resize_parquet("", "", chunks=10, size=10)
@@ -417,6 +441,65 @@ class TestPipelineParquet(TestCase):
         loaded = read_parquet(path)
 
         self.assertEqual(len(loaded), 100)
+
+    def test_parquet_resize_deduplicate_invalid_schema(self):
+        working = TemporaryDirectory()
+        dataset = self.mock_dataset(working, "dataset", size=10)
+
+        with self.assertRaises(SchemaError):
+            path = join(working.name, "resized")
+            resize_parquet(dataset, path, chunks=1, deduplicate=["foo"])
+
+    def test_parquet_resize_deduplicate_simple(self):
+        working = TemporaryDirectory()
+
+        dataset = [{"id": i} for i in range(10)]
+        dataset += [
+            {"id": 1337},
+            {"id": 1337},
+            {"id": 1337},
+            {"id": 1338},
+            {"id": 301},
+            {"id": 302},
+            {"id": 303},
+            {"id": 1338},
+        ]
+
+        frame = DataFrame(dataset)
+        path = join(working.name, "dataset")
+        frame.to_parquet(path)
+
+        output = join(working.name, "resized")
+        resize_parquet(path, output, chunks=1, deduplicate=["id"])
+
+        loaded = read_parquet(output)
+
+        self.assertEqual(len(loaded), 15)
+        self.assertEqual(len(set(loaded["id"])), 15)
+
+    def test_parquet_resize_drop_invalid_schema(self):
+        working = TemporaryDirectory()
+        dataset = self.mock_dataset(working, "dataset", size=10)
+
+        with self.assertRaises(SchemaError):
+            path = join(working.name, "resized")
+            resize_parquet(dataset, path, chunks=1, drop=["foo"])
+
+    def test_parquet_resize_drop_simple(self):
+        working = TemporaryDirectory()
+
+        dataset = [{"id": i, "foo": "bar"} for i in range(10)]
+
+        frame = DataFrame(dataset)
+        path = join(working.name, "dataset")
+        frame.to_parquet(path)
+
+        output = join(working.name, "resized")
+        resize_parquet(path, output, chunks=1, drop=["foo"])
+
+        loaded = read_parquet(output)
+
+        self.assertNotIn("foo", loaded.columns)
 
 
 class TestPipelineCpp(TestCase):
