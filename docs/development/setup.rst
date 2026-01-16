@@ -92,7 +92,7 @@ installation path. For example:
 
 
 .. important:: The version of the Binary Ninja API bindings you install must
-    match your license (Community, Ultimate, etc.).
+    match your license (Commercial, Ultimate, etc.).
     
 
 Run this script with the same Python environment where Undertale is installed
