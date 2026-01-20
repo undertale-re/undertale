@@ -24,7 +24,28 @@ pipeline script:
 Tokenization
 ^^^^^^^^^^^^
 
-Coming soon...
+With your trained tokenizer you can now tokenize an entire dataset to prepare
+for pre-training.
+
+.. code-block:: bash
+
+    # Tokenize the HumanEval-X dataset.
+    #
+    # Only retain the minimal fields necessary for pre-training.
+    python pipelines/model-tokenizer-tokenize.py \
+        humaneval-x/ \
+        humaneval-x-pretraining \
+        --tokenizer tokenizer.json \
+        --minimal
+
+    # Tokenize the HumanEval-X dataset in parallel.
+    #
+    # Retain all fields this time, as an example.
+    python pipelines/model-tokenizer-tokenize.py \
+        humaneval-x/ \
+        humaneval-x-tokenized \
+        --tokenizer tokenizer.json \
+        --parallelism 8
 
 Pre-Training (Maked Language Modeling)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

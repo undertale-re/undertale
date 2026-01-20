@@ -38,15 +38,14 @@ def hash_parquet_column(input: str, output: str, column: str, target: str) -> st
     if not created:
         return output
 
-    logger.info(f"hashing column {column} in {input!r} to {output!r}")
-
     frame = pandas_read_parquet(input)
 
     if column not in frame.columns:
         raise SchemaError(f"dataset doesn't include the column {column}")
 
-    frame[target] = frame[column].apply(hash)
+    logger.info(f"hashing column {column} in {input!r} to {output!r}")
 
+    frame[target] = frame[column].apply(hash)
     frame.to_parquet(output, schema=None)
 
     logger.info(f"successfully hashed {len(frame)} rows")
@@ -61,6 +60,7 @@ def resize_parquet(
     size: Optional[int | str] = None,
     deduplicate: Optional[List[str]] = None,
     drop: Optional[List[str]] = None,
+    keep: Optional[List[str]] = None,
 ) -> List[str]:
     """Resize a parquet dataset.
 
@@ -68,6 +68,8 @@ def resize_parquet(
     datasets using Dask.
 
     Exactly one of ``chunks`` or ``size`` must be specified.
+
+    Only one of ``drop`` or ``keep`` may be specified.
 
     Note:
         The number of chunks is guaranteed but the number of rows per chunk may
@@ -85,6 +87,7 @@ def resize_parquet(
         deduplicate: If provided, deduplicate the dataset by the given list of
             column names (unique together).
         drop: If provided, drop the given column names.
+        keep: If provided, only keep the given column names.
 
     Returns:
         A list of paths to the generated files.
@@ -97,6 +100,9 @@ def resize_parquet(
         raise ValueError("exactly one of `chunks` or `size` must be specified")
     if chunks is not None and size is not None:
         raise ValueError("only one of `chunks` or `size` may be specified")
+
+    if drop is not None and keep is not None:
+        raise ValueError("only one of `drop` or `keep` may be specified")
 
     if isinstance(input, str):
         input = assert_path_exists(input)
@@ -125,6 +131,14 @@ def resize_parquet(
                     raise SchemaError(f"dataset does not include the column {column!r}")
 
             frame = frame.drop(columns=drop)
+        elif keep:
+            logger.info(f"keeping only dataset column(s): {', '.join(keep)}")
+
+            for column in keep:
+                if column not in frame.columns:
+                    raise SchemaError(f"dataset does not include the column {column!r}")
+
+            frame = frame[keep]
 
         logger.info(f"resizing dataset to (chunks={chunks}, size={size})")
 

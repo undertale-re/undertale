@@ -4,6 +4,7 @@ import json
 from collections import defaultdict
 from typing import Dict, List
 
+from pandas import Series
 from pandas import read_parquet as pandas_read_parquet
 from pandera.errors import SchemaError as PanderaSchemaError
 from tokenizers import Tokenizer
@@ -40,7 +41,7 @@ def preprocess_tokens(input: str, output: str) -> str:
     """Preprocess a dataset of disassembly.
 
     Arguments:
-        input: Path to source dataset.
+        input: Path to disassembly dataset.
         output: Path where the preprocessed tokens should be written.
 
     Returns:
@@ -55,11 +56,6 @@ def preprocess_tokens(input: str, output: str) -> str:
     if not created:
         return output
 
-    tokens: Dict[str, int] = defaultdict(int)
-    immediates: Dict[str, int] = defaultdict(int)
-
-    logger.info(f"preprocessing tokens from {input!r}")
-
     frame = pandas_read_parquet(input)
 
     try:
@@ -67,6 +63,11 @@ def preprocess_tokens(input: str, output: str) -> str:
     except PanderaSchemaError as e:
         logger.error("dataset does not match the expected schema")
         raise SchemaError(str(e))
+
+    logger.info(f"preprocessing tokens from {input!r}")
+
+    tokens: Dict[str, int] = defaultdict(int)
+    immediates: Dict[str, int] = defaultdict(int)
 
     for sample in frame["disassembly"]:
         for token in sample.split():
@@ -121,6 +122,19 @@ def merge_preprocessed_tokens(inputs: List[str], output: str) -> str:
         json.dump(merged, f)
 
     return output
+
+
+def save(tokenizer: Tokenizer, path: str) -> None:
+    """Save a trained tokenizer to a file.
+
+    Arguments:
+        tokenizer: A trained tokenizer.
+        path: The path where trained tokenizer should be saved.
+    """
+
+    tokenizer.save(path)
+
+    logger.info(f"tokenizer saved to {path!r}")
 
 
 def train_tokenizer(
@@ -197,19 +211,6 @@ def train_tokenizer(
     return output
 
 
-def save(tokenizer: Tokenizer, path: str) -> None:
-    """Save a trained tokenizer to a file.
-
-    Arguments:
-        tokenizer: A trained tokenizer.
-        path: The path where trained tokenizer should be saved.
-    """
-
-    tokenizer.save(path)
-
-    logger.info(f"tokenizer saved to {path!r}")
-
-
 def load(path: str) -> Tokenizer:
     """Load a trained tokenizer from a file.
 
@@ -227,6 +228,51 @@ def load(path: str) -> Tokenizer:
     return tokenizer
 
 
+def tokenize(input: str, output: str, tokenizer: str) -> str:
+    """Tokenize a given dataset with a trained tokenizer.
+
+    Arguments:
+        input: Path to disassembly dataset.
+        output: Path where the tokenized dataset should be written.
+        tokenizer: Path to the trained tokenizer that should be used.
+
+    Returns:
+        The path to the tokenized dataset.
+    """
+
+    input = assert_path_exists(input)
+    output, created = get_or_create_file(output)
+
+    if not created:
+        return output
+
+    tok = load(tokenizer)
+
+    frame = pandas_read_parquet(input)
+
+    try:
+        DisassembledFunctionDataset.validate(frame)
+    except PanderaSchemaError as e:
+        logger.error("dataset does not match the expected schema")
+        raise SchemaError(str(e))
+
+    logger.info(f"tokenizing {input!r} to {output!r}")
+
+    def process(disassembly: str) -> Series:
+        encoding = tok.encode(disassembly)
+
+        return Series(
+            {"input_ids": encoding.ids, "attention_mask": encoding.attention_mask}
+        )
+
+    frame[["input_ids", "attention_mask"]] = frame["disassembly"].apply(process)
+    frame.to_parquet(output, schema=None)
+
+    logger.info(f"successfully tokenized {len(frame)} rows")
+
+    return output
+
+
 __all__ = [
     "TOKEN_PAD",
     "TOKEN_UNKNOWN",
@@ -237,6 +283,7 @@ __all__ = [
     "preprocess_tokens",
     "merge_preprocessed_tokens",
     "train_tokenizer",
+    "tokenize",
     "save",
     "load",
 ]

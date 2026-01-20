@@ -22,6 +22,7 @@ from undertale.model.tokenizer import load as load_tokenizer
 from undertale.model.tokenizer import (
     merge_preprocessed_tokens,
     preprocess_tokens,
+    tokenize,
     train_tokenizer,
 )
 from undertale.pipeline import Client, Cluster, fanout, flush
@@ -532,6 +533,10 @@ class TestPipelineParquet(TestCase):
         self.assertEqual(len(loaded), 15)
         self.assertEqual(len(set(loaded["id"])), 15)
 
+    def test_parquet_resize_drop_and_keep(self):
+        with self.assertRaises(ValueError):
+            resize_parquet("", "", drop=["foo"], keep=["bar"])
+
     def test_parquet_resize_drop_invalid_schema(self):
         working = TemporaryDirectory()
         dataset = self.mock_dataset(working, "dataset", size=10)
@@ -555,6 +560,32 @@ class TestPipelineParquet(TestCase):
         loaded = read_parquet(output)
 
         self.assertNotIn("foo", loaded.columns)
+
+    def test_parquet_resize_keep_invalid_schema(self):
+        working = TemporaryDirectory()
+        dataset = self.mock_dataset(working, "dataset", size=10)
+
+        with self.assertRaises(SchemaError):
+            path = join(working.name, "resized")
+            resize_parquet(dataset, path, chunks=1, keep=["foo"])
+
+    def test_parquet_resize_keep_simple(self):
+        working = TemporaryDirectory()
+
+        dataset = [{"id": i, "foo": "bar", "baz": "zaa"} for i in range(10)]
+
+        frame = DataFrame(dataset)
+        path = join(working.name, "dataset")
+        frame.to_parquet(path)
+
+        output = join(working.name, "resized")
+        resize_parquet(path, output, chunks=1, keep=["foo"])
+
+        loaded = read_parquet(output)
+
+        self.assertIn("foo", loaded.columns)
+        self.assertNotIn("id", loaded.columns)
+        self.assertNotIn("baz", loaded.columns)
 
 
 class TestPipelineCpp(TestCase):
@@ -834,6 +865,38 @@ class TestModelTokenizer(TestCase):
         encoding = tokenizer.encode("add eax 300")
 
         self.assertEqual(encoding.tokens[2], TOKEN_UNKNOWN)
+
+    def test_tokenizer_tokenize_simple(self):
+        working = TemporaryDirectory()
+
+        sources = DataFrame(
+            [
+                {
+                    "id": "1",
+                    "name": "test",
+                    "disassembly": "xor eax eax add eax eax xor eax 42",
+                }
+            ]
+        )
+
+        # Taken from the above `test_tokenizer_train_simple()`.
+        serialized_tokenizer = '{"version":"1.0","truncation":{"direction":"Right","max_length":512,"strategy":"LongestFirst","stride":0},"padding":{"strategy":{"Fixed":512},"direction":"Right","pad_to_multiple_of":null,"pad_id":0,"pad_type_id":0,"pad_token":"[PAD]"},"added_tokens":[{"id":0,"content":"[PAD]","single_word":false,"lstrip":false,"rstrip":false,"normalized":false,"special":true},{"id":1,"content":"[UNK]","single_word":false,"lstrip":false,"rstrip":false,"normalized":false,"special":true},{"id":2,"content":"[SEP]","single_word":false,"lstrip":false,"rstrip":false,"normalized":false,"special":true},{"id":3,"content":"[CLS]","single_word":false,"lstrip":false,"rstrip":false,"normalized":false,"special":true},{"id":4,"content":"[MASK]","single_word":false,"lstrip":false,"rstrip":false,"normalized":false,"special":true},{"id":5,"content":"[NEXT]","single_word":false,"lstrip":false,"rstrip":false,"normalized":false,"special":true},{"id":10,"content":"xor","single_word":false,"lstrip":false,"rstrip":false,"normalized":true,"special":false},{"id":11,"content":"add","single_word":false,"lstrip":false,"rstrip":false,"normalized":true,"special":false},{"id":12,"content":"eax","single_word":false,"lstrip":false,"rstrip":false,"normalized":true,"special":false}],"normalizer":null,"pre_tokenizer":{"type":"Whitespace"},"post_processor":null,"decoder":null,"model":{"type":"BPE","dropout":null,"unk_token":"[UNK]","continuing_subword_prefix":"__","end_of_word_suffix":null,"fuse_unk":false,"byte_fallback":false,"ignore_merges":false,"vocab":{"[PAD]":0,"[UNK]":1,"[SEP]":2,"[CLS]":3,"[MASK]":4,"[NEXT]":5,"2":6,"4":7,"__2":8,"42":9},"merges":[["4","__2"]]}}'
+
+        dataset = self.mock_dataset(sources, working, "dataset.parquet")
+
+        tokenizer = join(working.name, "tokenizer.json")
+        with open(tokenizer, "w") as f:
+            f.write(serialized_tokenizer)
+
+        path = join(working.name, "tokenized.parquet")
+        tokenize(dataset, path, tokenizer)
+
+        loaded = read_parquet(path)
+
+        tokens = loaded["input_ids"][0]
+        unpadded = tokens[tokens != tokens[-1]]
+
+        self.assertEqual(len(unpadded), len(sources["disassembly"][0].split()))
 
 
 if __name__ == "__main__":
