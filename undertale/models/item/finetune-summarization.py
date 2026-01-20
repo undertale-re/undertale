@@ -15,6 +15,9 @@ from torch.optim import AdamW
 from torch.utils.data import DataLoader, RandomSampler
 from transformers import get_linear_schedule_with_warmup
 
+from rouge_score import rouge_scorer
+from bert_score import score as bert_score
+
 from undertale.datasets.base import Dataset
 
 from ... import logging as undertale_logging
@@ -22,6 +25,7 @@ from ... import logging as undertale_logging
 # from . import tokenizer
 from .model import TransformerEncoderForSequenceSummarization
 from .summarization_dataset import CustomCollator, SummarizerDataset
+
 
 
 class ProgressBar(TQDMProgressBar):
@@ -41,7 +45,9 @@ class ValidationCallback(Callback):
         args=None,
     ):
         super().__init__()
-
+        
+        
+        self.bertscore_model_path=args.bertscore_path
         self.dataloader = dataloader
         self.save_dir = args.generated_output_paths
         self.end2end = end2end
@@ -66,6 +72,13 @@ class ValidationCallback(Callback):
         was_training = pl_module.training
         pl_module.eval()
         device = pl_module.device
+        
+        rouge = rouge_scorer.RougeScorer(["rougeL"], use_stemmer=False)
+        rouge_l_f1_sum = 0.0
+        n_samples = 0
+
+        bert_refs = []
+        bert_cands = []
 
         with torch.no_grad():
             for i, batch in enumerate(self.dataloader):
@@ -109,14 +122,50 @@ class ValidationCallback(Callback):
                     tokens[0][token_mask[0] == 1], skip_special_tokens=True
                 )
                 outputs.append([caption, text])
+                
+                rouge_score = rouge.score(caption, text)["rougeL"].fmeasure
+                rouge_l_f1_sum += rouge_score
+
+                # BERTScore (accumulate only)
+                bert_refs.append(caption)
+                bert_cands.append(text)
+
+                n_samples += 1
 
         if was_training:
             pl_module.train()
+            
+            
+        rouge_l_f1 = rouge_l_f1_sum / max(1, n_samples)
+
+        P, R, F1 = bert_score(
+            bert_cands,
+            bert_refs,
+            lang="en",
+            num_layers=24,
+            model_type=self.bertscore_model_path,
+            device=str(device),
+            verbose=False,
+        )
+        bert_f1 = F1.mean().item()
+
+        trainer.print(
+            f"[val metrics] ROUGE-L(F1)={rouge_l_f1:.4f} | "
+            f"BERTScore(F1)={bert_f1:.4f}"
+        )
 
         path = os.path.join(
             self.save_dir, f"epoch_{trainer.current_epoch}.txt"
         )
         with open(path, "w") as f:
+            
+            f.write(
+            f"ROUGE-L(F1): {rouge_l_f1:.6f}\n"
+            f"BERTScore(F1): {bert_f1:.6f}\n"
+            f"NUM_SAMPLES: {n_samples}\n"
+            "=================\n\n"
+            )
+            
             for cap, pred in outputs:
                 f.write(f"GROUND TRUTH CAPTION:\n{cap}\n\n")
                 f.write(f"PREDICTED CAPTION:\n{pred}\n\n")
@@ -312,6 +361,7 @@ if __name__ == "__main__":
         default=0.1,
         help="ratio size of test set. remaining size is train set",
     )
+    
 
     # training info
     parser.add_argument("--output", help="output model directory")
@@ -329,7 +379,7 @@ if __name__ == "__main__":
         "-a", "--accelerator", default="auto", help="accelerator to use"
     )
     parser.add_argument(
-        "-num_epochs", type=int, default=50, help="number epochs to train model"
+        "--num_epochs", type=int, default=50, help="number epochs to train model"
     )
     parser.add_argument(
         "-d",
@@ -354,8 +404,25 @@ if __name__ == "__main__":
         type=str,
         help="where to output validation examples",
     )
-
+    parser.add_argument(
+        "--bertscore_model_path",
+        type=str,
+        help="path for bert score model",
+    )
+   
     args = parser.parse_args()
+    
+    #cache_root= args.bertscore_model_path
+    
+    # os.environ["HF_HUB_CACHE"] = cache_root
+    # os.environ["TRANSFORMERS_OFFLINE"] = "1"
+    # # optional but helps with older stacks:
+    # os.environ["HF_HOME"] = cache_root
+    # os.environ["TRANSFORMERS_CACHE"] = cache_root
+    # # optional: for older huggingface_hub versions:
+    # os.environ["HUGGINGFACE_HUB_CACHE"] = cache_root
+    
+    
 
     undertale_logging.setup_logging()
 
