@@ -8,6 +8,7 @@ from pandera.errors import SchemaError as PanderaSchemaError
 from ..exceptions import EnvironmentError as LocalEnvironmentError
 from ..exceptions import SchemaError
 from ..logging import get_logger
+from ..model.tokenizer import TOKEN_NEXT
 from ..schema import BinaryDataset
 from ..utils import assert_path_exists, get_or_create_file
 
@@ -77,7 +78,7 @@ def segment_and_disassemble(row: Series) -> DataFrame:
                         # New Instruction - emit a separator.
                         case InstructionTextTokenType.AddressSeparatorToken:
                             if disassembly:
-                                disassembly.append("<NEXT>")
+                                disassembly.append(TOKEN_NEXT)
                         # Emit token verbatim.
                         #
                         # Instruction mnemonics, registers, braces (memory access).

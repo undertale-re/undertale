@@ -5,7 +5,7 @@ import os
 import subprocess
 from datetime import datetime
 from os import makedirs
-from os.path import abspath, exists, expanduser, isfile
+from os.path import abspath, exists, expanduser, isfile, splitext
 from typing import Iterable, Optional, Tuple
 
 from ..exceptions import EnvironmentError as LocalEnvironmentError
@@ -44,6 +44,32 @@ def timestamp(time: Optional[datetime] = None) -> str:
 
     time = time or datetime.now()
     return time.strftime("%Y%m%d-%H%M%S")
+
+
+def enforce_extension(path: str, extension: str) -> str:
+    """Set the file extension of the given path.
+
+    This logs a message if the file extension was changed, possibly
+    unexpectedly.
+
+    Arguments:
+        path: The path to validate.
+        extension: The extension to enforce.
+
+    Returns:
+        The modified path with the given extension applied.
+    """
+
+    base, found = splitext(path)
+    if found != extension:
+        if found != "":
+            logger.info(f"changing extension {found!r} to {extension!r} for {path!r}")
+        else:
+            logger.info(f"adding extension {extension!r} to {path!r}")
+
+        path = f"{base}{extension}"
+
+    return path
 
 
 def assert_path_exists(path: str) -> str:

@@ -17,7 +17,8 @@ dependencies = [
     "distributed",
     "pandas",
     "pandera",
-    "pyarrow"
+    "pyarrow",
+    "tokenizers"
 ]
 dynamic = ["version"]
 

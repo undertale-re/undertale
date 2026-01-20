@@ -6,6 +6,7 @@ from datetime import datetime
 from os import listdir, makedirs
 from os.path import basename, exists, isdir, isfile, join
 from tempfile import TemporaryDirectory
+from typing import Dict
 from unittest import SkipTest, TestCase
 
 from dask.dataframe import from_pandas
@@ -14,6 +15,15 @@ from utils import load_resource, main
 
 from undertale.exceptions import EnvironmentError as LocalEnvironmentError
 from undertale.exceptions import PathError, SchemaError
+from undertale.model.tokenizer import (
+    TOKEN_UNKNOWN,
+)
+from undertale.model.tokenizer import load as load_tokenizer
+from undertale.model.tokenizer import (
+    merge_preprocessed_tokens,
+    preprocess_tokens,
+    train_tokenizer,
+)
 from undertale.pipeline import Client, Cluster, fanout, flush
 from undertale.pipeline.binary import segment_and_disassemble_binary
 from undertale.pipeline.cpp import compile_cpp
@@ -22,6 +32,7 @@ from undertale.pipeline.parquet import hash_parquet_column, resize_parquet
 from undertale.pipeline.tarfile import extract_tarfile
 from undertale.utils import (
     assert_path_exists,
+    enforce_extension,
     find,
     get_or_create_directory,
     get_or_create_file,
@@ -60,7 +71,22 @@ class TestUtilitiesTimestamp(TestCase):
         self.assertEqual(stamp, "20000101-000000")
 
 
-class TestUtilitiesAsserts(TestCase):
+class TestUtilitiesPaths(TestCase):
+    def test_enforce_extension_matching(self):
+        result = enforce_extension("foo/bar.baz", ".baz")
+
+        self.assertTrue(result.endswith(".baz"))
+
+    def test_enforce_extension_nonmatching(self):
+        result = enforce_extension("foo/bar.buzz", ".baz")
+
+        self.assertTrue(result.endswith(".baz"))
+
+    def test_enforce_extension_nonexistent(self):
+        result = enforce_extension("foo/bar", ".baz")
+
+        self.assertTrue(result.endswith(".baz"))
+
     def test_assert_path_exists_existing_directory(self):
         working = TemporaryDirectory()
 
@@ -691,6 +717,123 @@ class TestPipelineBinary(TestCase):
         disassembly = filtered.get("disassembly").values[0]
 
         self.assertIn("fs + ", disassembly)
+
+
+class TestModelTokenizer(TestCase):
+    def mock_dataset(
+        self, frame: DataFrame, working: TemporaryDirectory, name: str
+    ) -> str:
+        path = join(working.name, name)
+        frame.to_parquet(path)
+
+        return path
+
+    def mock_preprocessed(
+        self, preprocessed: Dict, working: TemporaryDirectory, name: str
+    ) -> str:
+        path = join(working.name, name)
+
+        with open(path, "w") as f:
+            json.dump(preprocessed, f)
+
+        return path
+
+    def test_tokenizer_preprocess_simple(self):
+        working = TemporaryDirectory()
+
+        sources = DataFrame(
+            [
+                {
+                    "id": "1",
+                    "name": "test",
+                    "disassembly": "xor eax eax [NEXT] add eax ebx [NEXT] sub eax 42",
+                }
+            ]
+        )
+        dataset = self.mock_dataset(sources, working, "dataset.parquet")
+
+        path = join(working.name, "preprocessed.json")
+        preprocess_tokens(dataset, path)
+
+        with open(path, "r") as f:
+            loaded = json.load(f)
+
+        self.assertIn("xor", loaded["tokens"])
+        self.assertIn("add", loaded["tokens"])
+        self.assertIn("sub", loaded["tokens"])
+        self.assertIn("eax", loaded["tokens"])
+        self.assertIn("ebx", loaded["tokens"])
+
+        self.assertEqual(loaded["tokens"]["eax"], 4)
+
+        self.assertIn("42", loaded["immediates"])
+
+    def test_tokenizer_merge_preprocessed_simple(self):
+        working = TemporaryDirectory()
+
+        first = {"tokens": {"xor": 1, "eax": 2}, "immediates": {"42": 1}}
+        second = {"tokens": {"add": 1, "eax": 1, "ebx": 3}, "immediates": {"1337": 1}}
+
+        first = self.mock_preprocessed(first, working, "first.json")
+        second = self.mock_preprocessed(second, working, "second.json")
+
+        path = join(working.name, "merged.json")
+        merge_preprocessed_tokens([first, second], path)
+
+        with open(path, "r") as f:
+            loaded = json.load(f)
+
+        self.assertIn("xor", loaded["tokens"])
+        self.assertIn("add", loaded["tokens"])
+        self.assertIn("eax", loaded["tokens"])
+        self.assertIn("ebx", loaded["tokens"])
+
+        self.assertEqual(loaded["tokens"]["xor"], 1)
+        self.assertEqual(loaded["tokens"]["eax"], 3)
+        self.assertEqual(loaded["tokens"]["ebx"], 3)
+
+        self.assertIn("42", loaded["immediates"])
+        self.assertIn("1337", loaded["immediates"])
+
+        self.assertEqual(loaded["immediates"]["42"], 1)
+        self.assertEqual(loaded["immediates"]["1337"], 1)
+
+    def test_tokenizer_train_simple(self):
+        working = TemporaryDirectory()
+
+        preprocessed = {
+            "tokens": {
+                "xor": 1,
+                "add": 1,
+                "eax": 3,
+            },
+            "immediates": {"42": 1},
+        }
+
+        preprocessed = self.mock_preprocessed(
+            preprocessed, working, "preprocessed.json"
+        )
+
+        path = join(working.name, "tokenizer.json")
+        train_tokenizer(preprocessed, path, silent=True)
+
+        tokenizer = load_tokenizer(path)
+
+        encoding = tokenizer.encode("xor eax eax")
+
+        self.assertEqual(encoding.tokens[0], "xor")
+        self.assertEqual(encoding.tokens[1], "eax")
+        self.assertEqual(encoding.tokens[2], "eax")
+
+        encoding = tokenizer.encode("add eax 42")
+
+        self.assertEqual(encoding.tokens[0], "add")
+        self.assertEqual(encoding.tokens[1], "eax")
+        self.assertEqual(encoding.tokens[2], "42")
+
+        encoding = tokenizer.encode("add eax 300")
+
+        self.assertEqual(encoding.tokens[2], TOKEN_UNKNOWN)
 
 
 if __name__ == "__main__":

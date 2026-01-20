@@ -40,7 +40,7 @@ class BinaryDatasetWithSource(BinaryDataset, SourceDataset):
     """Binaries with source code."""
 
 
-class FunctionDataset(BinaryDataset):
+class FunctionDataset(Dataset):
     """Individual functions."""
 
     name: Series[str]
