@@ -9,7 +9,12 @@ from pandas import read_parquet as pandas_read_parquet
 
 from ..exceptions import SchemaError
 from ..logging import get_logger
-from ..utils import assert_path_exists, get_or_create_directory, hash
+from ..utils import (
+    assert_path_exists,
+    get_or_create_directory,
+    get_or_create_file,
+    hash,
+)
 
 logger = get_logger(__name__)
 
@@ -28,6 +33,10 @@ def hash_parquet_column(input: str, output: str, column: str, target: str) -> st
     """
 
     input = assert_path_exists(input)
+    output, created = get_or_create_file(output)
+
+    if not created:
+        return output
 
     logger.info(f"hashing column {column} in {input!r} to {output!r}")
 
