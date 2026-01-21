@@ -18,12 +18,12 @@ For example, to build the HumanEval-X dataset from the raw dataset snapshot at
 .. code-block:: bash
 
     # Parse the HumanEval-X dataset.
-    python pipelines/dataset-humaneval-x.py \
+    python pipelines/datasets/humaneval-x.py \
         humaneval-x-raw/20251114-100300.tgz \
         humaneval-x
 
     # Parse the HumanEval-X dataset with 8 parallel processes.
-    python pipelines/dataset-humaneval-x.py \
+    python pipelines/datasets/humaneval-x.py \
         humaneval-x-raw/20251114-100300.tgz \
         humaneval-x \
         --parallelism 8

@@ -1,5 +1,5 @@
 from undertale.logging import get_logger
-from undertale.model.tokenizer import tokenize
+from undertale.models.tokenizer import tokenize
 from undertale.parsers import PipelineArgumentParser
 from undertale.pipeline import Client, Cluster, fanout, flush
 from undertale.pipeline.parquet import resize_parquet

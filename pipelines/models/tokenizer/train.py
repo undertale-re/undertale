@@ -1,5 +1,5 @@
 from undertale.logging import get_logger
-from undertale.model.tokenizer import (
+from undertale.models.tokenizer import (
     merge_preprocessed_tokens,
     preprocess_tokens,
     train_tokenizer,

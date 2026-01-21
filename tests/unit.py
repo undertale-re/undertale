@@ -15,11 +15,11 @@ from utils import load_resource, main
 
 from undertale.exceptions import EnvironmentError as LocalEnvironmentError
 from undertale.exceptions import PathError, SchemaError
-from undertale.model.tokenizer import (
+from undertale.models.tokenizer import (
     TOKEN_UNKNOWN,
 )
-from undertale.model.tokenizer import load as load_tokenizer
-from undertale.model.tokenizer import (
+from undertale.models.tokenizer import load as load_tokenizer
+from undertale.models.tokenizer import (
     merge_preprocessed_tokens,
     preprocess_tokens,
     tokenize,

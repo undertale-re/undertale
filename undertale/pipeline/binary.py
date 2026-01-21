@@ -8,7 +8,7 @@ from pandera.errors import SchemaError as PanderaSchemaError
 from ..exceptions import EnvironmentError as LocalEnvironmentError
 from ..exceptions import SchemaError
 from ..logging import get_logger
-from ..model.tokenizer import TOKEN_NEXT
+from ..models.tokenizer import TOKEN_NEXT
 from ..schema import BinaryDataset
 from ..utils import assert_path_exists, get_or_create_file
 

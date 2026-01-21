@@ -11,12 +11,12 @@ pipeline script:
 .. code-block:: bash
 
     # Train a tokenizer on the HumanEval-X dataset.
-    python pipelines/model-tokenizer-train.py \
+    python pipelines/models/tokenizer/train.py \
         humaneval-x/ \
         tokenizer
 
     # Train a tokenizer on the HumanEval-X dataset in parallel.
-    python pipelines/model-tokenizer-train.py \
+    python pipelines/models/tokenizer/train.py \
         humaneval-x/ \
         tokenizer \
         --parallelism 8
@@ -32,7 +32,7 @@ for pre-training.
     # Tokenize the HumanEval-X dataset.
     #
     # Only retain the minimal fields necessary for pre-training.
-    python pipelines/model-tokenizer-tokenize.py \
+    python pipelines/models/tokenizer/tokenize-dataset.py \
         humaneval-x/ \
         humaneval-x-pretraining \
         --tokenizer tokenizer.json \
@@ -41,7 +41,7 @@ for pre-training.
     # Tokenize the HumanEval-X dataset in parallel.
     #
     # Retain all fields this time, as an example.
-    python pipelines/model-tokenizer-tokenize.py \
+    python pipelines/models/tokenizer/tokenize-dataset.py \
         humaneval-x/ \
         humaneval-x-tokenized \
         --tokenizer tokenizer.json \
