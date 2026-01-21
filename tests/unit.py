@@ -667,6 +667,8 @@ class TestPipelineBinary(TestCase):
         cls.simple_binary_arm_macho = load_resource("binaries/42.arm.macho")
         cls.canary_source = load_resource("source/canary/canary.c").decode()
         cls.canary_binary_x86_64_elf = load_resource("binaries/canary.x86_64.elf")
+        cls.tword_source = load_resource("source/tword/tword.c").decode()
+        cls.tword_binary_x86_64_elf = load_resource("binaries/tword.x86_64.elf")
 
     def test_binary_segment_and_disassemble_simple_x86_64_elf(self):
         working = TemporaryDirectory()
@@ -748,6 +750,33 @@ class TestPipelineBinary(TestCase):
         disassembly = filtered.get("disassembly").values[0]
 
         self.assertIn("fs + ", disassembly)
+
+    def test_binary_segment_and_disassemble_tword_x86_64_elf(self):
+        working = TemporaryDirectory()
+
+        sources = DataFrame(
+            [
+                {
+                    "id": "1",
+                    "source": self.tword_source,
+                    "binary": self.tword_binary_x86_64_elf,
+                }
+            ]
+        )
+        dataset = self.mock_dataset(sources, working, "dataset.parquet")
+
+        path = join(working.name, "disassembled.parquet")
+        segment_and_disassemble_binary(dataset, path)
+
+        loaded = read_parquet(path)
+
+        filtered = loaded[loaded["name"] == "main"]
+
+        self.assertEqual(len(filtered), 1)
+
+        disassembly = filtered.get("disassembly").values[0]
+
+        self.assertIn("tword", disassembly)
 
 
 class TestModelTokenizer(TestCase):

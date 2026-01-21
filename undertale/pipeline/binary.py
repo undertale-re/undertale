@@ -111,7 +111,14 @@ def segment_and_disassemble(row: Series) -> DataFrame:
                         case InstructionTextTokenType.KeywordToken:
                             text = token.text.strip()
                             match text:
-                                case "byte" | "word" | "dword" | "qword" | "xmmword":
+                                case (
+                                    "byte"
+                                    | "word"
+                                    | "dword"
+                                    | "qword"
+                                    | "tword"
+                                    | "xmmword"
+                                ):
                                     disassembly.append(text)
                                 # Instruction pointer relative address.
                                 case "rel":
