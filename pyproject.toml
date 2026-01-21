@@ -17,6 +17,7 @@ dependencies = [
     "distributed",
     "pandas",
     "pandera",
+    "polars",
     "pyarrow",
     "tokenizers"
 ]

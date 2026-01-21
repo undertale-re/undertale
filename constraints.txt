@@ -134,6 +134,10 @@ platformdirs==4.5.1
     # via
     #   black
     #   virtualenv
+polars==1.37.1
+    # via undertale (pyproject.toml)
+polars-runtime-32==1.37.1
+    # via polars
 pre-commit==4.5.0
     # via undertale (pyproject.toml)
 psutil==7.1.3
