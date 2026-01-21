@@ -4,12 +4,53 @@ from os import listdir
 from os.path import join
 from typing import List, Optional
 
-from dask.dataframe import read_parquet
+from dask.dataframe import read_parquet as dask_read_parquet
+from pandas import read_parquet as pandas_read_parquet
 
+from ..exceptions import SchemaError
 from ..logging import get_logger
-from ..utils import assert_path_exists, get_or_create_directory
+from ..utils import (
+    assert_path_exists,
+    get_or_create_directory,
+    get_or_create_file,
+    hash,
+)
 
 logger = get_logger(__name__)
+
+
+def hash_parquet_column(input: str, output: str, column: str, target: str) -> str:
+    """Hashes a dataset column.
+
+    Arguments:
+        input: Path to source dataset.
+        output: Path where the hashed dataset should be written.
+        column: Name of the column to hash.
+        target: Name of the hash column to create.
+
+    Returns:
+        The path to the generated parquet file.
+    """
+
+    input = assert_path_exists(input)
+    output, created = get_or_create_file(output)
+
+    if not created:
+        return output
+
+    frame = pandas_read_parquet(input)
+
+    if column not in frame.columns:
+        raise SchemaError(f"dataset doesn't include the column {column}")
+
+    logger.info(f"hashing column {column} in {input!r} to {output!r}")
+
+    frame[target] = frame[column].apply(hash)
+    frame.to_parquet(output, schema=None)
+
+    logger.info(f"successfully hashed {len(frame)} rows")
+
+    return output
 
 
 def resize_parquet(
@@ -17,6 +58,9 @@ def resize_parquet(
     output: str,
     chunks: Optional[int] = None,
     size: Optional[int | str] = None,
+    deduplicate: Optional[List[str]] = None,
+    drop: Optional[List[str]] = None,
+    keep: Optional[List[str]] = None,
 ) -> List[str]:
     """Resize a parquet dataset.
 
@@ -24,6 +68,8 @@ def resize_parquet(
     datasets using Dask.
 
     Exactly one of ``chunks`` or ``size`` must be specified.
+
+    Only one of ``drop`` or ``keep`` may be specified.
 
     Note:
         The number of chunks is guaranteed but the number of rows per chunk may
@@ -38,6 +84,10 @@ def resize_parquet(
         chunks: Number of chunk files to generate.
         size: The maximum chunk size in bytes or string representation (e.g.,
             "25MB")
+        deduplicate: If provided, deduplicate the dataset by the given list of
+            column names (unique together).
+        drop: If provided, drop the given column names.
+        keep: If provided, only keep the given column names.
 
     Returns:
         A list of paths to the generated files.
@@ -51,6 +101,9 @@ def resize_parquet(
     if chunks is not None and size is not None:
         raise ValueError("only one of `chunks` or `size` may be specified")
 
+    if drop is not None and keep is not None:
+        raise ValueError("only one of `drop` or `keep` may be specified")
+
     if isinstance(input, str):
         input = assert_path_exists(input)
     else:
@@ -59,13 +112,43 @@ def resize_parquet(
     output, created = get_or_create_directory(output)
 
     if created:
-        logger.info(f"resizing {input!r} to {output!r} (chunks={chunks})")
+        frame = dask_read_parquet(input)
 
-        frame = read_parquet(input)
+        if deduplicate:
+            logger.info(f"deduplicating dataset by column(s): {', '.join(deduplicate)}")
+
+            for column in deduplicate:
+                if column not in frame.columns:
+                    raise SchemaError(f"dataset does not include the column {column!r}")
+
+            frame = frame.drop_duplicates(subset=deduplicate, keep="first")
+
+        if drop:
+            logger.info(f"dropping dataset column(s): {', '.join(drop)}")
+
+            for column in drop:
+                if column not in frame.columns:
+                    raise SchemaError(f"dataset does not include the column {column!r}")
+
+            frame = frame.drop(columns=drop)
+        elif keep:
+            logger.info(f"keeping only dataset column(s): {', '.join(keep)}")
+
+            for column in keep:
+                if column not in frame.columns:
+                    raise SchemaError(f"dataset does not include the column {column!r}")
+
+            frame = frame[keep]
+
+        logger.info(f"resizing dataset to (chunks={chunks}, size={size})")
+
         frame = frame.repartition(npartitions=chunks, partition_size=size)
+
+        logger.info(f"writing dataset to {output!r}")
+
         frame.to_parquet(output, write_index=False, schema=None)
 
     return [join(output, f) for f in listdir(output)]
 
 
-__all__ = ["resize_parquet"]
+__all__ = ["hash_parquet_column", "resize_parquet"]

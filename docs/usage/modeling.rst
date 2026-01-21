@@ -1,20 +1,51 @@
 Modeling
 --------
 
-Pretoken Processing
-^^^^^^^^^^^^^^^^^^^
-
-Coming soon...
-
 Tokenizer Training
 ^^^^^^^^^^^^^^^^^^
 
-Coming soon...
+The first step in training any of our models is to train a tokenizer. To train
+a tokenizer on e.g., the HumanEval-X dataset, run the tokenizer training
+pipeline script:
+
+.. code-block:: bash
+
+    # Train a tokenizer on the HumanEval-X dataset.
+    python pipelines/models/tokenizer/train.py \
+        humaneval-x/ \
+        tokenizer
+
+    # Train a tokenizer on the HumanEval-X dataset in parallel.
+    python pipelines/models/tokenizer/train.py \
+        humaneval-x/ \
+        tokenizer \
+        --parallelism 8
 
 Tokenization
 ^^^^^^^^^^^^
 
-Coming soon...
+With your trained tokenizer you can now tokenize an entire dataset to prepare
+for pre-training.
+
+.. code-block:: bash
+
+    # Tokenize the HumanEval-X dataset.
+    #
+    # Only retain the minimal fields necessary for pre-training.
+    python pipelines/models/tokenizer/tokenize-dataset.py \
+        humaneval-x/ \
+        humaneval-x-pretraining \
+        --tokenizer tokenizer.json \
+        --minimal
+
+    # Tokenize the HumanEval-X dataset in parallel.
+    #
+    # Retain all fields this time, as an example.
+    python pipelines/models/tokenizer/tokenize-dataset.py \
+        humaneval-x/ \
+        humaneval-x-tokenized \
+        --tokenizer tokenizer.json \
+        --parallelism 8
 
 Pre-Training (Maked Language Modeling)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

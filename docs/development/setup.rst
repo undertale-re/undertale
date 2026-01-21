@@ -90,6 +90,11 @@ installation path. For example:
     # MacOS
     /Applications/Binary\ Ninja.app/Contents/Resources/scripts/install_api.py
 
+
+.. important:: The version of the Binary Ninja API bindings you install must
+    match your license (Commercial, Ultimate, etc.).
+    
+
 Run this script with the same Python environment where Undertale is installed
 to set up Binary Ninja's Python API bindings.
 

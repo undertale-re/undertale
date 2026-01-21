@@ -1,10 +1,12 @@
 import json
+import logging
 import os
 import tarfile
 from datetime import datetime
 from os import listdir, makedirs
 from os.path import basename, exists, isdir, isfile, join
 from tempfile import TemporaryDirectory
+from typing import Dict
 from unittest import SkipTest, TestCase
 
 from dask.dataframe import from_pandas
@@ -13,14 +15,25 @@ from utils import load_resource, main
 
 from undertale.exceptions import EnvironmentError as LocalEnvironmentError
 from undertale.exceptions import PathError, SchemaError
-from undertale.pipeline import Cluster
+from undertale.models.tokenizer import (
+    TOKEN_UNKNOWN,
+)
+from undertale.models.tokenizer import load as load_tokenizer
+from undertale.models.tokenizer import (
+    merge_preprocessed_tokens,
+    preprocess_tokens,
+    tokenize,
+    train_tokenizer,
+)
+from undertale.pipeline import Client, Cluster, fanout, flush
 from undertale.pipeline.binary import segment_and_disassemble_binary
 from undertale.pipeline.cpp import compile_cpp
 from undertale.pipeline.json import merge_json
-from undertale.pipeline.parquet import resize_parquet
+from undertale.pipeline.parquet import hash_parquet_column, resize_parquet
 from undertale.pipeline.tarfile import extract_tarfile
 from undertale.utils import (
     assert_path_exists,
+    enforce_extension,
     find,
     get_or_create_directory,
     get_or_create_file,
@@ -59,7 +72,22 @@ class TestUtilitiesTimestamp(TestCase):
         self.assertEqual(stamp, "20000101-000000")
 
 
-class TestUtilitiesAsserts(TestCase):
+class TestUtilitiesPaths(TestCase):
+    def test_enforce_extension_matching(self):
+        result = enforce_extension("foo/bar.baz", ".baz")
+
+        self.assertTrue(result.endswith(".baz"))
+
+    def test_enforce_extension_nonmatching(self):
+        result = enforce_extension("foo/bar.buzz", ".baz")
+
+        self.assertTrue(result.endswith(".baz"))
+
+    def test_enforce_extension_nonexistent(self):
+        result = enforce_extension("foo/bar", ".baz")
+
+        self.assertTrue(result.endswith(".baz"))
+
     def test_assert_path_exists_existing_directory(self):
         working = TemporaryDirectory()
 
@@ -171,6 +199,34 @@ class TestPipelineDask(TestCase):
     def test_cluster_unsupported_type(self):
         with self.assertRaises(ValueError):
             Cluster("foo")
+
+    def test_fanout_error_no_side_effects(self):
+        working = TemporaryDirectory()
+
+        def silence_logging():
+            logging.getLogger("distributed").setLevel(logging.CRITICAL)
+
+        class Expected(Exception):
+            pass
+
+        def generate():
+            raise Expected()
+
+        output = join(working.name, "output")
+
+        try:
+            with Cluster(type="local") as cluster, Client(cluster) as client:
+                client.run(silence_logging)
+
+                generated = client.submit(generate)
+                result = fanout(client, lambda x: x, generated, output)
+
+                result.result()
+                flush(client)
+        except Expected:
+            pass
+
+        self.assertFalse(exists(output))
 
 
 class TestPipelineJSON(TestCase):
@@ -330,6 +386,30 @@ class TestPipelineParquet(TestCase):
 
         return path
 
+    def test_parquet_hash_column_invalid_schema(self):
+        working = TemporaryDirectory()
+        dataset = self.mock_dataset(working, "dataset", size=10)
+
+        with self.assertRaises(SchemaError):
+            hash_parquet_column(dataset, join(working.name, "hashed"), "mordor", "hash")
+
+    def test_parquet_hash_column_simple(self):
+        working = TemporaryDirectory()
+
+        data = b"\xde\xad\xbe\xef"
+        dataset = [{"id": i, "data": data} for i in range(10)]
+
+        frame = DataFrame(dataset)
+        path = join(working.name, "dataset")
+        frame.to_parquet(path)
+
+        hashed = hash_parquet_column(path, join(working.name, "hashed"), "data", "hash")
+
+        loaded = read_parquet(hashed)
+
+        self.assertIn("hash", loaded.columns)
+        self.assertEqual(loaded["hash"][0], hash(data))
+
     def test_parquet_resize_chunks_and_size(self):
         with self.assertRaises(ValueError):
             resize_parquet("", "", chunks=10, size=10)
@@ -418,6 +498,95 @@ class TestPipelineParquet(TestCase):
 
         self.assertEqual(len(loaded), 100)
 
+    def test_parquet_resize_deduplicate_invalid_schema(self):
+        working = TemporaryDirectory()
+        dataset = self.mock_dataset(working, "dataset", size=10)
+
+        with self.assertRaises(SchemaError):
+            path = join(working.name, "resized")
+            resize_parquet(dataset, path, chunks=1, deduplicate=["foo"])
+
+    def test_parquet_resize_deduplicate_simple(self):
+        working = TemporaryDirectory()
+
+        dataset = [{"id": i} for i in range(10)]
+        dataset += [
+            {"id": 1337},
+            {"id": 1337},
+            {"id": 1337},
+            {"id": 1338},
+            {"id": 301},
+            {"id": 302},
+            {"id": 303},
+            {"id": 1338},
+        ]
+
+        frame = DataFrame(dataset)
+        path = join(working.name, "dataset")
+        frame.to_parquet(path)
+
+        output = join(working.name, "resized")
+        resize_parquet(path, output, chunks=1, deduplicate=["id"])
+
+        loaded = read_parquet(output)
+
+        self.assertEqual(len(loaded), 15)
+        self.assertEqual(len(set(loaded["id"])), 15)
+
+    def test_parquet_resize_drop_and_keep(self):
+        with self.assertRaises(ValueError):
+            resize_parquet("", "", drop=["foo"], keep=["bar"])
+
+    def test_parquet_resize_drop_invalid_schema(self):
+        working = TemporaryDirectory()
+        dataset = self.mock_dataset(working, "dataset", size=10)
+
+        with self.assertRaises(SchemaError):
+            path = join(working.name, "resized")
+            resize_parquet(dataset, path, chunks=1, drop=["foo"])
+
+    def test_parquet_resize_drop_simple(self):
+        working = TemporaryDirectory()
+
+        dataset = [{"id": i, "foo": "bar"} for i in range(10)]
+
+        frame = DataFrame(dataset)
+        path = join(working.name, "dataset")
+        frame.to_parquet(path)
+
+        output = join(working.name, "resized")
+        resize_parquet(path, output, chunks=1, drop=["foo"])
+
+        loaded = read_parquet(output)
+
+        self.assertNotIn("foo", loaded.columns)
+
+    def test_parquet_resize_keep_invalid_schema(self):
+        working = TemporaryDirectory()
+        dataset = self.mock_dataset(working, "dataset", size=10)
+
+        with self.assertRaises(SchemaError):
+            path = join(working.name, "resized")
+            resize_parquet(dataset, path, chunks=1, keep=["foo"])
+
+    def test_parquet_resize_keep_simple(self):
+        working = TemporaryDirectory()
+
+        dataset = [{"id": i, "foo": "bar", "baz": "zaa"} for i in range(10)]
+
+        frame = DataFrame(dataset)
+        path = join(working.name, "dataset")
+        frame.to_parquet(path)
+
+        output = join(working.name, "resized")
+        resize_parquet(path, output, chunks=1, keep=["foo"])
+
+        loaded = read_parquet(output)
+
+        self.assertIn("foo", loaded.columns)
+        self.assertNotIn("id", loaded.columns)
+        self.assertNotIn("baz", loaded.columns)
+
 
 class TestPipelineCpp(TestCase):
     @staticmethod
@@ -498,6 +667,8 @@ class TestPipelineBinary(TestCase):
         cls.simple_binary_arm_macho = load_resource("binaries/42.arm.macho")
         cls.canary_source = load_resource("source/canary/canary.c").decode()
         cls.canary_binary_x86_64_elf = load_resource("binaries/canary.x86_64.elf")
+        cls.tword_source = load_resource("source/tword/tword.c").decode()
+        cls.tword_binary_x86_64_elf = load_resource("binaries/tword.x86_64.elf")
 
     def test_binary_segment_and_disassemble_simple_x86_64_elf(self):
         working = TemporaryDirectory()
@@ -579,6 +750,182 @@ class TestPipelineBinary(TestCase):
         disassembly = filtered.get("disassembly").values[0]
 
         self.assertIn("fs + ", disassembly)
+
+    def test_binary_segment_and_disassemble_tword_x86_64_elf(self):
+        working = TemporaryDirectory()
+
+        sources = DataFrame(
+            [
+                {
+                    "id": "1",
+                    "source": self.tword_source,
+                    "binary": self.tword_binary_x86_64_elf,
+                }
+            ]
+        )
+        dataset = self.mock_dataset(sources, working, "dataset.parquet")
+
+        path = join(working.name, "disassembled.parquet")
+        segment_and_disassemble_binary(dataset, path)
+
+        loaded = read_parquet(path)
+
+        filtered = loaded[loaded["name"] == "main"]
+
+        self.assertEqual(len(filtered), 1)
+
+        disassembly = filtered.get("disassembly").values[0]
+
+        self.assertIn("tword", disassembly)
+
+
+class TestModelTokenizer(TestCase):
+    def mock_dataset(
+        self, frame: DataFrame, working: TemporaryDirectory, name: str
+    ) -> str:
+        path = join(working.name, name)
+        frame.to_parquet(path)
+
+        return path
+
+    def mock_preprocessed(
+        self, preprocessed: Dict, working: TemporaryDirectory, name: str
+    ) -> str:
+        path = join(working.name, name)
+
+        with open(path, "w") as f:
+            json.dump(preprocessed, f)
+
+        return path
+
+    def test_tokenizer_preprocess_simple(self):
+        working = TemporaryDirectory()
+
+        sources = DataFrame(
+            [
+                {
+                    "id": "1",
+                    "name": "test",
+                    "disassembly": "xor eax eax [NEXT] add eax ebx [NEXT] sub eax 42",
+                }
+            ]
+        )
+        dataset = self.mock_dataset(sources, working, "dataset.parquet")
+
+        path = join(working.name, "preprocessed.json")
+        preprocess_tokens(dataset, path)
+
+        with open(path, "r") as f:
+            loaded = json.load(f)
+
+        self.assertIn("xor", loaded["tokens"])
+        self.assertIn("add", loaded["tokens"])
+        self.assertIn("sub", loaded["tokens"])
+        self.assertIn("eax", loaded["tokens"])
+        self.assertIn("ebx", loaded["tokens"])
+
+        self.assertEqual(loaded["tokens"]["eax"], 4)
+
+        self.assertIn("42", loaded["immediates"])
+
+    def test_tokenizer_merge_preprocessed_simple(self):
+        working = TemporaryDirectory()
+
+        first = {"tokens": {"xor": 1, "eax": 2}, "immediates": {"42": 1}}
+        second = {"tokens": {"add": 1, "eax": 1, "ebx": 3}, "immediates": {"1337": 1}}
+
+        first = self.mock_preprocessed(first, working, "first.json")
+        second = self.mock_preprocessed(second, working, "second.json")
+
+        path = join(working.name, "merged.json")
+        merge_preprocessed_tokens([first, second], path)
+
+        with open(path, "r") as f:
+            loaded = json.load(f)
+
+        self.assertIn("xor", loaded["tokens"])
+        self.assertIn("add", loaded["tokens"])
+        self.assertIn("eax", loaded["tokens"])
+        self.assertIn("ebx", loaded["tokens"])
+
+        self.assertEqual(loaded["tokens"]["xor"], 1)
+        self.assertEqual(loaded["tokens"]["eax"], 3)
+        self.assertEqual(loaded["tokens"]["ebx"], 3)
+
+        self.assertIn("42", loaded["immediates"])
+        self.assertIn("1337", loaded["immediates"])
+
+        self.assertEqual(loaded["immediates"]["42"], 1)
+        self.assertEqual(loaded["immediates"]["1337"], 1)
+
+    def test_tokenizer_train_simple(self):
+        working = TemporaryDirectory()
+
+        preprocessed = {
+            "tokens": {
+                "xor": 1,
+                "add": 1,
+                "eax": 3,
+            },
+            "immediates": {"42": 1},
+        }
+
+        preprocessed = self.mock_preprocessed(
+            preprocessed, working, "preprocessed.json"
+        )
+
+        path = join(working.name, "tokenizer.json")
+        train_tokenizer(preprocessed, path, silent=True)
+
+        tokenizer = load_tokenizer(path)
+
+        encoding = tokenizer.encode("xor eax eax")
+
+        self.assertEqual(encoding.tokens[0], "xor")
+        self.assertEqual(encoding.tokens[1], "eax")
+        self.assertEqual(encoding.tokens[2], "eax")
+
+        encoding = tokenizer.encode("add eax 42")
+
+        self.assertEqual(encoding.tokens[0], "add")
+        self.assertEqual(encoding.tokens[1], "eax")
+        self.assertEqual(encoding.tokens[2], "42")
+
+        encoding = tokenizer.encode("add eax 300")
+
+        self.assertEqual(encoding.tokens[2], TOKEN_UNKNOWN)
+
+    def test_tokenizer_tokenize_simple(self):
+        working = TemporaryDirectory()
+
+        sources = DataFrame(
+            [
+                {
+                    "id": "1",
+                    "name": "test",
+                    "disassembly": "xor eax eax add eax eax xor eax 42",
+                }
+            ]
+        )
+
+        # Taken from the above `test_tokenizer_train_simple()`.
+        serialized_tokenizer = '{"version":"1.0","truncation":{"direction":"Right","max_length":512,"strategy":"LongestFirst","stride":0},"padding":{"strategy":{"Fixed":512},"direction":"Right","pad_to_multiple_of":null,"pad_id":0,"pad_type_id":0,"pad_token":"[PAD]"},"added_tokens":[{"id":0,"content":"[PAD]","single_word":false,"lstrip":false,"rstrip":false,"normalized":false,"special":true},{"id":1,"content":"[UNK]","single_word":false,"lstrip":false,"rstrip":false,"normalized":false,"special":true},{"id":2,"content":"[SEP]","single_word":false,"lstrip":false,"rstrip":false,"normalized":false,"special":true},{"id":3,"content":"[CLS]","single_word":false,"lstrip":false,"rstrip":false,"normalized":false,"special":true},{"id":4,"content":"[MASK]","single_word":false,"lstrip":false,"rstrip":false,"normalized":false,"special":true},{"id":5,"content":"[NEXT]","single_word":false,"lstrip":false,"rstrip":false,"normalized":false,"special":true},{"id":10,"content":"xor","single_word":false,"lstrip":false,"rstrip":false,"normalized":true,"special":false},{"id":11,"content":"add","single_word":false,"lstrip":false,"rstrip":false,"normalized":true,"special":false},{"id":12,"content":"eax","single_word":false,"lstrip":false,"rstrip":false,"normalized":true,"special":false}],"normalizer":null,"pre_tokenizer":{"type":"Whitespace"},"post_processor":null,"decoder":null,"model":{"type":"BPE","dropout":null,"unk_token":"[UNK]","continuing_subword_prefix":"__","end_of_word_suffix":null,"fuse_unk":false,"byte_fallback":false,"ignore_merges":false,"vocab":{"[PAD]":0,"[UNK]":1,"[SEP]":2,"[CLS]":3,"[MASK]":4,"[NEXT]":5,"2":6,"4":7,"__2":8,"42":9},"merges":[["4","__2"]]}}'
+
+        dataset = self.mock_dataset(sources, working, "dataset.parquet")
+
+        tokenizer = join(working.name, "tokenizer.json")
+        with open(tokenizer, "w") as f:
+            f.write(serialized_tokenizer)
+
+        path = join(working.name, "tokenized.parquet")
+        tokenize(dataset, path, tokenizer)
+
+        loaded = read_parquet(path)
+
+        tokens = loaded["input_ids"][0]
+        unpadded = tokens[tokens != tokens[-1]]
+
+        self.assertEqual(len(unpadded), len(sources["disassembly"][0].split()))
 
 
 if __name__ == "__main__":

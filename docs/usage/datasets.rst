@@ -17,17 +17,16 @@ For example, to build the HumanEval-X dataset from the raw dataset snapshot at
 
 .. code-block:: bash
 
-    # Parse the HumanEvalX dataset.
-    python pipelines/dataset-humaneval-x.py \
+    # Parse the HumanEval-X dataset.
+    python pipelines/datasets/humaneval-x.py \
         humaneval-x-raw/20251114-100300.tgz \
         humaneval-x
 
-    # Parse the HumanEvalX dataset with 8 parallel processes.
-    python pipelines/dataset-humaneval-x.py \
+    # Parse the HumanEval-X dataset with 8 parallel processes.
+    python pipelines/datasets/humaneval-x.py \
         humaneval-x-raw/20251114-100300.tgz \
         humaneval-x \
         --parallelism 8
-
 
 Explore a Dataset with a Shell
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -41,6 +40,22 @@ To load a dataset into a Python shell, run:
     # Load the HumanEval-X dataset into a shell.
     python -m undertale.utils.datasets.shell humaneval-x/
 
+Large Datasets
+""""""""""""""
+
+The ``undertale.utils.dataset.shell`` utility uses ``pandas`` to load the
+dataset - this requires the entire dataset to be loaded into memory. If you're
+working with a larger-than-memory dataset, you can use the ``polars`` shell
+instead to get a ``LazyFrame`` (see the `Polars Documentation
+<https://docs.pola.rs/api/python/stable/reference/lazyframe/index.html>`_ for
+more details):
+
+.. code-block:: bash
+
+    python -m undertale.utils.datasets.shell.polars {path}
+
+    # Load the HumanEval-X dataset into a polars.LazyFrame.
+    python -m undertale.utils.datasets.shell.polars humaneval-x/
 
 Use a Dataset in a Script
 ^^^^^^^^^^^^^^^^^^^^^^^^^
