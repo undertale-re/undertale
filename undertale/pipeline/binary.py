@@ -129,6 +129,8 @@ def segment_and_disassemble(row: Series) -> DataFrame:
                                     | "qword"
                                     | "tword"
                                     | "xmmword"
+                                    | "ymmword"
+                                    | "zmmword"
                                 ):
                                     disassembly.append(text)
                                 # Instruction pointer relative address.
@@ -178,6 +180,7 @@ def segment_and_disassemble(row: Series) -> DataFrame:
                             | InstructionTextTokenType.BeginMemoryOperandToken
                             | InstructionTextTokenType.EndMemoryOperandToken
                             | InstructionTextTokenType.TagToken
+                            | InstructionTextTokenType.GotoLabelToken
                         ):
                             pass
                         # Annotation token.
