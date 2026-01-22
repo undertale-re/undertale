@@ -2,7 +2,8 @@ PROJECTS := \
 	42 \
 	hello \
     canary \
-    tword
+    tword \
+    data
 
 BUILD := build
 

@@ -23,6 +23,13 @@ def segment_and_disassemble(row: Series) -> DataFrame:
 
     view = binaryninja.load(source=row["binary"])
 
+    # Undefine all data variables.
+    #
+    # This prevents Binary Ninja from rendering things like `jmp data_var[42]`
+    # and instead requires it to use real addresses.
+    for address in list(view.data_vars.keys()):
+        view.undefine_data_var(address, blacklist=True)
+
     logger.info(f"segmenting and disassembling {row['id']}")
 
     functions = []
