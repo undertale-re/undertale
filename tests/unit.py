@@ -669,6 +669,8 @@ class TestPipelineBinary(TestCase):
         cls.canary_binary_x86_64_elf = load_resource("binaries/canary.x86_64.elf")
         cls.tword_source = load_resource("source/tword/tword.c").decode()
         cls.tword_binary_x86_64_elf = load_resource("binaries/tword.x86_64.elf")
+        cls.data_source = load_resource("source/data/data.c").decode()
+        cls.data_binary_x86_64_elf = load_resource("binaries/data.x86_64.elf")
 
     def test_binary_segment_and_disassemble_simple_x86_64_elf(self):
         working = TemporaryDirectory()
@@ -777,6 +779,34 @@ class TestPipelineBinary(TestCase):
         disassembly = filtered.get("disassembly").values[0]
 
         self.assertIn("tword", disassembly)
+
+    def test_binary_segment_and_disassemble_data_x86_64_elf(self):
+        working = TemporaryDirectory()
+
+        sources = DataFrame(
+            [
+                {
+                    "id": "1",
+                    "source": self.data_source,
+                    "binary": self.data_binary_x86_64_elf,
+                }
+            ]
+        )
+        dataset = self.mock_dataset(sources, working, "dataset.parquet")
+
+        path = join(working.name, "disassembled.parquet")
+        segment_and_disassemble_binary(dataset, path)
+
+        loaded = read_parquet(path)
+
+        filtered = loaded[loaded["name"] == "main"]
+
+        self.assertEqual(len(filtered), 1)
+
+        disassembly = filtered.get("disassembly").values[0]
+
+        self.assertNotIn(disassembly, "data")
+        self.assertNotIn(disassembly, "value")
 
 
 class TestModelTokenizer(TestCase):
