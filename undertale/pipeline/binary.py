@@ -23,6 +23,10 @@ def segment_and_disassemble(row: Series) -> DataFrame:
 
     view = binaryninja.load(source=row["binary"])
 
+    # Only x86 is supported for now.
+    if view.arch.name not in ["x86", "x86_64", "aarch64"]:
+        raise ValueError(f"unsupported architecture: {view.arch.name}")
+
     # Undefine all data variables.
     #
     # This prevents Binary Ninja from rendering things like `jmp data_var[42]`
