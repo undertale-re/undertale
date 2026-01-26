@@ -671,6 +671,8 @@ class TestPipelineBinary(TestCase):
         cls.tword_binary_x86_64_elf = load_resource("binaries/tword.x86_64.elf")
         cls.data_source = load_resource("source/data/data.c").decode()
         cls.data_binary_x86_64_elf = load_resource("binaries/data.x86_64.elf")
+        cls.relative_source = load_resource("source/relative/relative.c").decode()
+        cls.relative_binary_x86_64_elf = load_resource("binaries/relative.x86_64.elf")
 
     def test_binary_segment_and_disassemble_simple_x86_64_elf(self):
         working = TemporaryDirectory()
@@ -807,6 +809,33 @@ class TestPipelineBinary(TestCase):
 
         self.assertNotIn(disassembly, "data")
         self.assertNotIn(disassembly, "value")
+
+    def test_binary_segment_and_disassemble_relative_x86_64_elf(self):
+        working = TemporaryDirectory()
+
+        sources = DataFrame(
+            [
+                {
+                    "id": "1",
+                    "source": self.relative_source,
+                    "binary": self.relative_binary_x86_64_elf,
+                }
+            ]
+        )
+        dataset = self.mock_dataset(sources, working, "dataset.parquet")
+
+        path = join(working.name, "disassembled.parquet")
+        segment_and_disassemble_binary(dataset, path)
+
+        loaded = read_parquet(path)
+
+        filtered = loaded[loaded["name"] == "main"]
+
+        self.assertEqual(len(filtered), 1)
+
+        disassembly = filtered.get("disassembly").values[0]
+
+        self.assertIn("call rel 5", disassembly)
 
 
 class TestModelTokenizer(TestCase):

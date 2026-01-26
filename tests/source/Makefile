@@ -3,7 +3,8 @@ PROJECTS := \
 	hello \
     canary \
     tword \
-    data
+    data \
+    relative
 
 BUILD := build
 
