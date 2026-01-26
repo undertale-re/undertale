@@ -122,6 +122,7 @@ def segment_and_disassemble(row: Series) -> DataFrame:
                         case InstructionTextTokenType.KeywordToken:
                             text = token.text.strip()
                             match text:
+                                # Memory reference size specifiers.
                                 case (
                                     "byte"
                                     | "word"
@@ -135,7 +136,7 @@ def segment_and_disassemble(row: Series) -> DataFrame:
                                     disassembly.append(text)
                                 # Instruction pointer relative address.
                                 case "rel":
-                                    disassembly.extend(["rip", "+"])
+                                    disassembly.append(text)
                                 case _:
                                     raise ValueError(
                                         f"unhandled keyword token: {line} ({token})"
@@ -166,6 +167,13 @@ def segment_and_disassemble(row: Series) -> DataFrame:
                                         raise ValueError(
                                             f"unhandled ':' operator: {line} ({token})"
                                         )
+                                # Special case: x86 rip-relative call.
+                                #
+                                # This can sometimes appear in the form of
+                                # `call $+5` which really just means `call` the
+                                # next instruction.
+                                case "$+5":
+                                    disassembly.extend(["rel", "5"])
                                 case _:
                                     raise ValueError(
                                         f"unhandled operation token: {line} ({token})"
