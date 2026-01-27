@@ -106,12 +106,12 @@ def extract_competition(input: str, output: str) -> str:
         data = join(challenge, "raw_data.sqlar")
         solutions = join(challenge, "solutions.sqlar")
 
-        # Missing solution data, skip this competition.
+        # Missing solution data, skip this challenge.
         if Path(solutions) not in paths:
             logger.warning(f"solutions missing for {challenge}")
             continue
 
-        # Process SQLite Archive Files from competitions with solutions.
+        # Process SQLite Archive Files from challenges with solutions.
         logger.info(f"extracting {challenge}")
 
         cwd = join(output, basename(challenge))
