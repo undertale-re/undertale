@@ -10,7 +10,7 @@ from ..exceptions import SchemaError
 from ..logging import get_logger
 from ..models.tokenizer import TOKEN_NEXT
 from ..schema import BinaryDataset
-from ..utils import assert_path_exists, get_or_create_file
+from ..utils import assert_path_exists, get_or_create_file, write_parquet
 
 logger = get_logger(__name__)
 
@@ -268,7 +268,7 @@ def segment_and_disassemble_binary(input: str, output: str) -> str:
         f"successfully segmented and disassembled {len(segmented)} functions from {len(input)} binaries"
     )
 
-    segmented.to_parquet(output)
+    write_parquet(segmented, output)
 
     return output
 

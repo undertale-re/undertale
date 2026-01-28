@@ -14,6 +14,7 @@ from ..utils import (
     get_or_create_directory,
     get_or_create_file,
     hash,
+    write_parquet,
 )
 
 logger = get_logger(__name__)
@@ -46,7 +47,7 @@ def hash_parquet_column(input: str, output: str, column: str, target: str) -> st
     logger.info(f"hashing column {column} in {input!r} to {output!r}")
 
     frame[target] = frame[column].apply(hash)
-    frame.to_parquet(output, schema=None)
+    write_parquet(frame, output)
 
     logger.info(f"successfully hashed {len(frame)} rows")
 
@@ -61,6 +62,7 @@ def resize_parquet(
     deduplicate: Optional[List[str]] = None,
     drop: Optional[List[str]] = None,
     keep: Optional[List[str]] = None,
+    compression: Optional[str] = None,
 ) -> List[str]:
     """Resize a parquet dataset.
 
@@ -88,6 +90,10 @@ def resize_parquet(
             column names (unique together).
         drop: If provided, drop the given column names.
         keep: If provided, only keep the given column names.
+        compression: If provided, name of the algorithm to use (e.g.,
+            'snappy'). By default no compression will be used. See the
+            ``pyarrow`` documentation for a list of supported compression
+            methods.
 
     Returns:
         A list of paths to the generated files.
@@ -146,7 +152,7 @@ def resize_parquet(
 
         logger.info(f"writing dataset to {output!r}")
 
-        frame.to_parquet(output, write_index=False, schema=None)
+        write_parquet(frame, output, write_index=False, compression=compression)
 
     return [join(output, f) for f in listdir(output)]
 

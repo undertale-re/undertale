@@ -14,7 +14,7 @@ from undertale.pipeline.parquet import (
     resize_parquet,
 )
 from undertale.pipeline.tarfile import extract_tarfile
-from undertale.utils import assert_path_exists, get_or_create_directory
+from undertale.utils import assert_path_exists, get_or_create_directory, write_parquet
 
 logger = get_logger(__name__)
 
@@ -62,7 +62,7 @@ def parse_samples(input: str, output: str) -> str:
 
     logger.info(f"parsed {len(frame)} samples")
 
-    frame.to_parquet(join(output, "dataset.parquet"))
+    write_parquet(frame, join(output, "dataset.parquet"))
 
     return output
 
@@ -113,6 +113,7 @@ if __name__ == "__main__":
             size="100MB",
             deduplicate=["binary_hash"],
             drop=["binary_hash"],
+            compression="snappy",
         )
 
         merged.result()

@@ -10,7 +10,7 @@ from pandera.errors import SchemaError as PanderaSchemaError
 from ..exceptions import SchemaError
 from ..logging import get_logger
 from ..schema import SourceDataset
-from ..utils import assert_path_exists, find, get_or_create_file
+from ..utils import assert_path_exists, find, get_or_create_file, write_parquet
 
 logger = get_logger(__name__)
 
@@ -95,7 +95,7 @@ def compile_cpp(
 
     logger.info(f"successfully compiled ({len(success)}/{len(frame)}) sources")
 
-    success.to_parquet(output)
+    write_parquet(success, output)
 
     return output
 
