@@ -3,6 +3,7 @@ import logging
 import os
 import tarfile
 from datetime import datetime
+from logging import WARNING
 from os import listdir, makedirs
 from os.path import basename, exists, isdir, isfile, join
 from tempfile import TemporaryDirectory
@@ -11,6 +12,7 @@ from unittest import SkipTest, TestCase
 
 from dask.dataframe import from_pandas
 from pandas import DataFrame, read_parquet
+from pyarrow.parquet import read_metadata as pyarrow_read_metadata
 from utils import load_resource, main
 
 from undertale.exceptions import EnvironmentError as LocalEnvironmentError
@@ -39,6 +41,7 @@ from undertale.utils import (
     get_or_create_file,
     hash,
     timestamp,
+    write_parquet,
 )
 
 
@@ -193,6 +196,51 @@ class TestUtilitiesFind(TestCase):
     def test_find_nonexistent(self):
         with self.assertRaises(LocalEnvironmentError):
             find("baz")
+
+
+class TestUtilitiesParquet(TestCase):
+    def test_write_parquet_simple(self):
+        working = TemporaryDirectory()
+
+        frame = DataFrame([{"foo": "bar"}])
+
+        path = join(working.name, "dataset.parquet")
+
+        write_parquet(frame, path)
+
+        read_parquet(path)
+
+    def test_write_parquet_unsupported(self):
+        with self.assertRaises(ValueError):
+            write_parquet({}, "foo")
+
+    def test_write_parquet_compression_default_disabled(self):
+        working = TemporaryDirectory()
+
+        dataset = [{"id": i, "foo": "bar"} for i in range(10)]
+        frame = DataFrame(dataset)
+
+        path = join(working.name, "dataset")
+
+        write_parquet(frame, path)
+
+        metadata = pyarrow_read_metadata(path)
+
+        self.assertEqual(metadata.row_group(0).column(0).compression, "UNCOMPRESSED")
+
+    def test_parquet_resize_compression_specified(self):
+        working = TemporaryDirectory()
+
+        dataset = [{"id": i, "foo": "bar"} for i in range(10)]
+        frame = DataFrame(dataset)
+
+        path = join(working.name, "dataset")
+
+        write_parquet(frame, path, compression="snappy")
+
+        metadata = pyarrow_read_metadata(path)
+
+        self.assertEqual(metadata.row_group(0).column(0).compression, "SNAPPY")
 
 
 class TestPipelineDask(TestCase):
@@ -382,7 +430,7 @@ class TestPipelineParquet(TestCase):
         path = join(working.name, name)
 
         frame = DataFrame(data)
-        from_pandas(frame, npartitions=chunks).to_parquet(path)
+        write_parquet(from_pandas(frame, npartitions=chunks), path)
 
         return path
 
@@ -401,7 +449,7 @@ class TestPipelineParquet(TestCase):
 
         frame = DataFrame(dataset)
         path = join(working.name, "dataset")
-        frame.to_parquet(path)
+        write_parquet(frame, path)
 
         hashed = hash_parquet_column(path, join(working.name, "hashed"), "data", "hash")
 
@@ -523,7 +571,7 @@ class TestPipelineParquet(TestCase):
 
         frame = DataFrame(dataset)
         path = join(working.name, "dataset")
-        frame.to_parquet(path)
+        write_parquet(frame, path)
 
         output = join(working.name, "resized")
         resize_parquet(path, output, chunks=1, deduplicate=["id"])
@@ -552,7 +600,7 @@ class TestPipelineParquet(TestCase):
 
         frame = DataFrame(dataset)
         path = join(working.name, "dataset")
-        frame.to_parquet(path)
+        write_parquet(frame, path)
 
         output = join(working.name, "resized")
         resize_parquet(path, output, chunks=1, drop=["foo"])
@@ -576,7 +624,7 @@ class TestPipelineParquet(TestCase):
 
         frame = DataFrame(dataset)
         path = join(working.name, "dataset")
-        frame.to_parquet(path)
+        write_parquet(frame, path)
 
         output = join(working.name, "resized")
         resize_parquet(path, output, chunks=1, keep=["foo"])
@@ -587,12 +635,30 @@ class TestPipelineParquet(TestCase):
         self.assertNotIn("id", loaded.columns)
         self.assertNotIn("baz", loaded.columns)
 
+    def test_parquet_resize_compression(self):
+        working = TemporaryDirectory()
+
+        dataset = [{"id": i, "foo": "bar"} for i in range(10)]
+
+        frame = DataFrame(dataset)
+        path = join(working.name, "dataset")
+        write_parquet(frame, path)
+
+        output = join(working.name, "resized")
+        resize_parquet(path, output, chunks=1, compression="snappy")
+
+        files = listdir(output)
+
+        metadata = pyarrow_read_metadata(join(output, files[0]))
+
+        self.assertEqual(metadata.row_group(0).column(0).compression, "SNAPPY")
+
 
 class TestPipelineCpp(TestCase):
     @staticmethod
     def mock_dataset(frame: DataFrame, working: TemporaryDirectory, name: str) -> str:
         path = join(working.name, name)
-        frame.to_parquet(path)
+        write_parquet(frame, path)
 
         return path
 
@@ -639,7 +705,9 @@ class TestPipelineCpp(TestCase):
         dataset = self.mock_dataset(sources, working, "dataset.parquet")
 
         path = join(working.name, "compiled.parquet")
-        compile_cpp(dataset, path)
+
+        with self.assertLogs(level=WARNING):
+            compile_cpp(dataset, path)
 
         loaded = read_parquet(path)
 
@@ -651,7 +719,7 @@ class TestPipelineBinary(TestCase):
         self, frame: DataFrame, working: TemporaryDirectory, name: str
     ) -> str:
         path = join(working.name, name)
-        frame.to_parquet(path)
+        write_parquet(frame, path)
 
         return path
 
@@ -673,6 +741,8 @@ class TestPipelineBinary(TestCase):
         cls.data_binary_x86_64_elf = load_resource("binaries/data.x86_64.elf")
         cls.relative_source = load_resource("source/relative/relative.c").decode()
         cls.relative_binary_x86_64_elf = load_resource("binaries/relative.x86_64.elf")
+        cls.invalid_source = load_resource("source/invalid/invalid.c").decode()
+        cls.invalid_binary_x86_64_elf = load_resource("binaries/invalid.x86_64.elf")
 
     def test_binary_segment_and_disassemble_simple_x86_64_elf(self):
         working = TemporaryDirectory()
@@ -837,13 +907,38 @@ class TestPipelineBinary(TestCase):
 
         self.assertIn("call rel 5", disassembly)
 
+    def test_binary_segment_and_disassemble_invalid_x86_64_elf(self):
+        working = TemporaryDirectory()
+
+        sources = DataFrame(
+            [
+                {
+                    "id": "1",
+                    "source": self.invalid_source,
+                    "binary": self.invalid_binary_x86_64_elf,
+                }
+            ]
+        )
+        dataset = self.mock_dataset(sources, working, "dataset.parquet")
+
+        path = join(working.name, "disassembled.parquet")
+
+        with self.assertLogs(level=WARNING):
+            segment_and_disassemble_binary(dataset, path)
+
+        loaded = read_parquet(path)
+
+        filtered = loaded[loaded["name"] == "main"]
+
+        self.assertEqual(len(filtered), 0)
+
 
 class TestModelTokenizer(TestCase):
     def mock_dataset(
         self, frame: DataFrame, working: TemporaryDirectory, name: str
     ) -> str:
         path = join(working.name, name)
-        frame.to_parquet(path)
+        write_parquet(frame, path)
 
         return path
 

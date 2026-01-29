@@ -1,12 +1,6 @@
-PROJECTS := \
-	42 \
-	hello \
-    canary \
-    tword \
-    data \
-    relative
-
 BUILD := build
+IGNORED := $(BUILD)
+PROJECTS := $(filter-out $(IGNORED), $(patsubst %/, %, $(wildcard */)))
 
 .PHONY: all clean $(PROJECTS)
 

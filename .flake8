@@ -15,3 +15,9 @@ ignore =
     # black will take care of line wrapping
     # E501 line too long
     E501
+extend-select = UT001
+
+[flake8:local-plugins]
+paths = tests/tools/flake8
+extension =
+    UT001 = dataframe_style:DataFrameToParquetChecker

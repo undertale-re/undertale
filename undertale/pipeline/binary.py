@@ -10,7 +10,7 @@ from ..exceptions import SchemaError
 from ..logging import get_logger
 from ..models.tokenizer import TOKEN_NEXT
 from ..schema import BinaryDataset
-from ..utils import assert_path_exists, get_or_create_file
+from ..utils import assert_path_exists, get_or_create_file, write_parquet
 
 logger = get_logger(__name__)
 
@@ -55,12 +55,13 @@ def segment_and_disassemble(row: Series) -> DataFrame:
         blocks_by_address = sorted(function.basic_blocks, key=lambda b: b.start)
 
         binary = b""
+        skipped_reason = None
         disassembly: List[str] = []
         for block in blocks_by_address:
             if block.has_invalid_instructions:
-                raise ValueError(
-                    f"invalid instructions found in {block} of row {row['id']}"
-                )
+                skipped_reason = "invalid instruction"
+
+                break
 
             # There are issues with this approach to extracting function bytes.
             #
@@ -206,6 +207,24 @@ def segment_and_disassemble(row: Series) -> DataFrame:
                                 f"unhandled token type: {line} ({token}:{token.type.name}))"
                             )
 
+        if skipped_reason:
+            function_disassembly = ""
+            for block in function.basic_blocks:
+                for line in block.disassembly_text:
+                    function_disassembly += f"0x{line.address:x}: "
+                    for token in line.tokens:
+                        function_disassembly += token.text
+                    function_disassembly += "\n"
+
+            message = f"failed to disassemble function, {skipped_reason} (id: {row['id']}, function: {function.name!r}@0x{function.start:x}):\n"
+            message += "=" * 80 + "\n"
+            message += function_disassembly
+            message += "=" * 80
+
+            logger.warning(message)
+
+            continue
+
         function = {
             "id": row.id,
             "name": function.name,
@@ -268,7 +287,7 @@ def segment_and_disassemble_binary(input: str, output: str) -> str:
         f"successfully segmented and disassembled {len(segmented)} functions from {len(input)} binaries"
     )
 
-    segmented.to_parquet(output)
+    write_parquet(segmented, output)
 
     return output
 

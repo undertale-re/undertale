@@ -15,7 +15,12 @@ from tokenizers.trainers import BpeTrainer
 from ..exceptions import SchemaError
 from ..logging import get_logger
 from ..schema import DisassembledFunctionDataset
-from ..utils import assert_path_exists, enforce_extension, get_or_create_file
+from ..utils import (
+    assert_path_exists,
+    enforce_extension,
+    get_or_create_file,
+    write_parquet,
+)
 
 logger = get_logger(__name__)
 
@@ -266,7 +271,7 @@ def tokenize(input: str, output: str, tokenizer: str) -> str:
         )
 
     frame[["input_ids", "attention_mask"]] = frame["disassembly"].apply(process)
-    frame.to_parquet(output, schema=None)
+    write_parquet(frame, output)
 
     logger.info(f"successfully tokenized {len(frame)} rows")
 

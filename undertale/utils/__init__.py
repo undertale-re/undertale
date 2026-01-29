@@ -208,10 +208,43 @@ def find(
     raise LocalEnvironmentError(message)
 
 
+def write_parquet(frame, path: str, **kwargs) -> None:
+    """Write parquet to the given path.
+
+    This helper method enforces some defaults on a typical
+    ``frame.to_parquet()`` operation.
+
+    Arguments:
+        frame: A ``DataFrame``-like object to write (e.g.,
+            ``pandas.DataFrame``, ``polars.DataFrame``, etc.)
+        path: The path where the parquet file should be written.
+        **kargs: Additional kwargs to pass to the underlying ``to_parquet``
+            method, or override from defaults.
+
+    Raises:
+        ValueError: If the given ``frame`` object does not support
+        ``.to_parquet()``.
+    """
+
+    if not hasattr(frame, "to_parquet"):
+        raise ValueError(
+            f"{frame.__class__.__module__}.{frame.__class__.__name__} does not support `.to_parquet()`"
+        )
+
+    defaults = {
+        "compression": None,
+        "schema": None,
+    }
+    defaults.update(kwargs)
+
+    frame.to_parquet(path, **defaults)  # noqa: UT001
+
+
 __all__ = [
     "timestamp",
     "assert_path_exists",
     "get_or_create_file",
     "get_or_create_directory",
     "find",
+    "write_parquet",
 ]

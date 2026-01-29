@@ -10,7 +10,7 @@ from pandera.errors import SchemaError as PanderaSchemaError
 from ..exceptions import SchemaError
 from ..logging import get_logger
 from ..schema import SourceDataset
-from ..utils import assert_path_exists, find, get_or_create_file
+from ..utils import assert_path_exists, find, get_or_create_file, write_parquet
 
 logger = get_logger(__name__)
 
@@ -42,7 +42,7 @@ def compile(row: Series) -> bytes:
             binary = f.read()
         return binary
     else:
-        message = "failed to compile source:\n"
+        message = f"failed to compile source (id: {row['id']}):\n"
         message += "=" * 80 + "\n"
         message += row["source"].strip() + "\n"
         message += "-" * 36 + " stdout " + "-" * 36 + "\n"
@@ -95,7 +95,7 @@ def compile_cpp(
 
     logger.info(f"successfully compiled ({len(success)}/{len(frame)}) sources")
 
-    success.to_parquet(output)
+    write_parquet(success, output)
 
     return output
 
