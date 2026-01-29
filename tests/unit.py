@@ -3,6 +3,7 @@ import logging
 import os
 import tarfile
 from datetime import datetime
+from logging import WARNING
 from os import listdir, makedirs
 from os.path import basename, exists, isdir, isfile, join
 from tempfile import TemporaryDirectory
@@ -704,7 +705,9 @@ class TestPipelineCpp(TestCase):
         dataset = self.mock_dataset(sources, working, "dataset.parquet")
 
         path = join(working.name, "compiled.parquet")
-        compile_cpp(dataset, path)
+
+        with self.assertLogs(level=WARNING):
+            compile_cpp(dataset, path)
 
         loaded = read_parquet(path)
 
@@ -738,6 +741,8 @@ class TestPipelineBinary(TestCase):
         cls.data_binary_x86_64_elf = load_resource("binaries/data.x86_64.elf")
         cls.relative_source = load_resource("source/relative/relative.c").decode()
         cls.relative_binary_x86_64_elf = load_resource("binaries/relative.x86_64.elf")
+        cls.invalid_source = load_resource("source/invalid/invalid.c").decode()
+        cls.invalid_binary_x86_64_elf = load_resource("binaries/invalid.x86_64.elf")
 
     def test_binary_segment_and_disassemble_simple_x86_64_elf(self):
         working = TemporaryDirectory()
@@ -901,6 +906,31 @@ class TestPipelineBinary(TestCase):
         disassembly = filtered.get("disassembly").values[0]
 
         self.assertIn("call rel 5", disassembly)
+
+    def test_binary_segment_and_disassemble_invalid_x86_64_elf(self):
+        working = TemporaryDirectory()
+
+        sources = DataFrame(
+            [
+                {
+                    "id": "1",
+                    "source": self.invalid_source,
+                    "binary": self.invalid_binary_x86_64_elf,
+                }
+            ]
+        )
+        dataset = self.mock_dataset(sources, working, "dataset.parquet")
+
+        path = join(working.name, "disassembled.parquet")
+
+        with self.assertLogs(level=WARNING):
+            segment_and_disassemble_binary(dataset, path)
+
+        loaded = read_parquet(path)
+
+        filtered = loaded[loaded["name"] == "main"]
+
+        self.assertEqual(len(filtered), 0)
 
 
 class TestModelTokenizer(TestCase):

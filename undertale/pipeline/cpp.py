@@ -42,7 +42,7 @@ def compile(row: Series) -> bytes:
             binary = f.read()
         return binary
     else:
-        message = "failed to compile source:\n"
+        message = f"failed to compile source (id: {row['id']}):\n"
         message += "=" * 80 + "\n"
         message += row["source"].strip() + "\n"
         message += "-" * 36 + " stdout " + "-" * 36 + "\n"
