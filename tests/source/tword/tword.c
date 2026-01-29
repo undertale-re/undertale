@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 long double x = 3.14L;
 
 int main(void)
@@ -10,6 +8,8 @@ int main(void)
             :
             : "m"(x)
         );
+    #else
+        #error "unsupported architecture (requires x86)"
     #endif
 
     return 0;

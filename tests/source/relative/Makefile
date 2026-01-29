@@ -2,7 +2,9 @@ BUILD ?= build
 CC := gcc
 CFLAGS := -Wall
 
-TARGET := $(BUILD)/relative
+SRC := $(wildcard *.c)
+NAME := $(basename $(notdir $(SRC)))
+TARGET := $(BUILD)/$(NAME)
 
 .PHONY: all clean
 
@@ -11,7 +13,7 @@ all: $(BUILD) $(TARGET)
 $(BUILD):
 	mkdir -p $(BUILD)
 
-$(TARGET): relative.c | $(BUILD)
+$(TARGET): $(SRC) | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<
 
 clean:
