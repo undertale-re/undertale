@@ -2,11 +2,13 @@
 
 import hashlib
 import os
-import subprocess
 from datetime import datetime
+from multiprocessing import Queue, get_context, queues
 from os import makedirs
 from os.path import abspath, exists, expanduser, isfile, splitext
-from typing import Iterable, Optional, Tuple
+from subprocess import CalledProcessError, check_output
+from traceback import format_exc
+from typing import Callable, Iterable, Optional, Tuple
 
 from ..exceptions import EnvironmentError as LocalEnvironmentError
 from ..exceptions import PathDoesNotExist
@@ -185,12 +187,10 @@ def find(
 
     try:
         with open(os.devnull, "w") as output:
-            path = subprocess.check_output([search, name], stderr=output).decode(
-                "utf-8"
-            )
+            path = check_output([search, name], stderr=output).decode("utf-8")
 
         return sanitize(abspath(path.strip()))
-    except subprocess.CalledProcessError:
+    except CalledProcessError:
         pass
 
     if guesses:
@@ -240,6 +240,82 @@ def write_parquet(frame, path: str, **kwargs) -> None:
     frame.to_parquet(path, **defaults)  # noqa: UT001
 
 
+class RemoteException(Exception):
+    """A wrapper around an exception raised by a remote process."""
+
+    def __init__(self, type: str, representation: str, traceback: str):
+        super().__init__()
+
+        self.type = type
+        self.representation = representation
+        self.traceback = traceback
+
+    def __str__(self):
+        return f"{self.type}: {self.representation}\n------ Remote Traceback ------\n{self.traceback}"
+
+    @classmethod
+    def from_exception(cls, exception: Exception):
+        return cls(exception.__class__.__name__, str(exception), traceback=format_exc())
+
+
+def subprocess(
+    function: Optional[Callable] = None, timeout: Optional[float] = None
+) -> Callable:
+    """A decorator that runs the given function in a subprocess.
+
+    Arguments:
+        timeout: A timeout (seconds) after which to raise an exception. If
+            ``None``, then the subprocess will be allowed to run indefinitely.
+
+    Raises:
+        TimeoutError: If ``timeout`` seconds have passed and ``function`` has
+            not returned.
+        Exception: If an exception is raised by the decorated function.
+    """
+
+    context = get_context()
+
+    def inner(function: Callable):
+        def wrapper(*args, **kwargs):
+            queue = Queue(maxsize=1)
+
+            def run(q: Queue, *args, **kwargs) -> None:
+                try:
+                    queue.put(function(*args, **kwargs))
+                except Exception as e:
+                    queue.put(RemoteException.from_exception(e))
+
+            process = context.Process(
+                target=run, args=[queue, *args], kwargs=kwargs, daemon=True
+            )
+            process.start()
+
+            try:
+                result = queue.get(timeout=timeout)
+            except queues.Empty:
+                if process.is_alive():
+                    process.terminate()
+
+                process.join()
+
+                raise TimeoutError(
+                    f"{function.__name__} subprocess timeout after {timeout}s"
+                )
+
+            process.join()
+
+            if isinstance(result, RemoteException):
+                raise result
+
+            return result
+
+        return wrapper
+
+    if function is None:
+        return inner
+    return inner(function)
+
+
 __all__ = [
     "timestamp",
     "assert_path_exists",
@@ -247,4 +323,6 @@ __all__ = [
     "get_or_create_directory",
     "find",
     "write_parquet",
+    "subprocess",
+    "RemoteException",
 ]

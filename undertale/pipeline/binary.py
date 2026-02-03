@@ -1,8 +1,8 @@
 """Binary segmentation, disassembly, and decompilation."""
 
-from typing import List
+from typing import Dict, List
 
-from pandas import DataFrame, Series, concat, read_parquet
+from pandas import DataFrame, Series, read_parquet
 from pandera.errors import SchemaError as PanderaSchemaError
 
 from ..exceptions import EnvironmentError as LocalEnvironmentError
@@ -10,12 +10,13 @@ from ..exceptions import SchemaError
 from ..logging import get_logger
 from ..models.tokenizer import TOKEN_NEXT
 from ..schema import BinaryDataset
-from ..utils import assert_path_exists, get_or_create_file, write_parquet
+from ..utils import assert_path_exists, get_or_create_file, subprocess, write_parquet
 
 logger = get_logger(__name__)
 
 
-def segment_and_disassemble(row: Series) -> DataFrame:
+@subprocess
+def segment_and_disassemble(row: Series) -> List[Dict[str, str | bytes]]:
     import binaryninja
     from binaryninja import InstructionTextTokenType, SymbolType
 
@@ -237,7 +238,7 @@ def segment_and_disassemble(row: Series) -> DataFrame:
 
         functions.append(function)
 
-    return DataFrame(functions)
+    return functions
 
 
 def segment_and_disassemble_binary(input: str, output: str) -> str:
@@ -280,8 +281,11 @@ def segment_and_disassemble_binary(input: str, output: str) -> str:
         logger.error("dataset does not match the expected schema")
         raise SchemaError(str(e))
 
-    segmented = [segment_and_disassemble(r) for _, r in frame.iterrows()]
-    segmented = concat(segmented)
+    segmented = []
+    for _, row in frame.iterrows():
+        segmented.extend(segment_and_disassemble(row))
+
+    segmented = DataFrame(segmented)
 
     logger.info(
         f"successfully segmented and disassembled {len(segmented)} functions from {len(input)} binaries"

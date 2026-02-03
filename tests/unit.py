@@ -7,6 +7,7 @@ from logging import WARNING
 from os import listdir, makedirs
 from os.path import basename, exists, isdir, isfile, join
 from tempfile import TemporaryDirectory
+from time import sleep
 from typing import Dict
 from unittest import SkipTest, TestCase
 
@@ -34,12 +35,14 @@ from undertale.pipeline.json import merge_json
 from undertale.pipeline.parquet import hash_parquet_column, resize_parquet
 from undertale.pipeline.tarfile import extract_tarfile
 from undertale.utils import (
+    RemoteException,
     assert_path_exists,
     enforce_extension,
     find,
     get_or_create_directory,
     get_or_create_file,
     hash,
+    subprocess,
     timestamp,
     write_parquet,
 )
@@ -241,6 +244,35 @@ class TestUtilitiesParquet(TestCase):
         metadata = pyarrow_read_metadata(path)
 
         self.assertEqual(metadata.row_group(0).column(0).compression, "SNAPPY")
+
+
+class TestUtilitiesSubprocess(TestCase):
+    def test_subprocess_simple(self):
+        @subprocess
+        def test(x: int) -> int:
+            return x**2
+
+        self.assertEqual(test(2), 4)
+        self.assertEqual(test(4), 16)
+
+    def test_subprocess_timeout(self):
+        @subprocess(timeout=0.1)
+        def test():
+            sleep(1)
+
+        with self.assertRaises(TimeoutError):
+            test()
+
+    def test_subprocess_exception(self):
+        class CustomException(Exception):
+            pass
+
+        @subprocess
+        def test():
+            raise CustomException("oops")
+
+        with self.assertRaises(RemoteException):
+            test()
 
 
 class TestPipelineDask(TestCase):
@@ -923,8 +955,7 @@ class TestPipelineBinary(TestCase):
 
         path = join(working.name, "disassembled.parquet")
 
-        with self.assertLogs(level=WARNING):
-            segment_and_disassemble_binary(dataset, path)
+        segment_and_disassemble_binary(dataset, path)
 
         loaded = read_parquet(path)
 
