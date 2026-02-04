@@ -234,6 +234,12 @@ def segment_and_disassemble(row: Series) -> DataFrame:
 
         if "source" in row:
             function["source"] = row["source"]
+        if "project" in row:
+            function["project"] = row["project"]
+        if "version" in row:
+            function["version"] = row["version"]
+        if "filename" in row:
+            function["filename"] = row["filename"]
 
         functions.append(function)
 
