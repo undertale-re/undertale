@@ -3,9 +3,10 @@
 import hashlib
 import os
 from datetime import datetime
-from multiprocessing import Queue, get_context, queues
+from multiprocessing import Queue, get_context
 from os import makedirs
 from os.path import abspath, exists, expanduser, isfile, splitext
+from queue import Empty
 from subprocess import CalledProcessError, check_output
 from traceback import format_exc
 from typing import Callable, Iterable, Optional, Tuple
@@ -254,7 +255,7 @@ class RemoteException(Exception):
         return f"{self.type}: {self.representation}\n------ Remote Traceback ------\n{self.traceback}"
 
     @classmethod
-    def from_exception(cls, exception: Exception):
+    def from_exception(cls, exception: BaseException):
         return cls(exception.__class__.__name__, str(exception), traceback=format_exc())
 
 
@@ -273,30 +274,32 @@ def subprocess(
         Exception: If an exception is raised by the decorated function.
     """
 
-    context = get_context()
+    context = get_context("fork")
 
     def inner(function: Callable):
         def wrapper(*args, **kwargs):
             queue = Queue(maxsize=1)
 
-            def run(q: Queue, *args, **kwargs) -> None:
+            def target(q: Queue, *args, **kwargs) -> None:
                 try:
-                    queue.put(function(*args, **kwargs))
-                except Exception as e:
-                    queue.put(RemoteException.from_exception(e))
+                    q.put(function(*args, **kwargs))
+                except BaseException as e:
+                    q.put(RemoteException.from_exception(e))
 
             process = context.Process(
-                target=run, args=[queue, *args], kwargs=kwargs, daemon=True
+                target=target, args=[queue, *args], kwargs=kwargs, daemon=True
             )
             process.start()
 
             try:
                 result = queue.get(timeout=timeout)
-            except queues.Empty:
+            except Empty:
                 if process.is_alive():
                     process.terminate()
 
                 process.join()
+                queue.cancel_join_thread()
+                queue.close()
 
                 raise TimeoutError(
                     f"{function.__name__} subprocess timeout after {timeout}s"

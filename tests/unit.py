@@ -955,7 +955,8 @@ class TestPipelineBinary(TestCase):
 
         path = join(working.name, "disassembled.parquet")
 
-        segment_and_disassemble_binary(dataset, path)
+        with self.assertLogs(level=WARNING):
+            segment_and_disassemble_binary(dataset, path)
 
         loaded = read_parquet(path)
 

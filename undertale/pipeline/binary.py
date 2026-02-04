@@ -1,6 +1,6 @@
 """Binary segmentation, disassembly, and decompilation."""
 
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 from pandas import DataFrame, Series, read_parquet
 from pandera.errors import SchemaError as PanderaSchemaError
@@ -16,7 +16,9 @@ logger = get_logger(__name__)
 
 
 @subprocess
-def segment_and_disassemble(row: Series) -> List[Dict[str, str | bytes]]:
+def segment_and_disassemble(
+    row: Series,
+) -> Tuple[List[Dict[str, str | bytes]], List[str]]:
     import binaryninja
     from binaryninja import InstructionTextTokenType, SymbolType
 
@@ -35,9 +37,7 @@ def segment_and_disassemble(row: Series) -> List[Dict[str, str | bytes]]:
     for address in list(view.data_vars.keys()):
         view.undefine_data_var(address, blacklist=True)
 
-    logger.info(f"segmenting and disassembling {row['id']}")
-
-    functions = []
+    functions, errors = [], []
     for function in view.functions:
         # Exclude thunks.
         if function.is_thunk:
@@ -222,7 +222,7 @@ def segment_and_disassemble(row: Series) -> List[Dict[str, str | bytes]]:
             message += function_disassembly
             message += "=" * 80
 
-            logger.warning(message)
+            errors.append(message)
 
             continue
 
@@ -238,7 +238,7 @@ def segment_and_disassemble(row: Series) -> List[Dict[str, str | bytes]]:
 
         functions.append(function)
 
-    return functions
+    return functions, errors
 
 
 def segment_and_disassemble_binary(input: str, output: str) -> str:
@@ -283,7 +283,14 @@ def segment_and_disassemble_binary(input: str, output: str) -> str:
 
     segmented = []
     for _, row in frame.iterrows():
-        segmented.extend(segment_and_disassemble(row))
+        logger.info(f"segmenting and disassembling {row['id']}")
+
+        functions, errors = segment_and_disassemble(row)
+
+        segmented.extend(functions)
+
+        for error in errors:
+            logger.warning(error)
 
     segmented = DataFrame(segmented)
 
