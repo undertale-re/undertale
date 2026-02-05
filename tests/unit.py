@@ -803,6 +803,28 @@ class TestPipelineBinary(TestCase):
 
         self.assertIn("42", disassembly)
 
+    def test_binary_segment_and_disassemble_fields_preserved(self):
+        working = TemporaryDirectory()
+
+        sources = DataFrame(
+            [
+                {
+                    "id": "1",
+                    "source": self.simple_source,
+                    "binary": self.simple_binary_x86_64_elf,
+                    "foo": "bar",
+                }
+            ]
+        )
+        dataset = self.mock_dataset(sources, working, "dataset.parquet")
+
+        path = join(working.name, "disassembled.parquet")
+        segment_and_disassemble_binary(dataset, path)
+
+        loaded = read_parquet(path)
+
+        self.assertIn("foo", loaded.columns)
+
     def test_binary_segment_and_disassemble_simple_arm_macho(self):
         working = TemporaryDirectory()
 

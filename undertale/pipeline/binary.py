@@ -225,7 +225,7 @@ def segment_and_disassemble(
                 continue
 
             function = {
-                "id": row.id,
+                **row.to_dict(),
                 "name": function.name,
                 "binary": binary,
                 "disassembly": " ".join(disassembly),
