@@ -1,6 +1,6 @@
 """Binary segmentation, disassembly, and decompilation."""
 
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 from pandas import DataFrame, Series, read_parquet
 from pandera.errors import SchemaError as PanderaSchemaError
@@ -10,235 +10,233 @@ from ..exceptions import SchemaError
 from ..logging import get_logger
 from ..models.tokenizer import TOKEN_NEXT
 from ..schema import BinaryDataset
-from ..utils import assert_path_exists, get_or_create_file, subprocess, write_parquet
+from ..utils import assert_path_exists, get_or_create_file, write_parquet
 
 logger = get_logger(__name__)
 
 
-@subprocess
 def segment_and_disassemble(
     row: Series,
-) -> Tuple[List[Dict[str, str | bytes]], List[str]]:
+) -> List[Dict[str, str | bytes]]:
     import binaryninja
     from binaryninja import InstructionTextTokenType, SymbolType
 
     binaryninja.disable_default_log()
 
-    view = binaryninja.load(source=row["binary"])
+    with binaryninja.load(source=row["binary"]) as view:
+        # Only x86 is supported for now.
+        if view.arch.name not in ["x86", "x86_64", "aarch64"]:
+            raise ValueError(f"unsupported architecture: {view.arch.name}")
 
-    # Only x86 is supported for now.
-    if view.arch.name not in ["x86", "x86_64", "aarch64"]:
-        raise ValueError(f"unsupported architecture: {view.arch.name}")
+        # Undefine all data variables.
+        #
+        # This prevents Binary Ninja from rendering things like `jmp data_var[42]`
+        # and instead requires it to use real addresses.
+        for address in list(view.data_vars.keys()):
+            view.undefine_data_var(address, blacklist=True)
 
-    # Undefine all data variables.
-    #
-    # This prevents Binary Ninja from rendering things like `jmp data_var[42]`
-    # and instead requires it to use real addresses.
-    for address in list(view.data_vars.keys()):
-        view.undefine_data_var(address, blacklist=True)
+        functions = []
+        for function in view.functions:
+            # Exclude thunks.
+            if function.is_thunk:
+                continue
 
-    functions, errors = [], []
-    for function in view.functions:
-        # Exclude thunks.
-        if function.is_thunk:
-            continue
+            # Exclude imported, external, or symbolic functions.
+            if function.symbol.type in [
+                SymbolType.ImportedFunctionSymbol,
+                SymbolType.ExternalSymbol,
+                SymbolType.ImportAddressSymbol,
+                SymbolType.SymbolicFunctionSymbol,
+            ]:
+                continue
 
-        # Exclude imported, external, or symbolic functions.
-        if function.symbol.type in [
-            SymbolType.ImportedFunctionSymbol,
-            SymbolType.ExternalSymbol,
-            SymbolType.ImportAddressSymbol,
-            SymbolType.SymbolicFunctionSymbol,
-        ]:
-            continue
+            # Binary Ninja does not guarantee block order.
+            blocks_by_address = sorted(function.basic_blocks, key=lambda b: b.start)
 
-        # Binary Ninja does not guarantee block order.
-        blocks_by_address = sorted(function.basic_blocks, key=lambda b: b.start)
+            binary = b""
+            skipped_reason = None
+            disassembly: List[str] = []
+            for block in blocks_by_address:
+                if block.has_invalid_instructions:
+                    skipped_reason = "invalid instruction"
 
-        binary = b""
-        skipped_reason = None
-        disassembly: List[str] = []
-        for block in blocks_by_address:
-            if block.has_invalid_instructions:
-                skipped_reason = "invalid instruction"
+                    break
 
-                break
+                # There are issues with this approach to extracting function bytes.
+                #
+                # It is possible that this approach does not preserve relative
+                # instruction logic in the case that a function has gaps of empty
+                # space between its basic blocks. I'm not sure how commonly this
+                # happens in practice, but this is ultimately not very likely to
+                # disassemble to *exactly* the same thing as the original.
+                #
+                # If/when we end up using this for something we might need to
+                # consider revising this approach. For now, this is just included
+                # for completeness and to match the schema requirements.
+                binary += view.read(block.start, block.length)
 
-            # There are issues with this approach to extracting function bytes.
-            #
-            # It is possible that this approach does not preserve relative
-            # instruction logic in the case that a function has gaps of empty
-            # space between its basic blocks. I'm not sure how commonly this
-            # happens in practice, but this is ultimately not very likely to
-            # disassemble to *exactly* the same thing as the original.
-            #
-            # If/when we end up using this for something we might need to
-            # consider revising this approach. For now, this is just included
-            # for completeness and to match the schema requirements.
-            binary += view.read(block.start, block.length)
-
-            annotation = False
-            for line in block.disassembly_text:
-                for token in line.tokens:
-                    if annotation:
-                        if (
-                            token.type == InstructionTextTokenType.AnnotationToken
-                            and token.text.strip() == "}"
-                        ):
-                            annotation = False
-                        continue
-                    match token.type:
-                        # New Instruction - emit a separator.
-                        case InstructionTextTokenType.AddressSeparatorToken:
-                            if disassembly:
-                                disassembly.append(TOKEN_NEXT)
-                        # Emit token verbatim.
-                        #
-                        # Instruction mnemonics, registers, braces (memory access).
-                        case (
-                            InstructionTextTokenType.InstructionToken
-                            | InstructionTextTokenType.RegisterToken
-                            | InstructionTextTokenType.BraceToken
-                        ):
-                            disassembly.append(token.text.strip())
-                        # Addresses - emit as integers.
-                        #
-                        # Integers, Immediate values, imports (relative),
-                        # addresses, symbols.
-                        case (
-                            InstructionTextTokenType.IntegerToken
-                            | InstructionTextTokenType.FloatingPointToken
-                            | InstructionTextTokenType.PossibleAddressToken
-                            | InstructionTextTokenType.ImportToken
-                            | InstructionTextTokenType.CodeRelativeAddressToken
-                            | InstructionTextTokenType.DataSymbolToken
-                            | InstructionTextTokenType.CodeSymbolToken
-                            | InstructionTextTokenType.ExternalSymbolToken
-                        ):
-                            disassembly.append(str(token.value))
-                        # Keyword token - parsing required.
-                        #
-                        # Binary Ninja seems to lump together a lot of
-                        # miscellaneous tokens as `KeywordTokens`. We need to
-                        # handle some of them separately.
-                        case InstructionTextTokenType.KeywordToken:
-                            text = token.text.strip()
-                            match text:
-                                # Memory reference size specifiers.
-                                case (
-                                    "byte"
-                                    | "word"
-                                    | "dword"
-                                    | "qword"
-                                    | "tword"
-                                    | "xmmword"
-                                    | "ymmword"
-                                    | "zmmword"
-                                ):
-                                    disassembly.append(text)
-                                # Instruction pointer relative address.
-                                case "rel":
-                                    disassembly.append(text)
-                                case _:
-                                    raise ValueError(
-                                        f"unhandled keyword token: {line} ({token})"
-                                    )
-                        # Operation token - parsing required.
-                        case InstructionTextTokenType.OperationToken:
-                            text = token.text.strip()
-                            match text:
-                                # Arithmetic operators.
-                                case "+" | "-" | "*":
-                                    disassembly.append(text)
-                                # Immediate value prefix - ignored.
-                                case "#":
-                                    pass
-                                # Colon operator is somewhat complex.
-                                case ":":
-                                    # Segment register offset syntax (x86).
-                                    if disassembly[-1] in [
-                                        "cs",
-                                        "ds",
-                                        "es",
-                                        "ss",
-                                        "fs",
-                                        "gs",
-                                    ]:
-                                        disassembly.append("+")
-                                    else:
-                                        raise ValueError(
-                                            f"unhandled ':' operator: {line} ({token})"
-                                        )
-                                # Special case: x86 rip-relative call.
-                                #
-                                # This can sometimes appear in the form of
-                                # `call $+5` which really just means `call` the
-                                # next instruction.
-                                case "$+5":
-                                    disassembly.extend(["rel", "5"])
-                                case _:
-                                    raise ValueError(
-                                        f"unhandled operation token: {line} ({token})"
-                                    )
-                        # Ignore token.
-                        #
-                        # Text (spacing, formatting, etc.), separators
-                        # (commas), memory operator annotation, tags.
-                        case (
-                            InstructionTextTokenType.TextToken
-                            | InstructionTextTokenType.OperandSeparatorToken
-                            | InstructionTextTokenType.BeginMemoryOperandToken
-                            | InstructionTextTokenType.EndMemoryOperandToken
-                            | InstructionTextTokenType.TagToken
-                            | InstructionTextTokenType.GotoLabelToken
-                        ):
-                            pass
-                        # Annotation token.
-                        #
-                        # Ignore all tokens until the next annotation token is reached.
-                        case InstructionTextTokenType.AnnotationToken:
-                            if token.text.strip().startswith("{"):
-                                annotation = True
-                            else:
-                                raise ValueError(
-                                    f"unexpected annotation token {line} ({token})"
-                                )
-                        case _:
-                            raise ValueError(
-                                f"unhandled token type: {line} ({token}:{token.type.name}))"
-                            )
-
-        if skipped_reason:
-            function_disassembly = ""
-            for block in function.basic_blocks:
+                annotation = False
                 for line in block.disassembly_text:
-                    function_disassembly += f"0x{line.address:x}: "
                     for token in line.tokens:
-                        function_disassembly += token.text
-                    function_disassembly += "\n"
+                        if annotation:
+                            if (
+                                token.type == InstructionTextTokenType.AnnotationToken
+                                and token.text.strip() == "}"
+                            ):
+                                annotation = False
+                            continue
+                        match token.type:
+                            # New Instruction - emit a separator.
+                            case InstructionTextTokenType.AddressSeparatorToken:
+                                if disassembly:
+                                    disassembly.append(TOKEN_NEXT)
+                            # Emit token verbatim.
+                            #
+                            # Instruction mnemonics, registers, braces (memory access).
+                            case (
+                                InstructionTextTokenType.InstructionToken
+                                | InstructionTextTokenType.RegisterToken
+                                | InstructionTextTokenType.BraceToken
+                            ):
+                                disassembly.append(token.text.strip())
+                            # Addresses - emit as integers.
+                            #
+                            # Integers, Immediate values, imports (relative),
+                            # addresses, symbols.
+                            case (
+                                InstructionTextTokenType.IntegerToken
+                                | InstructionTextTokenType.FloatingPointToken
+                                | InstructionTextTokenType.PossibleAddressToken
+                                | InstructionTextTokenType.ImportToken
+                                | InstructionTextTokenType.CodeRelativeAddressToken
+                                | InstructionTextTokenType.DataSymbolToken
+                                | InstructionTextTokenType.CodeSymbolToken
+                                | InstructionTextTokenType.ExternalSymbolToken
+                            ):
+                                disassembly.append(str(token.value))
+                            # Keyword token - parsing required.
+                            #
+                            # Binary Ninja seems to lump together a lot of
+                            # miscellaneous tokens as `KeywordTokens`. We need to
+                            # handle some of them separately.
+                            case InstructionTextTokenType.KeywordToken:
+                                text = token.text.strip()
+                                match text:
+                                    # Memory reference size specifiers.
+                                    case (
+                                        "byte"
+                                        | "word"
+                                        | "dword"
+                                        | "qword"
+                                        | "tword"
+                                        | "xmmword"
+                                        | "ymmword"
+                                        | "zmmword"
+                                    ):
+                                        disassembly.append(text)
+                                    # Instruction pointer relative address.
+                                    case "rel":
+                                        disassembly.append(text)
+                                    case _:
+                                        raise ValueError(
+                                            f"unhandled keyword token: {line} ({token})"
+                                        )
+                            # Operation token - parsing required.
+                            case InstructionTextTokenType.OperationToken:
+                                text = token.text.strip()
+                                match text:
+                                    # Arithmetic operators.
+                                    case "+" | "-" | "*":
+                                        disassembly.append(text)
+                                    # Immediate value prefix - ignored.
+                                    case "#":
+                                        pass
+                                    # Colon operator is somewhat complex.
+                                    case ":":
+                                        # Segment register offset syntax (x86).
+                                        if disassembly[-1] in [
+                                            "cs",
+                                            "ds",
+                                            "es",
+                                            "ss",
+                                            "fs",
+                                            "gs",
+                                        ]:
+                                            disassembly.append("+")
+                                        else:
+                                            raise ValueError(
+                                                f"unhandled ':' operator: {line} ({token})"
+                                            )
+                                    # Special case: x86 rip-relative call.
+                                    #
+                                    # This can sometimes appear in the form of
+                                    # `call $+5` which really just means `call` the
+                                    # next instruction.
+                                    case "$+5":
+                                        disassembly.extend(["rel", "5"])
+                                    case _:
+                                        raise ValueError(
+                                            f"unhandled operation token: {line} ({token})"
+                                        )
+                            # Ignore token.
+                            #
+                            # Text (spacing, formatting, etc.), separators
+                            # (commas), memory operator annotation, tags.
+                            case (
+                                InstructionTextTokenType.TextToken
+                                | InstructionTextTokenType.OperandSeparatorToken
+                                | InstructionTextTokenType.BeginMemoryOperandToken
+                                | InstructionTextTokenType.EndMemoryOperandToken
+                                | InstructionTextTokenType.TagToken
+                                | InstructionTextTokenType.GotoLabelToken
+                            ):
+                                pass
+                            # Annotation token.
+                            #
+                            # Ignore all tokens until the next annotation token is reached.
+                            case InstructionTextTokenType.AnnotationToken:
+                                if token.text.strip().startswith("{"):
+                                    annotation = True
+                                else:
+                                    raise ValueError(
+                                        f"unexpected annotation token {line} ({token})"
+                                    )
+                            case _:
+                                raise ValueError(
+                                    f"unhandled token type: {line} ({token}:{token.type.name}))"
+                                )
 
-            message = f"failed to disassemble function, {skipped_reason} (id: {row['id']}, function: {function.name!r}@0x{function.start:x}):\n"
-            message += "=" * 80 + "\n"
-            message += function_disassembly
-            message += "=" * 80
+            if skipped_reason:
+                function_disassembly = ""
+                for block in function.basic_blocks:
+                    for line in block.disassembly_text:
+                        function_disassembly += f"0x{line.address:x}: "
+                        for token in line.tokens:
+                            function_disassembly += token.text
+                        function_disassembly += "\n"
 
-            errors.append(message)
+                message = f"failed to disassemble function, {skipped_reason} (id: {row['id']}, function: {function.name!r}@0x{function.start:x}):\n"
+                message += "=" * 80 + "\n"
+                message += function_disassembly
+                message += "=" * 80
 
-            continue
+                logger.warning(message)
 
-        function = {
-            "id": row.id,
-            "name": function.name,
-            "binary": binary,
-            "disassembly": " ".join(disassembly),
-        }
+                continue
 
-        if "source" in row:
-            function["source"] = row["source"]
+            function = {
+                "id": row.id,
+                "name": function.name,
+                "binary": binary,
+                "disassembly": " ".join(disassembly),
+            }
 
-        functions.append(function)
+            if "source" in row:
+                function["source"] = row["source"]
 
-    return functions, errors
+            functions.append(function)
+
+    return functions
 
 
 def segment_and_disassemble_binary(input: str, output: str) -> str:
@@ -285,12 +283,9 @@ def segment_and_disassemble_binary(input: str, output: str) -> str:
     for _, row in frame.iterrows():
         logger.info(f"segmenting and disassembling {row['id']}")
 
-        functions, errors = segment_and_disassemble(row)
+        functions = segment_and_disassemble(row)
 
         segmented.extend(functions)
-
-        for error in errors:
-            logger.warning(error)
 
     segmented = DataFrame(segmented)
 
