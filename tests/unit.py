@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import tarfile
+import zipfile
 from datetime import datetime
 from os import listdir, makedirs
 from os.path import basename, exists, isdir, isfile, join
@@ -14,7 +15,7 @@ from pandas import DataFrame, read_parquet
 from utils import load_resource, main
 
 from undertale.exceptions import EnvironmentError as LocalEnvironmentError
-from undertale.exceptions import PathError, SchemaError
+from undertale.exceptions import InvalidFileType, PathError, SchemaError
 from undertale.models.tokenizer import (
     TOKEN_UNKNOWN,
 )
@@ -31,6 +32,7 @@ from undertale.pipeline.cpp import compile_cpp
 from undertale.pipeline.json import merge_json
 from undertale.pipeline.parquet import hash_parquet_column, resize_parquet
 from undertale.pipeline.tarfile import extract_tarfile
+from undertale.pipeline.zip import unzip_file
 from undertale.utils import (
     assert_path_exists,
     enforce_extension,
@@ -364,6 +366,61 @@ class TestPipelineTarfile(TestCase):
 
         with self.assertRaises(PathError):
             extract_tarfile(nonarchive, extracted)
+
+
+class TestPipelineZipfile(TestCase):
+    def setUp(self):
+        self.working = TemporaryDirectory()
+
+    def tearDown(self):
+        self.working.cleanup()
+
+    @staticmethod
+    def mock_zipfile(
+        working: TemporaryDirectory,
+        name: str,
+    ) -> str:
+        paths = list()
+
+        path = join(working.name, "test.txt")
+        with open(path, "w") as f:
+            f.write("hello world")
+        paths.append(path)
+
+        path = join(working.name, "data.json")
+        with open(path, "w") as f:
+            json.dump([1, 2, 3], f)
+        paths.append(path)
+
+        output = join(working.name, name)
+        with zipfile.ZipFile(output, "w") as f:
+            for path in paths:
+                f.write(path, arcname=basename(path))
+
+        return output
+
+    def test_unzip_simple(self):
+        zip = self.mock_zipfile(self.working, "test.zip")
+
+        extracted = join(self.working.name, "extracted")
+        unzip_file(zip, extracted)
+
+        with open(join(extracted, "test.txt"), "r") as f:
+            data = f.read()
+
+        self.assertEqual(data, "hello world")
+        self.assertEqual(len(listdir(extracted)), 2)
+
+    def test_unzip_non_zipfile(self):
+        nonzipfile = join(self.working.name, "test.txt")
+
+        with open(nonzipfile, "w") as f:
+            f.write("hello world")
+
+        extracted = join(self.working.name, "extracted")
+
+        with self.assertRaises(InvalidFileType):
+            unzip_file(nonzipfile, extracted)
 
 
 class TestPipelineParquet(TestCase):

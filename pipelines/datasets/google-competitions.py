@@ -2,7 +2,7 @@ import json
 import os
 import sqlite3
 import zlib
-from os.path import basename, dirname, isdir, join, splitext
+from os.path import dirname, isdir, join, splitext
 from pathlib import Path
 from typing import List
 
@@ -16,11 +16,56 @@ from undertale.pipeline.cpp import compile_cpp
 from undertale.pipeline.dask import merge
 from undertale.pipeline.parquet import hash_parquet_column, resize_parquet
 from undertale.pipeline.zip import unzip_file
-from undertale.utils import assert_path_exists, get_or_create_directory
+from undertale.utils import (
+    assert_path_exists,
+    get_or_create_directory,
+    get_or_create_file,
+)
 
 logger = get_logger(__name__)
 
 SUPPORTED_LANGUAGES = ["C", "CPP"]
+
+
+def filter_challenges_with_solutions(inputs: List[str]) -> List[str]:
+    """Filters challenges with solutions from Google Competitions.
+
+    Arguments:
+        inputs: Paths to the directories for each competition.
+
+    Returns:
+        A list of paths to the competition challenges with solutions.
+    """
+    filtered = list()
+
+    for input in inputs:
+        input = assert_path_exists(input)
+        competition = Path(input)
+
+        # Recursively match everything in the input directory.
+        paths = list(competition.rglob("*"))
+
+        # Filter only directories in the root of the archive.
+        challenges = [
+            path
+            for path in paths
+            if path.is_dir()
+            and path.parent == competition
+            and path.relative_to(competition) != Path("static")
+        ]
+
+        # Find challenges with solutions.
+        for challenge in challenges:
+            solutions = join(challenge, "solutions.sqlar")
+
+            # Missing solution data, skip this challenge.
+            if Path(solutions) not in paths:
+                logger.warning(f"solutions missing for {challenge}")
+                continue
+
+            filtered.append(str(challenge))
+
+    return filtered
 
 
 def unpack_sqlar(input: str, output: str):
@@ -76,95 +121,71 @@ def unpack_sqlar(input: str, output: str):
     connection.close()
 
 
-def extract_competition(input: str, output: str) -> str:
-    """Extracts solutions from a Google Competition.
+def unpack_challenge(input: str, output: str) -> str:
+    """Unpacks solutions and submissions from a competition challenge.
 
     Arguments:
-        input: Path to the competition directory.
+        input: Path to the challenge directory.
         output: Path to the output directory.
 
     Returns:
-        The path to the directory with the relevant competition data.
+        The path to the directory with the relevant challenge data.
     """
-    input = assert_path_exists(input)
-    competition = Path(input)
+    challenge = assert_path_exists(input)
 
-    # Recursively match everything in the input directory.
-    paths = list(competition.rglob("*"))
+    output, created = get_or_create_directory(output)
+    if not created:
+        return output
 
-    # Filter only directories in the root of the archive.
-    challenges = [
-        path
-        for path in paths
-        if path.is_dir()
-        and path.parent == competition
-        and path.relative_to(competition) != Path("static")
-    ]
+    data = join(challenge, "raw_data.sqlar")
+    solutions = join(challenge, "solutions.sqlar")
 
-    # Extract challenge data.
-    for challenge in challenges:
-        data = join(challenge, "raw_data.sqlar")
-        solutions = join(challenge, "solutions.sqlar")
+    logger.info(f"unpacking {challenge}")
 
-        # Missing solution data, skip this challenge.
-        if Path(solutions) not in paths:
-            logger.warning(f"solutions missing for {challenge}")
-            continue
+    unpack_sqlar(data, output)
+    unpack_sqlar(solutions, output)
 
-        # Process SQLite Archive Files from challenges with solutions.
-        logger.info(f"extracting {challenge}")
-
-        cwd = join(output, basename(challenge))
-        unpack_sqlar(data, cwd)
-        unpack_sqlar(solutions, cwd)
-
-        logger.info(f"succesfully extracted to {cwd}")
+    logger.info(f"succesfully unpacked to {output}")
 
     return output
 
 
-def get_challenges(input) -> List[str]:
+def filter_challenges_with_submissions(inputs: List[str]) -> List[str]:
     """Returns paths to challenges that contain at least one competitor submission.
 
     Arguments:
-        input: Path to the directories of each competition.
+        inputs: Paths to the directories of each competition.
 
     Returns:
         A list of paths to competition challenges with one or more competitor submissions.
     """
-    challenges = list()
 
-    for competition in input:
-        challenges.extend(
-            [
-                join(competition, challenge)
-                for challenge in os.listdir(competition)
-                if isdir(join(competition, challenge, "raw_data", "attempts"))
-            ]
-        )
-
-    return challenges
+    return [
+        challenge
+        for challenge in inputs
+        if isdir(join(challenge, "raw_data", "attempts"))
+    ]
 
 
 def parse_challenge(input: str, output: str) -> str:
     """Parses a competition challenge into a dataset.
 
     Arguments:
-        input: Path to a challenge from a competition.
-        output: Path to the output directory.
+        input: Path to a challenge directory from a competition.
+        output: Path to the output file.
 
     Returns:
-        Path to the directory with the parsed challenge data as parquet.
+        Path to the parsed challenge data as parquet.
     """
     logger.info(f"parsing challenge {input}")
 
     input = assert_path_exists(input)
 
-    output, created = get_or_create_directory(output)
+    output, created = get_or_create_file(output)
     if not created:
         return output
 
-    rows = []
+    rows = list()
 
     # Load language and task information.
     with open(join(input, "raw_data", "index.json"), "r") as f:
@@ -225,7 +246,7 @@ def parse_challenge(input: str, output: str) -> str:
         logger.info(f"found {total} solutions to {len(tasks)} tasks from {input}")
 
         frame = DataFrame(rows)
-        frame.to_parquet(join(output, "dataset.parquet"))
+        frame.to_parquet(output)
 
         return output
 
@@ -248,27 +269,30 @@ if __name__ == "__main__":
         )
 
         ## Unzip competitions.
-        unzipped = fanout(client, unzip_file, inputs, f"{arguments.output}-unzipped")
+        unzipped = fanout(
+            client, unzip_file, inputs, f"{arguments.output}-unzipped"
+        ).result()
 
-        ## Filter relevant solution data from each competition.
-        extracted = fanout(
-            client, extract_competition, unzipped, f"{arguments.output}-extracted"
+        ## Filter challenges with solutions.
+        solved_challenges = client.submit(filter_challenges_with_solutions, unzipped)
+
+        ## Unpack the challenge data.
+        unpacked = fanout(
+            client, unpack_challenge, solved_challenges, f"{arguments.output}-unpacked"
+        ).result()
+
+        ## Filter challenges with submissions.
+        submitted_challenges = client.submit(
+            filter_challenges_with_submissions, unpacked
         )
 
-        ## Parsed challenges from each competition into parquet.
-        challenges = client.submit(get_challenges, extracted)
+        ## Parse challenges from each competition into parquet.
         parsed = fanout(
-            client, parse_challenge, challenges, f"{arguments.output}-parsed"
-        )
-        parsed = parsed.result()
-        parquets = merge(
-            client,
-            [
-                join(challenge, parquet)
-                for challenge in parsed
-                for parquet in os.listdir(challenge)
-            ],
-        )
+            client, parse_challenge, submitted_challenges, f"{arguments.output}-parsed"
+        ).result()
+
+        ## Resize dataset.
+        parquets = merge(client, parsed)
         chunks = client.submit(
             resize_parquet,
             parquets,
