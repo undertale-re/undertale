@@ -153,7 +153,7 @@ def associate_cve_row(row: Series, CVEs: DataFrame) -> Dict[str, str | bytes]:
     return linked_cve
 
 
-def associate_cve(input: str, output: str) -> str:
+def associate_cve(input: str, output: str, raw_input: str) -> str:
     input = assert_path_exists(input)
     output, created = get_or_create_file(output)
 
@@ -163,9 +163,7 @@ def associate_cve(input: str, output: str) -> str:
     frame = read_parquet(input)
 
     associated = []
-    CVEs = pd.read_csv(
-        "/home/gridsan/pa27879/undertale_shared/dask/datasets/cvebinsheet/CVES.csv"
-    )
+    CVEs = pd.read_csv("/CVES.csv")
     for _, row in frame.iterrows():
         logger.info(f"Now associating {row['id']}")
 
@@ -200,15 +198,14 @@ if __name__ == "__main__":
         parsed = client.submit(
             parse_samples, arguments.input, f"{arguments.output}-parsed"
         )
-        # parsed.result()
+
         chunks = client.submit(
             resize_parquet,
             parsed,
             f"{arguments.output}-resized",
             size="20MB",
         )
-        # chunks.result()
-        # compiled = fanout(client, compile_cpp, chunks, f"{arguments.output}-compiled")
+
         disassembled = fanout(
             client,
             segment_and_disassemble_binary,
@@ -221,8 +218,8 @@ if __name__ == "__main__":
             associate_cve,
             disassembled,
             f"{arguments.output}-linked",
+            arguments.input,
         )
-        # disassembled.result()
 
         hashed = fanout(
             client,
@@ -241,9 +238,6 @@ if __name__ == "__main__":
             deduplicate=["binary_hash"],
             drop=["binary_hash"],
         )
-        # merged = client.submit(
-        #     resize_parquet, disassembled, f"{arguments.output}", size="100MB"
-        # )
 
         merged.result()
         flush(client)
