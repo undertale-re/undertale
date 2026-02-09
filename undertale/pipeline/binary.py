@@ -290,7 +290,7 @@ def segment_and_disassemble_binary(input: str, output: str) -> str:
     segmented = DataFrame(segmented)
 
     logger.info(
-        f"successfully segmented and disassembled {len(segmented)} functions from {len(input)} binaries"
+        f"successfully segmented and disassembled {len(segmented)} functions from {len(frame)} binaries"
     )
 
     write_parquet(segmented, output)
