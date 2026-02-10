@@ -15,10 +15,12 @@ dependencies = [
     "dask",
     "dask-jobqueue",
     "distributed",
+    "lightning",
     "pandas",
     "pandera",
     "polars",
     "pyarrow",
+    "scikit-learn",
     "tokenizers",
     "torch"
 ]
