@@ -19,7 +19,8 @@ dependencies = [
     "pandera",
     "polars",
     "pyarrow",
-    "tokenizers"
+    "tokenizers",
+    "torch"
 ]
 dynamic = ["version"]
 
