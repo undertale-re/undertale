@@ -1,3 +1,5 @@
+"""Load a dataset using ``pandas``."""
+
 import pandas
 
 from . import main as shell_main

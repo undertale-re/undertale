@@ -1,3 +1,5 @@
+"""Load a dataset using ``polars`` (lazy)."""
+
 import polars
 
 from . import main as shell_main
