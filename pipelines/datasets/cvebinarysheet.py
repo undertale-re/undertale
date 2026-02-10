@@ -1,3 +1,4 @@
+import json
 import os
 from os.path import join
 from typing import Dict, List, Union
@@ -43,14 +44,72 @@ def parse_samples(input: str, output: str, max_size: int = int(1e7)) -> List[str
         return [join(output, fname) for fname in os.listdir(output)]
 
     logger.info(f"parsing cvebinarysheet samples from {input!r} to {output!r}")
+    bin_file_loc = os.path.join(input, "cve-binfiles")
+    map_loc = os.path.join(input, "cve-map")
+    out_map_loc = os.path.join(input, "CVES.csv")
+    if not os.path.isfile(out_map_loc):
+        CVES: Dict = {}
+        for CVE in os.listdir(map_loc):
+            with open(os.path.join(map_loc, CVE), "r") as f:
+                data = json.load(f)
+                for key in data.keys():
+                    for vulnerability in data[key]:
+                        if "function_names" in vulnerability:
+                            if vulnerability["repo"] not in CVES:
+                                CVES[vulnerability["repo"]] = []
+                            v = {
+                                "cve_name": vulnerability["cve_name"],
+                                "function_names": [
+                                    name.lower()
+                                    for name in vulnerability["function_names"]
+                                ],
+                            }
+                            if "binary_version" in vulnerability:
+                                v["binary_version"] = vulnerability["binary_version"]
+                            CVES[vulnerability["repo"]].append(v)
+        CVEdf = []
+        for project in CVES:
+            for vuln in CVES[project]:
+                if isinstance(vuln["function_names"], list):
+                    function_names = vuln["function_names"]
+                else:
+                    function_names = [vuln["function_names"]]
+                for fname in function_names:
+                    if "binary_version" in vuln:
+                        if isinstance(vuln["binary_version"], list):
+                            binary_versions = vuln["binary_version"]
+                        else:
+                            binary_versions = [vuln["binary_version"]]
+                        for binary_version in binary_versions:
+                            CVEdf.append(
+                                {
+                                    "project": project,
+                                    "fname": fname.lower().strip(),
+                                    "cve_name": vuln["cve_name"],
+                                    "version": binary_version,
+                                }
+                            )
+                    else:
+                        CVEdf.append(
+                            {
+                                "project": project,
+                                "fname": fname.lower().strip(),
+                                "cve_name": vuln["cve_name"],
+                                "version": "-",
+                            }
+                        )
+        CVEdf = DataFrame.from_dict(CVEdf)
+        CVEdf.to_csv(out_map_loc)
     id = 0
     outputs = []
-    for project in [proj for proj in os.listdir(input) if proj not in skip_packages]:
+    for project in [
+        proj for proj in os.listdir(bin_file_loc) if proj not in skip_packages
+    ]:
         documents = []
-        for version in os.listdir(join(input, project)):
-            if os.path.isdir(join(input, project, version)):
-                for floc in os.listdir(join(input, project, version)):
-                    file_path = join(input, project, version, floc)
+        for version in os.listdir(join(bin_file_loc, project)):
+            if os.path.isdir(join(bin_file_loc, project, version)):
+                for floc in os.listdir(join(bin_file_loc, project, version)):
+                    file_path = join(bin_file_loc, project, version, floc)
                     if (
                         os.path.isfile(file_path)
                         and os.path.getsize(file_path) < max_size
@@ -94,7 +153,7 @@ def associate_cve_row(row: Series, CVEs: DataFrame) -> Dict[str, str | bytes]:
     return linked_cve
 
 
-def associate_cve(input: str, output: str) -> str:
+def associate_cve(input: str, output: str, raw_input: str) -> str:
     input = assert_path_exists(input)
     output, created = get_or_create_file(output)
 
@@ -104,9 +163,7 @@ def associate_cve(input: str, output: str) -> str:
     frame = read_parquet(input)
 
     associated = []
-    CVEs = pd.read_csv(
-        "/home/gridsan/pa27879/undertale_shared/dask/datasets/cvebinsheet/CVES.csv"
-    )
+    CVEs = pd.read_csv("/CVES.csv")
     for _, row in frame.iterrows():
         logger.info(f"Now associating {row['id']}")
 
@@ -141,15 +198,14 @@ if __name__ == "__main__":
         parsed = client.submit(
             parse_samples, arguments.input, f"{arguments.output}-parsed"
         )
-        # parsed.result()
+
         chunks = client.submit(
             resize_parquet,
             parsed,
             f"{arguments.output}-resized",
             size="20MB",
         )
-        # chunks.result()
-        # compiled = fanout(client, compile_cpp, chunks, f"{arguments.output}-compiled")
+
         disassembled = fanout(
             client,
             segment_and_disassemble_binary,
@@ -162,8 +218,8 @@ if __name__ == "__main__":
             associate_cve,
             disassembled,
             f"{arguments.output}-linked",
+            arguments.input,
         )
-        # disassembled.result()
 
         hashed = fanout(
             client,
@@ -182,9 +238,6 @@ if __name__ == "__main__":
             deduplicate=["binary_hash"],
             drop=["binary_hash"],
         )
-        # merged = client.submit(
-        #     resize_parquet, disassembled, f"{arguments.output}", size="100MB"
-        # )
 
         merged.result()
         flush(client)
