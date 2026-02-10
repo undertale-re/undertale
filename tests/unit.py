@@ -14,6 +14,7 @@ from unittest import SkipTest, TestCase
 from dask.dataframe import from_pandas
 from pandas import DataFrame, read_parquet
 from pyarrow.parquet import read_metadata as pyarrow_read_metadata
+from torch import rand, randint, set_grad_enabled
 from utils import load_resource, main
 
 from undertale.exceptions import EnvironmentError as LocalEnvironmentError
@@ -27,6 +28,15 @@ from undertale.models.tokenizer import (
     preprocess_tokens,
     tokenize,
     train_tokenizer,
+)
+from undertale.models.transformer import (
+    Attention,
+    FeedForward,
+    InstructionArgumentPositionEmbedding,
+    MultiHeadAttention,
+    PositionEmbedding,
+    TransformerEncoder,
+    TransformerEncoderLayer,
 )
 from undertale.pipeline import Client, Cluster, fanout, flush
 from undertale.pipeline.binary import segment_and_disassemble_binary
@@ -1134,6 +1144,172 @@ class TestModelTokenizer(TestCase):
         unpadded = tokens[tokens != tokens[-1]]
 
         self.assertEqual(len(unpadded), len(sources["disassembly"][0].split()))
+
+
+class TestModelTransformer(TestCase):
+    def setUp(self):
+        set_grad_enabled(False)
+
+    def tearDown(self):
+        set_grad_enabled(True)
+
+    def test_attention_simple(self):
+        layer = Attention(768, 768)
+        state = rand(1, 512, 768)
+        result = layer(state)
+
+        self.assertEqual(result.shape, state.shape)
+
+    def test_attention_masked(self):
+        layer = Attention(768, 768)
+        state = rand(1, 512, 768)
+        mask = rand(1, 512) <= 0.2
+        result = layer(state, mask)
+
+        self.assertEqual(result.shape, state.shape)
+
+    def test_attention_unbatched(self):
+        layer = Attention(768, 768)
+        state = rand(512, 768)
+
+        with self.assertRaises(ValueError) as c:
+            layer(state)
+
+        self.assertIn("expected tensor of shape", str(c.exception))
+
+    def test_attention_mismatched_shape(self):
+        layer = Attention(768, 768)
+        state = rand(1, 512, 720)
+
+        with self.assertRaises(ValueError) as c:
+            layer(state)
+
+        self.assertIn("expected tensor with hidden size", str(c.exception))
+
+    def test_attention_masked_mismatched_shape(self):
+        layer = Attention(768, 768)
+        state = rand(1, 512, 768)
+        mask = rand(1, 512, 768) <= 0.2
+
+        with self.assertRaises(ValueError) as c:
+            layer(state, mask)
+
+        self.assertIn("expected mask tensor of shape", str(c.exception))
+
+    def test_attention_masked_mismatched_sequence_length(self):
+        layer = Attention(768, 768)
+        state = rand(1, 512, 768)
+        mask = rand(1, 256) <= 0.2
+
+        with self.assertRaises(ValueError) as c:
+            layer(state, mask)
+
+        self.assertIn("mismatched sequence length", str(c.exception))
+
+    def test_multi_head_attention_simple(self):
+        layer = MultiHeadAttention(768, 12)
+        state = rand(1, 512, 768)
+        result = layer(state)
+
+        self.assertEqual(result.shape, state.shape)
+
+    def test_multi_head_attention_invalid_head_count(self):
+        with self.assertRaises(ValueError) as c:
+            MultiHeadAttention(768, 13)
+
+        self.assertIn("invalid number of heads", str(c.exception))
+
+    def test_feed_forward_simple(self):
+        layer = FeedForward(768, 3072, 0.1)
+        state = rand(1, 512, 768)
+        result = layer(state)
+
+        self.assertEqual(result.shape, state.shape)
+
+    def test_feed_forward_mismatched_shape(self):
+        layer = FeedForward(768, 3072, 0.1)
+        state = rand(1, 512, 720)
+
+        with self.assertRaises(ValueError) as c:
+            layer(state)
+
+        self.assertIn("expected tensor with hidden size", str(c.exception))
+
+    def test_transformer_encoder_layer_simple(self):
+        layer = TransformerEncoderLayer(768, 12, 3072, 0.1)
+        state = rand(1, 512, 768)
+        result = layer(state)
+
+        self.assertEqual(result.shape, state.shape)
+
+    def test_position_embedding_simple(self):
+        layer = PositionEmbedding(768, 1024, 512, 0.1, 1e-12)
+        state = randint(0, 1024, size=(1, 512))
+        result = layer(state)
+
+        self.assertEqual(result.ndim, 3)
+
+        self.assertEqual(result.shape[0], 1)
+        self.assertEqual(result.shape[1], 512)
+        self.assertEqual(result.shape[2], 768)
+
+    def test_position_embedding_mismatched_shape(self):
+        layer = PositionEmbedding(768, 1024, 512, 0.1, 1e-12)
+        state = randint(0, 1024, size=(512,))
+
+        with self.assertRaises(ValueError) as c:
+            layer(state)
+
+        self.assertIn("expected tensor of shape", str(c.exception))
+
+    def test_position_embedding_mismatched_sequence_length(self):
+        layer = PositionEmbedding(768, 1024, 512, 0.1, 1e-12)
+        state = randint(0, 1024, size=(1, 256))
+
+        with self.assertRaises(ValueError) as c:
+            layer(state)
+
+        self.assertIn("expected sequence length", str(c.exception))
+
+    def test_instruction_argument_position_embedding_simple(self):
+        layer = InstructionArgumentPositionEmbedding(768, 1024, 512, 0, 0.1, 1e-12)
+        state = randint(0, 1024, size=(1, 512))
+        result = layer(state)
+
+        self.assertEqual(result.ndim, 3)
+
+        self.assertEqual(result.shape[0], 1)
+        self.assertEqual(result.shape[1], 512)
+        self.assertEqual(result.shape[2], 768)
+
+    def test_instruction_argument_position_embedding_mismatched_shape(self):
+        layer = InstructionArgumentPositionEmbedding(768, 1024, 512, 0, 0.1, 1e-12)
+        state = randint(0, 1024, size=(512,))
+
+        with self.assertRaises(ValueError) as c:
+            layer(state)
+
+        self.assertIn("expected tensor of shape", str(c.exception))
+
+    def test_instruction_argument_position_embedding_mismatched_sequence_length(self):
+        layer = InstructionArgumentPositionEmbedding(768, 1024, 512, 0, 0.1, 1e-12)
+        state = randint(0, 1024, size=(1, 256))
+
+        with self.assertRaises(ValueError) as c:
+            layer(state)
+
+        self.assertIn("expected sequence length", str(c.exception))
+
+    def test_transformer_encoder_simple(self):
+        layer = TransformerEncoder(2, 768, 1024, 512, 2, 3072, 0.1, 1e-12)
+        state = randint(0, 1024, size=(1, 512))
+        result = layer(state)
+
+        self.assertEqual(result.ndim, 3)
+
+        self.assertEqual(result.shape[0], 1)
+        self.assertEqual(result.shape[1], 512)
+        self.assertEqual(result.shape[2], 768)
 
 
 if __name__ == "__main__":

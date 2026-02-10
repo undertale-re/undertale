@@ -29,6 +29,10 @@ def scaled_dot_product_attention(
     See `Attention Is All You Need <https://arxiv.org/abs/1706.03762>`_ for
     more details.
 
+    Expects and returns tensors of the following shape::
+
+        (batch_size, sequence_length, hidden_size)
+
     Arguments:
         query: Query tensor.
         key: Key tensor.
@@ -45,6 +49,7 @@ def scaled_dot_product_attention(
         scores = scores.masked_fill(mask.unsqueeze(-2) == 0, -1e9)
 
     weights = softmax(scores, dim=-1)
+
     return bmm(weights, value)
 
 
@@ -58,6 +63,8 @@ class Attention(Module):
 
     def __init__(self, hidden_dimensions: int, head_dimensions: int):
         super().__init__()
+
+        self.hidden_dimensions = hidden_dimensions
 
         self.q = Linear(hidden_dimensions, head_dimensions)
         self.k = Linear(hidden_dimensions, head_dimensions)
@@ -73,6 +80,27 @@ class Attention(Module):
         Returns:
             A tensor in attended state space.
         """
+
+        if state.ndim != 3:
+            raise ValueError(
+                f"expected tensor of shape (batch_size, sequence_length, hidden_size) but got {tuple(state.shape)}"
+            )
+
+        if state.shape[-1] != self.hidden_dimensions:
+            raise ValueError(
+                f"expected tensor with hidden size of {self.hidden_dimensions} but got tensor of shape {tuple(state.shape)}"
+            )
+
+        if mask is not None:
+            if mask.ndim != 2:
+                raise ValueError(
+                    f"expected mask tensor of shape (batch_size, sequence_length) but got {tuple(mask.shape)}"
+                )
+
+            if mask.shape[-1] != state.shape[-2]:
+                raise ValueError(
+                    f"mismatched sequence length - got tensor of shape {tuple(state.shape)} and mask of shape {tuple(mask.shape)}"
+                )
 
         return scaled_dot_product_attention(
             self.q(state), self.k(state), self.v(state), mask=mask
@@ -92,6 +120,11 @@ class MultiHeadAttention(Module):
     """
 
     def __init__(self, hidden_dimensions: int, heads: int):
+        if hidden_dimensions % heads != 0:
+            raise ValueError(
+                f"invalid number of heads, {heads} is not an even multiple of {hidden_dimensions}"
+            )
+
         super().__init__()
 
         head_dimensions = hidden_dimensions // heads
@@ -136,6 +169,8 @@ class FeedForward(Module):
     ):
         super().__init__()
 
+        self.hidden_dimensions = hidden_dimensions
+
         self.linear1 = Linear(hidden_dimensions, intermediate_dimensions)
         self.linear2 = Linear(intermediate_dimensions, hidden_dimensions)
         self.activation = GELU()
@@ -150,6 +185,11 @@ class FeedForward(Module):
         Returns:
             Computed state.
         """
+
+        if state.shape[-1] != self.hidden_dimensions:
+            raise ValueError(
+                f"expected tensor with hidden size of {self.hidden_dimensions} but got tensor of shape {tuple(state.shape)}"
+            )
 
         hidden = self.activation(self.linear1(state))
         output = self.dropout(self.linear2(hidden))
@@ -222,7 +262,7 @@ class PositionEmbedding(Module):
     Arguments:
         hidden_dimensions: The size of the hidden state space.
         vocab_size: The size of the vocabulary.
-        input_size: The fixed size of the input vector.
+        sequence_length: The fixed size of the input vector.
         dropout: Dropout probability.
         eps: Layer normalization stabalization parameter.
     """
@@ -231,18 +271,20 @@ class PositionEmbedding(Module):
         self,
         hidden_dimensions: int,
         vocab_size: int,
-        input_size: int,
+        sequence_length: int,
         dropout: float,
         eps: float,
     ):
         super().__init__()
 
+        self.sequence_length = sequence_length
+
         self.token = Embedding(vocab_size, hidden_dimensions)
-        self.position = Embedding(input_size, hidden_dimensions)
+        self.position = Embedding(sequence_length, hidden_dimensions)
         self.norm = LayerNorm(hidden_dimensions, eps=eps)
         self.dropout = Dropout(dropout)
 
-    def forward(self, state: Tensor):
+    def forward(self, state: Tensor) -> Tensor:
         """Inject positional information.
 
         Arguments:
@@ -251,6 +293,16 @@ class PositionEmbedding(Module):
         Returns:
             Modified state with positional information.
         """
+
+        if state.ndim != 2:
+            raise ValueError(
+                f"expected tensor of shape (batch_size, sequence_length) but got {tuple(state.shape)}"
+            )
+
+        if state.shape[-1] != self.sequence_length:
+            raise ValueError(
+                f"expected sequence length of {self.sequence_length} but got tensor of shape {tuple(state.shape)}"
+            )
 
         length = state.size(1)
         positions = arange(length, dtype=long).unsqueeze(0)
@@ -283,7 +335,7 @@ class InstructionArgumentPositionEmbedding(Module):
     Arguments:
         hidden_dimensions: The size of the hidden state space.
         vocab_size: The size of the vocabulary.
-        input_size: The fixed size of the input vector.
+        sequence_length: The fixed size of the input vector.
         next_token_id: The ID of the special ``NEXT`` token.
         dropout: Dropout probability.
         eps: Layer normalization stabalization parameter.
@@ -293,18 +345,19 @@ class InstructionArgumentPositionEmbedding(Module):
         self,
         hidden_dimensions: int,
         vocab_size: int,
-        input_size: int,
+        sequence_length: int,
         next_token_id: int,
         dropout: float,
         eps: float,
     ):
         super().__init__()
 
+        self.sequence_length = sequence_length
         self.next_token_id = next_token_id
 
         self.token = Embedding(vocab_size, hidden_dimensions)
-        self.instruction = Embedding(input_size, hidden_dimensions)
-        self.argument = Embedding(input_size, hidden_dimensions)
+        self.instruction = Embedding(sequence_length, hidden_dimensions)
+        self.argument = Embedding(sequence_length, hidden_dimensions)
         self.norm = LayerNorm(hidden_dimensions, eps=eps)
         self.dropout = Dropout(dropout)
 
@@ -317,6 +370,16 @@ class InstructionArgumentPositionEmbedding(Module):
         Returns:
             Modified state with positional information.
         """
+
+        if state.ndim != 2:
+            raise ValueError(
+                f"expected tensor of shape (batch_size, sequence_length) but got {tuple(state.shape)}"
+            )
+
+        if state.shape[-1] != self.sequence_length:
+            raise ValueError(
+                f"expected sequence length of {self.sequence_length} but got tensor of shape {tuple(state.shape)}"
+            )
 
         starts = roll(state == self.next_token_id, 1)
         starts[:, 0] = False
@@ -345,7 +408,7 @@ class TransformerEncoder(Module):
         depth: The number of stacked transformer layers.
         hidden_dimensions: The size of the hidden state space.
         vocab_size: The size of the vocabulary.
-        input_size: The fixed size of the input vector.
+        sequence_length: The fixed size of the input vector.
         heads: The number of attention heads.
         intermediate_dimensions: The size of the intermediate state space.
         dropout: Dropout probability.
@@ -358,7 +421,7 @@ class TransformerEncoder(Module):
         depth: int,
         hidden_dimensions: int,
         vocab_size: int,
-        input_size: int,
+        sequence_length: int,
         heads: int,
         intermediate_dimensions: int,
         dropout: float,
@@ -371,7 +434,7 @@ class TransformerEncoder(Module):
             self.embedding = embedding
         else:
             self.embedding = PositionEmbedding(
-                hidden_dimensions, vocab_size, input_size, dropout, eps
+                hidden_dimensions, vocab_size, sequence_length, dropout, eps
             )
 
         self.layers = ModuleList(
