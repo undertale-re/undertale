@@ -92,12 +92,11 @@ class SummarizerDataset(torch.utils.data.Dataset):
     #     return tokens, mask
 
     def __getitem__(self, item: int):
-        print(type(self.dataset))
-        tokens = self.dataset[item]
+        tokens = self.dataset[item]['summary_tokens']
         if self.end2end:
-            disassembly_info = self.dataset["disassembly"][item]
+            disassembly_info = self.dataset[item]["disassembly"]
         else:
-            prefix = self.dataset["disassembly_prefixes"][item]
+            prefix = self.dataset[item]["disassembly_prefixes"]
             if self.normalize_prefix:
                 prefix = prefix.float()
                 prefix = prefix / prefix.norm(2, -1)
@@ -119,7 +118,6 @@ class CustomCollator:
         self.device = device
 
     def __call__(self, batch):
-        print("made it through dataset getitem")
         if self.tok_fast==None:
             self.tok_fast=PreTrainedTokenizerFast(tokenizer_object=self.tokenizer)
         tokens, disassembly_infos = zip(*batch)
@@ -141,7 +139,6 @@ class CustomCollator:
         prefix_mask = torch.ones(
             (token_size, self.prefix_length), dtype=torch.float32)
         masks = torch.cat((prefix_mask, masks.float()), dim=1)
-        print("before tokenization")
         disassembly_batch = self.tok_fast(
             disassembly_infos,
             truncation=True,
@@ -149,7 +146,6 @@ class CustomCollator:
             return_tensors="pt",
             max_length=self.max_length,
         )
-        print("after tokenization")
         return {
             "tokens": padded,
             "mask": masks,
