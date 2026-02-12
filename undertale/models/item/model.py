@@ -378,7 +378,7 @@ class TransformerEncoderForSequenceSummarization(Module):
         
         
         self.assembly_checkpoint = assembly_checkpoint
-        self.assembly_model = None
+        self.assembly_encoder = None
         if end2end:
             self.assembly_encoder = TransformerEncoderForMaskedLM.load_from_checkpoint(
                 assembly_checkpoint
@@ -452,11 +452,12 @@ class TransformerEncoderForSequenceSummarization(Module):
 
     def embed_assembly(self, assembly_tokens, assembly_mask=None):
 
-        if self.assembly_model is None:
+        if self.assembly_encoder is None:
             self.assembly_encoder = TransformerEncoderForMaskedLM.load_from_checkpoint(
                 self.assembly_checkpoint
             )
         if self.assembly_encoder.training:
+            
             self.assembly_encoder.eval()
         return self.assembly_encoder.encoder(assembly_tokens, assembly_mask)
 
@@ -534,10 +535,11 @@ class TransformerEncoderForSequenceSummarization(Module):
                     temperature=temperature,
                 )
 
-            out_ids = self.llm.generate(**gen_kwargs)
-
+            out_ids = self.llm.generate(**gen_kwargs)[0].tolist()
+            if self.stop_token in out_ids:
+                out_ids = out_ids[:out_ids.index(self.stop_token)]
             # Decode full sequence
-            output_text = self.tokenizer.decode(out_ids[0], skip_special_tokens=False)
+            output_text = self.tokenizer.decode(out_ids, skip_special_tokens=True)
             return output_text    
     
 #     def generate2(

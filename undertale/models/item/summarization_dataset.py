@@ -30,6 +30,7 @@ class SummarizerDataset(torch.utils.data.Dataset):
             self.tokenizer = AutoTokenizer.from_pretrained(
                 gpt2path, local_files_only=True
             )
+            self.stop_token=self.tokenizer.eos_token_id
             config = AutoConfig.from_pretrained(gpt2path, local_files_only=True)
         except Exception as e:
             raise RuntimeError(
@@ -61,11 +62,13 @@ class SummarizerDataset(torch.utils.data.Dataset):
         captions = self.dataset["summary"]
         tokenized = []
         for cap in tqdm(captions, desc="Tokenizing captions"):
+            #cap=cap.replace("_"," ")
             encoded = self.tokenizer.encode(
                 cap, truncation=True, max_length=self.max_seq_len
             )
+            encoded=encoded+[self.stop_token]
             tokenized.append(encoded)
-
+    
         self.dataset = self.dataset.add_column("summary_tokens", tokenized)
         self.dataset = self.dataset.remove_columns(["summary"])
 
@@ -89,7 +92,8 @@ class SummarizerDataset(torch.utils.data.Dataset):
     #     return tokens, mask
 
     def __getitem__(self, item: int):
-        tokens = self.dataset["summary_tokens"][item]
+        print(type(self.dataset))
+        tokens = self.dataset[item]
         if self.end2end:
             disassembly_info = self.dataset["disassembly"][item]
         else:
@@ -108,25 +112,26 @@ class CustomCollator:
         self.tokenizer = tokenizer.load(args.tokenizer)
         self.max_length = args.tokenizer_size
 
-        self.tok_fast = PreTrainedTokenizerFast(tokenizer_object=self.tokenizer)
+        self.tok_fast=None
         self.pad_id=pad_id
         self.max_seq_len = max_seq_len
         self.prefix_length = args.prefix_length_const
         self.device = device
 
     def __call__(self, batch):
+        print("made it through dataset getitem")
+        if self.tok_fast==None:
+            self.tok_fast=PreTrainedTokenizerFast(tokenizer_object=self.tokenizer)
         tokens, disassembly_infos = zip(*batch)
         token_size = len(tokens)
         padded = torch.full(
-            (token_size, self.max_seq_len), -1, dtype=torch.long, device=self.device
-        )
+            (token_size, self.max_seq_len), -1, dtype=torch.long)
 
      
         for i, seq in enumerate(tokens):
             seq_len = min(len(seq), self.max_seq_len)
             padded[i, :seq_len] = torch.tensor(
-                seq[:seq_len], dtype=torch.long, device=self.device
-            )
+                seq[:seq_len], dtype=torch.long)
         
         # vectorized mask
         masks = padded.ge(0)
@@ -134,9 +139,9 @@ class CustomCollator:
         padded = padded.masked_fill_(~masks, self.pad_id)
         # prefix mask (also vectorized)
         prefix_mask = torch.ones(
-            (token_size, self.prefix_length), dtype=torch.float32, device=self.device
-        )
+            (token_size, self.prefix_length), dtype=torch.float32)
         masks = torch.cat((prefix_mask, masks.float()), dim=1)
+        print("before tokenization")
         disassembly_batch = self.tok_fast(
             disassembly_infos,
             truncation=True,
@@ -144,7 +149,7 @@ class CustomCollator:
             return_tensors="pt",
             max_length=self.max_length,
         )
-
+        print("after tokenization")
         return {
             "tokens": padded,
             "mask": masks,

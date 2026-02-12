@@ -27,6 +27,11 @@ from .model import TransformerEncoderForSequenceSummarization
 from .summarization_dataset import CustomCollator, SummarizerDataset
 
 
+def dataset_size_type(x):
+    x = int(x)
+    if x == 0:
+        raise argparse.ArgumentTypeError("dataset_size cannot be 0. Use -1 for full dataset or a positive integer.")
+    return x
 
 class ProgressBar(TQDMProgressBar):
     def get_metrics(self, trainer, model):
@@ -39,19 +44,22 @@ class ValidationCallback(Callback):
     def __init__(
         self,
         dataloader,
-        
+        run_on_val_end=True, 
+        run_on_fit_end=False, 
+        tag=None,
         end2end=False,
-        max_batches=5,
         args=None,
     ):
         super().__init__()
         
         
-        self.bertscore_model_path=args.bertscore_path
+        self.bertscore_model_path=args.bertscore_model_path
         self.dataloader = dataloader
         self.save_dir = args.generated_output_paths
         self.end2end = end2end
-        self.max_batches = max_batches
+        self.run_on_val_end=run_on_val_end
+        self.run_on_fit_end=run_on_fit_end
+        self.tag=tag
         
         # ---- generation config (EXPLICIT) ----
         self.beam = args.beam
@@ -63,8 +71,9 @@ class ValidationCallback(Callback):
         self.do_sample = False
 
         os.makedirs(self.save_dir, exist_ok=True)
-
-    def on_validation_epoch_end(self, trainer, pl_module):
+        
+        
+    def _run_validation(self,trainer,pl_module):
         if not trainer.is_global_zero:
             return
 
@@ -82,8 +91,7 @@ class ValidationCallback(Callback):
 
         with torch.no_grad():
             for i, batch in enumerate(self.dataloader):
-                if i >= self.max_batches:
-                    break
+
 
                 tokens = batch["tokens"].to(device)
                 mask = batch["mask"].to(device)
@@ -121,8 +129,10 @@ class ValidationCallback(Callback):
                 caption = pl_module.model.tokenizer.decode(
                     tokens[0][token_mask[0] == 1], skip_special_tokens=True
                 )
-                outputs.append([caption, text])
-                
+                outputs.append([caption, 
+                                text])
+                caption=caption.replace("_", " ")
+                text=text.replace("_"," ")
                 rouge_score = rouge.score(caption, text)["rougeL"].fmeasure
                 rouge_l_f1_sum += rouge_score
 
@@ -153,10 +163,17 @@ class ValidationCallback(Callback):
             f"[val metrics] ROUGE-L(F1)={rouge_l_f1:.4f} | "
             f"BERTScore(F1)={bert_f1:.4f}"
         )
-
-        path = os.path.join(
-            self.save_dir, f"epoch_{trainer.current_epoch}.txt"
-        )
+        
+        if self.tag==None:
+            path = os.path.join(
+                self.save_dir, f"epoch_{trainer.current_epoch}.txt"
+            )
+        else:
+            path = os.path.join(
+                self.save_dir, f"{self.tag}_epoch_{trainer.current_epoch}.txt"
+            )
+        self.log("rouge_l_f1", rouge_l_f1,sync_dist=True)
+        self.log("bert_f1", bert_f1,sync_dist=True)
         with open(path, "w") as f:
             
             f.write(
@@ -172,6 +189,14 @@ class ValidationCallback(Callback):
                 f.write("_________________\n")
 
         trainer.print(f"Saved validation outputs to {path}")
+    def on_validation_epoch_end(self, trainer, pl_module):
+        if self.run_on_val_end:
+            self._run_validation(trainer,pl_module)
+        
+    def on_train_end(self, trainer, pl_module):
+        if self.run_on_fit_end:
+            self._run_validation(trainer, pl_module)
+        
 
 
 
@@ -196,10 +221,8 @@ class SummarizeModel(LightningModule, torch.nn.Module):
             batch["tokens"],
             batch["mask"],
             batch["disassembly_tokens"],
-            batch["disassembly_mask"],
-        )
-        # tokens, mask = tokens.to(self.device),mask.to(self.device)
-        # disassembly_info = disassembly_info.to(self.device, dtype=torch.float32)
+            batch["disassembly_mask"],)
+        
         if self.end2end:
             with torch.no_grad():
 
@@ -216,7 +239,8 @@ class SummarizeModel(LightningModule, torch.nn.Module):
             logits.reshape(-1, logits.shape[-1]), tokens.flatten(), ignore_index=0
         )
         
-        self.log("train_loss", loss)
+        self.log("train_loss", loss,sync_dist=True)
+        self.log("lr", self.trainer.optimizers[0].param_groups[0]['lr'],sync_dist=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -244,7 +268,7 @@ class SummarizeModel(LightningModule, torch.nn.Module):
             logits.reshape(-1, logits.shape[-1]), tokens.flatten(), ignore_index=0
         )
 
-        self.log("val_loss", loss)
+        self.log("val_loss", loss,sync_dist=True)
         return loss
 
     def configure_optimizers(self):
@@ -361,6 +385,12 @@ if __name__ == "__main__":
         default=0.1,
         help="ratio size of test set. remaining size is train set",
     )
+    parser.add_argument(
+    "--dataset_size",
+    type=dataset_size_type,
+    default=-1,
+    help="subsample dataset. -1 means use entire dataset. will throw error is choose 0"
+    )
     
 
     # training info
@@ -438,7 +468,16 @@ if __name__ == "__main__":
         dataset = load_dataset("parquet", data_files=args.dataset)
     else:
         raise FileNotFoundError(f"File not found: {args.dataset}")
-
+        
+        
+    cols = dataset.column_names
+    if "function_name" in cols and "summary" not in cols:
+        dataset = dataset.rename_column("function_name", "summary")
+    
+    dataset = dataset.select_columns(["disassembly", "summary"])
+    
+    if not args.dataset_size==-1:
+        dataset=dataset.select(range(args.dataset_size))
     split_dataset = dataset.train_test_split(test_size=args.test_size, seed=args.seed)
 
     train_dataset = SummarizerDataset(
@@ -463,10 +502,10 @@ if __name__ == "__main__":
     collator = CustomCollator(args, train_dataset.max_seq_len, device,train_dataset.pad_id)
 
     train_dataloader = DataLoader(
-        train_dataset, shuffle=True, batch_size=args.batch_size, collate_fn=collator
+        train_dataset, shuffle=True, batch_size=args.batch_size, collate_fn=collator,num_workers=8
     )
     val_dataloader = DataLoader(
-        val_dataset, shuffle=False, batch_size=args.batch_size, collate_fn=collator
+        val_dataset, shuffle=False, batch_size=args.batch_size, collate_fn=collator,num_workers=8
     )
 
     # set up model
@@ -510,14 +549,34 @@ if __name__ == "__main__":
             sampler=random_sampler,
             batch_size=1,
             collate_fn=collator,
-            num_workers=0,
+            num_workers=8
         )
 
-        validation_check = ValidationCallback(
-            random_validation, end2end=args.end2end,args=args
+        final_validation=DataLoader(
+            val_dataset,
+            batch_size=1,
+            collate_fn=collator,
+            num_workers=8
         )
-        callbacks = [progress, checkpoint, stop, validation_check]
-       
+        
+        final_validation_check=ValidationCallback(
+                                    final_validation, 
+                                    end2end=args.end2end,
+                                    tag="final_full_val",
+                                    run_on_val_end=False, 
+                                    run_on_fit_end=True,
+                                    args=args)
+        
+        validation_check = ValidationCallback(
+                                    random_validation, 
+                                    end2end=args.end2end,
+                                    tag=None,
+                                    run_on_val_end=True, 
+                                    run_on_fit_end=False,
+                                    args=args)
+        
+        
+        callbacks = [progress, checkpoint, stop, validation_check,final_validation_check]
 
     else:
         callbacks = [progress, checkpoint, stop]
@@ -545,9 +604,24 @@ if __name__ == "__main__":
         # limit_train_batches=2,
         # limit_val_batches=2,
     )
+    
+    # trainer = Trainer(
+    #     strategy="ddp_find_unused_parameters_true",
+    #     max_epochs=1,
+    #     callbacks=callbacks,
+    #     limit_train_batches=1,
+    #     limit_val_batches=1,
+    #     num_sanity_val_steps=0,
+    #     # optionally:
+    #     devices=args.devices,
+    #     logger=False,
+    # )
     trainer.fit(
         summarize_model,
         train_dataloaders=train_dataloader,
         val_dataloaders=val_dataloader,
         ckpt_path=args.summarizer_checkpoint,
     )
+    
+    
+    
