@@ -67,6 +67,18 @@ class SummarizedDisassembledFunctionDatasetWithSource(
     """Summarized, disassembled functions with source code."""
 
 
+class VulnerabilityMixin(DataFrameModel):
+    """A mixin adding a ``vulnerability`` field."""
+
+    vulnerability: Series[str]
+
+
+class VulnerabilityDisassembledFunctionDatasetWithSource(
+    VulnerabilityMixin, DisassembledFunctionDatasetWithSource
+):
+    """Disassembled functions with source code and associated vulnerabilities (if one exists)."""
+
+
 __all__ = [
     "Dataset",
     "SummarizedMixin",
@@ -79,4 +91,5 @@ __all__ = [
     "DisassembledFunctionDataset",
     "DisassembledFunctionDatasetWithSource",
     "SummarizedDisassembledFunctionDatasetWithSource",
+    "VulnerabilityDisassembledFunctionDatasetWithSource",
 ]
