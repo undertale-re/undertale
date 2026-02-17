@@ -135,12 +135,13 @@ def unpack_challenge(input: str, output: str) -> str:
 
     output, created = get_or_create_directory(output)
     if not created:
+        logger.debug(f"{challenge} was already unpacked to {output}")
         return output
+
+    logger.info(f"unpacking {challenge}")
 
     data = join(challenge, "raw_data.sqlar")
     solutions = join(challenge, "solutions.sqlar")
-
-    logger.info(f"unpacking {challenge}")
 
     unpack_sqlar(data, output)
     unpack_sqlar(solutions, output)
@@ -177,13 +178,14 @@ def parse_challenge(input: str, output: str) -> str:
     Returns:
         Path to the parsed challenge data as parquet.
     """
-    logger.info(f"parsing challenge {input}")
-
     input = assert_path_exists(input)
 
     output, created = get_or_create_file(output)
     if not created:
+        logger.debug(f"{input} already parsed to {output}")
         return output
+
+    logger.info(f"parsing challenge {input}")
 
     rows = list()
 
@@ -243,8 +245,6 @@ def parse_challenge(input: str, output: str) -> str:
 
             total += 1
 
-        logger.info(f"found {total} solutions to {len(tasks)} tasks from {input}")
-
         frame = DataFrame(rows)
         frame.to_parquet(output)
 
@@ -257,9 +257,10 @@ if __name__ == "__main__":
     parser.setup(arguments)
 
     with (
-        Cluster(type=arguments.cluster, parallelism=arguments.parallelism) as cluster,
+        Cluster(type=arguments.cluster, partition="gaia", parallelism=arguments.parallelism) as cluster,
         Client(cluster) as client,
     ):
+
         logger.info("processing dataset")
 
         # Pre-process
@@ -269,17 +270,21 @@ if __name__ == "__main__":
         )
 
         ## Unzip competitions.
+        logger.info("unzipping competitions")
         unzipped = fanout(
             client, unzip_file, inputs, f"{arguments.output}-unzipped"
         ).result()
+        logger.info("successfully unzipped competitions")
 
         ## Filter challenges with solutions.
         solved_challenges = client.submit(filter_challenges_with_solutions, unzipped)
 
         ## Unpack the challenge data.
+        logger.info("unpacking competitions challenges")
         unpacked = fanout(
             client, unpack_challenge, solved_challenges, f"{arguments.output}-unpacked"
         ).result()
+        logger.info("successfully unpacked challenges")
 
         ## Filter challenges with submissions.
         submitted_challenges = client.submit(
@@ -287,27 +292,35 @@ if __name__ == "__main__":
         )
 
         ## Parse challenges from each competition into parquet.
+        logger.info("parsing competitions into parquet files")
         parsed = fanout(
             client, parse_challenge, submitted_challenges, f"{arguments.output}-parsed"
         ).result()
+        logger.info("successfully parsed competitions")
 
         ## Resize dataset.
-        parquets = merge(client, parsed)
         chunks = client.submit(
             resize_parquet,
-            parquets,
+            parsed,
             f"{arguments.output}-resized",
-            chunks=arguments.parallelism,
+            size="50MB",
         )
 
         # Post-process
+        logger.info("compiling")
         compiled = fanout(client, compile_cpp, chunks, f"{arguments.output}-compiled")
+        logger.info("successfully compiled the dataset")
+
+        logger.info("segmenting and disassembling")
         disassembled = fanout(
             client,
             segment_and_disassemble_binary,
             compiled,
             f"{arguments.output}-disassembled",
         )
+        logger.info("successfully segmented and disassembled the dataset")
+
+        logger.info("deduplicating by `binary_hash`")
         hashed = fanout(
             client,
             hash_parquet_column,
@@ -316,6 +329,8 @@ if __name__ == "__main__":
             column="binary",
             target="binary_hash",
         )
+        logger.info("successfully deduplicated by `binary_hash`")
+
         merged = client.submit(
             resize_parquet,
             hashed,

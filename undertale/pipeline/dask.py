@@ -126,18 +126,15 @@ def fanout(
 
     inputs = inputs.result()
 
-    output, created = get_or_create_directory(output)
-
     results = []
-    if created:
-        for input in inputs:
-            results.append(
-                client.submit(
-                    function, input, join(output, basename(input)), *args, **kwargs
-                )
+
+    output, created = get_or_create_directory(output)
+    for input in inputs:
+        results.append(
+            client.submit(
+                function, input, join(output, basename(input)), *args, **kwargs
             )
-    else:
-        results = [join(output, f) for f in listdir(output)]
+        )
 
     return merge(client, results)
 
