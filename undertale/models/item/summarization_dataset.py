@@ -30,7 +30,7 @@ class SummarizerDataset(torch.utils.data.Dataset):
             self.tokenizer = AutoTokenizer.from_pretrained(
                 gpt2path, local_files_only=True
             )
-            self.stop_token=self.tokenizer.eos_token_id
+            self.stop_token = self.tokenizer.eos_token_id
             config = AutoConfig.from_pretrained(gpt2path, local_files_only=True)
         except Exception as e:
             raise RuntimeError(
@@ -40,7 +40,7 @@ class SummarizerDataset(torch.utils.data.Dataset):
 
         self.prefix_length = prefix_length
         self.normalize_prefix = normalize_prefix
-        self.pad_id=0
+        self.pad_id = 0
 
         # Figure out max context length from config
         if hasattr(config, "n_positions"):
@@ -52,7 +52,7 @@ class SummarizerDataset(torch.utils.data.Dataset):
 
         # Enforce: prefix tokens + text tokens <= model limit
         self.max_seq_len = max_positions - prefix_length
-        print(self.max_seq_len,"max len")
+        print(self.max_seq_len, "max len")
         self.dataset = dataset
         if end2end:
             self.tokenize_dataset(token_batchsize)
@@ -62,13 +62,13 @@ class SummarizerDataset(torch.utils.data.Dataset):
         captions = self.dataset["summary"]
         tokenized = []
         for cap in tqdm(captions, desc="Tokenizing captions"):
-            #cap=cap.replace("_"," ")
+            # cap=cap.replace("_"," ")
             encoded = self.tokenizer.encode(
                 cap, truncation=True, max_length=self.max_seq_len
             )
-            encoded=encoded+[self.stop_token]
+            encoded = encoded + [self.stop_token]
             tokenized.append(encoded)
-    
+
         self.dataset = self.dataset.add_column("summary_tokens", tokenized)
         self.dataset = self.dataset.remove_columns(["summary"])
 
@@ -92,7 +92,7 @@ class SummarizerDataset(torch.utils.data.Dataset):
     #     return tokens, mask
 
     def __getitem__(self, item: int):
-        tokens = self.dataset[item]['summary_tokens']
+        tokens = self.dataset[item]["summary_tokens"]
         if self.end2end:
             disassembly_info = self.dataset[item]["disassembly"]
         else:
@@ -106,38 +106,34 @@ class SummarizerDataset(torch.utils.data.Dataset):
 
 
 class CustomCollator:
-    def __init__(self, args, max_seq_len, device,pad_id):
+    def __init__(self, args, max_seq_len, device, pad_id):
 
         self.tokenizer = tokenizer.load(args.tokenizer)
         self.max_length = args.tokenizer_size
 
-        self.tok_fast=None
-        self.pad_id=pad_id
+        self.tok_fast = None
+        self.pad_id = pad_id
         self.max_seq_len = max_seq_len
         self.prefix_length = args.prefix_length_const
         self.device = device
 
     def __call__(self, batch):
-        if self.tok_fast==None:
-            self.tok_fast=PreTrainedTokenizerFast(tokenizer_object=self.tokenizer)
+        if self.tok_fast == None:
+            self.tok_fast = PreTrainedTokenizerFast(tokenizer_object=self.tokenizer)
         tokens, disassembly_infos = zip(*batch)
         token_size = len(tokens)
-        padded = torch.full(
-            (token_size, self.max_seq_len), -1, dtype=torch.long)
+        padded = torch.full((token_size, self.max_seq_len), -1, dtype=torch.long)
 
-     
         for i, seq in enumerate(tokens):
             seq_len = min(len(seq), self.max_seq_len)
-            padded[i, :seq_len] = torch.tensor(
-                seq[:seq_len], dtype=torch.long)
-        
+            padded[i, :seq_len] = torch.tensor(seq[:seq_len], dtype=torch.long)
+
         # vectorized mask
         masks = padded.ge(0)
-        
+
         padded = padded.masked_fill_(~masks, self.pad_id)
         # prefix mask (also vectorized)
-        prefix_mask = torch.ones(
-            (token_size, self.prefix_length), dtype=torch.float32)
+        prefix_mask = torch.ones((token_size, self.prefix_length), dtype=torch.float32)
         masks = torch.cat((prefix_mask, masks.float()), dim=1)
         disassembly_batch = self.tok_fast(
             disassembly_infos,
@@ -151,5 +147,4 @@ class CustomCollator:
             "mask": masks,
             "disassembly_tokens": disassembly_batch["input_ids"],
             "disassembly_mask": disassembly_batch["attention_mask"],
-            
         }

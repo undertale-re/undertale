@@ -1,10 +1,10 @@
 from math import sqrt
 from typing import Optional
 
+import numpy as np
 import torch
 import torch.nn.functional as nnf
 from lightning import LightningModule
-import numpy as np
 from sklearn.metrics import f1_score
 from torch import (
     Tensor,
@@ -23,7 +23,7 @@ from torch.nn import GELU, Dropout, Embedding, LayerNorm, Linear, Module, Module
 from torch.nn.functional import cross_entropy
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import LambdaLR
-from transformers import GPT2LMHeadModel, AutoTokenizer
+from transformers import GPT2Config, GPT2LMHeadModel, GPT2TokenizerFast
 
 from . import tokenizer
 from .model_connector import MLP, TransformerConnector
@@ -366,51 +366,48 @@ class TransformerEncoderForSequenceSummarization(Module):
 
     def __init__(
         self,
-        assembly_checkpoint,
         connector_config,
-        llm_checkpoint,
-        end2end=True,
+        vocab_size,
+        assembly_checkpoint=None,
+        llm_checkpoint=None,
         tune_llm=True,
     ):
         super().__init__()
 
         self.tune_llm = tune_llm
-        
-        
-        self.assembly_checkpoint = assembly_checkpoint
-        self.assembly_encoder = None
-        if end2end:
+
+        if assembly_checkpoint is not None:
             self.assembly_encoder = TransformerEncoderForMaskedLM.load_from_checkpoint(
                 assembly_checkpoint
             )
+        else:
+            self.assembly_encoder = TransformerEncoderForMaskedLM(
+                depth=12,
+                hidden_dimensions=768,
+                vocab_size=vocab_size,
+                input_size=512,
+                heads=12,
+                intermediate_dimensions=3072,
+                dropout=0.1,
+                eps=1e-12,
+                lr=1e-4,
+                warmup=0.5,
+            )
 
-        try:
+        if llm_checkpoint is not None:
             self.llm = GPT2LMHeadModel.from_pretrained(llm_checkpoint)
-            
-        except:
-            print("downloading gpt2 from huggingface...")
-            self.llm = GPT2LMHeadModel.from_pretrained("gpt2")
-            self.llm.save_pretrained(llm_checkpoint)
-            
-            
-            
-        try:
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                llm_checkpoint, local_files_only=True
-            )
-            self.stop_token=self.tokenizer.eos_token_id
-        except Exception as e:
-            raise RuntimeError(
-                f"Failed to load model/tokenizer from {llm_checkpoint}. "
-                f"Make sure you download it first.\n{e}"
-            )
+        else:
+            config = GPT2Config.from_pretrained("gpt2")
+            self.llm = GPT2LMHeadModel(config)
+
+        self.tokenizer = GPT2TokenizerFast.from_pretrained("gpt2")
+        self.stop_token = self.tokenizer.eos_token_id
 
         if not self.tune_llm:
             for param in self.llm.parameters():
                 param.requires_grad = False
             self.llm.eval()
         else:
-            print("TRAINING LLM")
             self.llm.train()
 
         self.llm_embedding_size = self.llm.transformer.wte.weight.shape[1]
@@ -451,21 +448,19 @@ class TransformerEncoderForSequenceSummarization(Module):
         return out
 
     def embed_assembly(self, assembly_tokens, assembly_mask=None):
-
-        if self.assembly_encoder is None:
-            self.assembly_encoder = TransformerEncoderForMaskedLM.load_from_checkpoint(
-                self.assembly_checkpoint
-            )
         if self.assembly_encoder.training:
-            
             self.assembly_encoder.eval()
+
         return self.assembly_encoder.encoder(assembly_tokens, assembly_mask)
 
     def get_dummy_token(self, batch_size: int, device: torch.device) -> torch.Tensor:
-         return torch.full((batch_size, self.prefix_length_const),
-                           -100, device=device, dtype=torch.long)
-    
-    
+        return torch.full(
+            (batch_size, self.prefix_length_const),
+            -100,
+            device=device,
+            dtype=torch.long,
+        )
+
     def generate(
         self,
         tokens=None,
@@ -475,22 +470,23 @@ class TransformerEncoderForSequenceSummarization(Module):
         top_p=0.8,
         temperature=1.0,
         do_sample=False,
-        beam=False,         
-        num_beams=5,         
-        length_penalty=1.0,  
+        beam=False,
+        num_beams=5,
+        length_penalty=1.0,
         early_stopping=True,
-        min_new_tokens=1,   
+        min_new_tokens=1,
     ):
         self.llm.eval()
         device = next(self.llm.parameters()).device
 
-        stop_token_index = self.stop_token  # your custom stop token id (may or may not equal eos)
+        stop_token_index = (
+            self.stop_token
+        )  # your custom stop token id (may or may not equal eos)
 
         if temperature is None or temperature <= 0:
             temperature = 1.0
 
-
-        pad_token_id=0
+        pad_token_id = 0
 
         with torch.no_grad():
             # 1) prompt embeds
@@ -498,13 +494,19 @@ class TransformerEncoderForSequenceSummarization(Module):
                 inputs_embeds = embed.to(device)  # [1, T, n_embd]
             else:
                 if tokens is None:
-                    tokens = torch.tensor(self.tokenizer.encode(prefix or ""), dtype=torch.long, device=device).unsqueeze(0)
+                    tokens = torch.tensor(
+                        self.tokenizer.encode(prefix or ""),
+                        dtype=torch.long,
+                        device=device,
+                    ).unsqueeze(0)
                 else:
                     tokens = tokens.to(device)
                 inputs_embeds = self.llm.transformer.wte(tokens)  # [1, T, n_embd]
 
             # 2) attention mask (no padding here => all ones)
-            attention_mask = torch.ones(inputs_embeds.size()[:2], dtype=torch.long, device=device)
+            attention_mask = torch.ones(
+                inputs_embeds.size()[:2], dtype=torch.long, device=device
+            )
 
             # 3) generation kwargs
             gen_kwargs = dict(
@@ -515,9 +517,8 @@ class TransformerEncoderForSequenceSummarization(Module):
                 pad_token_id=pad_token_id,
             )
 
-
             gen_kwargs["eos_token_id"] = stop_token_index
-            
+
             # Beam toggle
             if beam:
                 # Standard beam search is deterministic; sampling is typically OFF.
@@ -537,16 +538,17 @@ class TransformerEncoderForSequenceSummarization(Module):
 
             out_ids = self.llm.generate(**gen_kwargs)[0].tolist()
             if self.stop_token in out_ids:
-                out_ids = out_ids[:out_ids.index(self.stop_token)]
+                out_ids = out_ids[: out_ids.index(self.stop_token)]
             # Decode full sequence
             output_text = self.tokenizer.decode(out_ids, skip_special_tokens=True)
-            return output_text    
-    
+            return output_text
+
+
 #     def generate2(
 #         self,
 #         tokens=None,
-#         prefix=None,        
-#         embed=None,         # optional: prompt token embeddings [1, T, n_embd]  
+#         prefix=None,
+#         embed=None,         # optional: prompt token embeddings [1, T, n_embd]
 #         entry_length=67,    # max new tokens
 #         top_p=0.8,
 #         temperature=1.0,
@@ -594,7 +596,7 @@ class TransformerEncoderForSequenceSummarization(Module):
 #             # 2) Build multimodal soft-prefix embeds (Option A) and prepend
 #             # -------------------------
 #             prefix_len = 0
-            
+
 #             inputs_embeds = prompt_embeds  # [1, T, n_embd]
 
 #             # attention_mask: all ones (no padding)
@@ -617,12 +619,10 @@ class TransformerEncoderForSequenceSummarization(Module):
 #             #print(out_ids)
 #             # Drop the dummy prefix positions before decoding
 #             #out_ids = out_ids[:, prefix_len:]  # [1, T+new] aligned to real tokens
-        
+
 #             # Match your old behavior: decode the full returned sequence (prompt + continuation)
 #             output_text = self.tokenizer.decode(out_ids[0], skip_special_tokens=False)
 #             return output_text
-
-
 
 
 __all__ = [
