@@ -5,8 +5,6 @@ import torch
 from torch import argmax, tensor, where
 
 from . import tokenizer
-
-# from .model import TransformerEncoderForMaskedLM
 from .finetune_summarization import SummarizeModel
 from .model import TransformerEncoderForSequenceSummarization
 
