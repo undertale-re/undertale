@@ -1,56 +1,19 @@
 """Basic transformer implementation."""
 
-from math import sqrt
 from typing import Optional
 
 from torch import (
     Tensor,
     arange,
     bincount,
-    bmm,
     cat,
     cumsum,
     long,
     roll,
-    softmax,
     zeros,
 )
 from torch.nn import GELU, Dropout, Embedding, LayerNorm, Linear, Module, ModuleList
-
-
-def scaled_dot_product_attention(
-    query: Tensor, key: Tensor, value: Tensor, mask: Optional[Tensor] = None
-) -> Tensor:
-    """Scaled dot product attention with optional attention masking.
-
-    This is a naive, unoptimized implementation of `Scaled Dot Product
-    Attention
-    <https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html>`_.
-    See `Attention Is All You Need <https://arxiv.org/abs/1706.03762>`_ for
-    more details.
-
-    Expects and returns tensors of the following shape::
-
-        (batch_size, sequence_length, hidden_size)
-
-    Arguments:
-        query: Query tensor.
-        key: Key tensor.
-        value: Value tensor.
-        mask: Optional attention mask.
-
-    Returns:
-        Attention output.
-    """
-
-    scores = bmm(query, key.transpose(-2, -1)) / sqrt(query.size(-1))
-
-    if mask is not None:
-        scores = scores.masked_fill(mask.unsqueeze(-2) == 0, -1e9)
-
-    weights = softmax(scores, dim=-1)
-
-    return bmm(weights, value)
+from torch.nn.functional import scaled_dot_product_attention
 
 
 class Attention(Module):
@@ -103,7 +66,10 @@ class Attention(Module):
                 )
 
         return scaled_dot_product_attention(
-            self.q(state), self.k(state), self.v(state), mask=mask
+            self.q(state),
+            self.k(state),
+            self.v(state),
+            attn_mask=mask.unsqueeze(-2).bool() if mask is not None else None,
         )
 
 
@@ -235,15 +201,6 @@ class TransformerEncoderLayer(Module):
             Transformed state.
         """
 
-        # Vanila.
-        # attended = self.attention(state)
-        # output = self.ff(attended)
-
-        # Layer normalization.
-        # attended = self.attention(self.norm1(state))
-        # output = self.ff(self.norm2(attended))
-
-        # Layer normalization and skip connections.
         hidden = self.norm1(state)
         output = state + self.attention(hidden, mask)
         hidden = self.norm2(output)
