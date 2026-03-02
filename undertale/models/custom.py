@@ -5,12 +5,9 @@ from typing import Optional
 from torch import (
     Tensor,
     arange,
-    bincount,
-    cat,
+    cummax,
     cumsum,
-    long,
     roll,
-    zeros,
 )
 from torch.nn import Dropout, Embedding, LayerNorm, Module, ModuleList
 
@@ -60,6 +57,49 @@ class InstructionTracePositionEmbedding(Module):
         self.norm = LayerNorm(hidden_dimensions, eps=eps)
         self.dropout = Dropout(dropout)
 
+    @staticmethod
+    def compute_instruction_index(state: Tensor, next_token_id: int) -> Tensor:
+        """Compute the instruction index for each token.
+
+        Each token is assigned the index of the instruction it belongs to. The
+        first instruction is index 0, incrementing after each ``NEXT`` token.
+
+        Arguments:
+            state: The input state tensor.
+            next_token_id: The ID of the special ``NEXT`` token.
+
+        Returns:
+            A tensor of instruction indices.
+        """
+
+        starts = roll(state == next_token_id, 1)
+        starts[:, 0] = False
+
+        return cumsum(starts, dim=-1)
+
+    @staticmethod
+    def compute_argument_index(state: Tensor, next_token_id: int) -> Tensor:
+        """Compute the argument index for each token within its instruction.
+
+        Each token is assigned its position within the current instruction,
+        resetting to 0 after each ``NEXT`` token.
+
+        Arguments:
+            state: The input state tensor.
+            next_token_id: The ID of the special ``NEXT`` token.
+
+        Returns:
+            A tensor of argument indices.
+        """
+
+        starts = roll(state == next_token_id, 1)
+        starts[:, 0] = False
+        position = (
+            arange(state.size(-1), device=state.device).unsqueeze(0).expand_as(state)
+        )
+        origin, _ = cummax(position * starts, dim=-1)
+        return position - origin
+
     def forward(self, state: Tensor) -> Tensor:
         """Inject positional information.
 
@@ -80,13 +120,8 @@ class InstructionTracePositionEmbedding(Module):
                 f"expected sequence length of {self.sequence_length} but got tensor of shape {tuple(state.shape)}"
             )
 
-        starts = roll(state == self.next_token_id, 1)
-        starts[:, 0] = False
-        instructions = cumsum(starts, dim=-1)
-
-        arguments = zeros(instructions.shape, dtype=long, device=state.device)
-        for i, batch in enumerate(instructions):
-            arguments[i] = cat([arange(v) for v in bincount(batch)])
+        instructions = self.compute_instruction_index(state, self.next_token_id)
+        arguments = self.compute_argument_index(state, self.next_token_id)
 
         tokens = self.token(state)
         instructions = self.instruction(instructions)

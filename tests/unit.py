@@ -14,7 +14,7 @@ from unittest import SkipTest, TestCase
 from dask.dataframe import from_pandas
 from pandas import DataFrame, read_parquet
 from pyarrow.parquet import read_metadata as pyarrow_read_metadata
-from torch import rand, randint, set_grad_enabled
+from torch import rand, randint, set_grad_enabled, tensor
 from utils import load_resource, main
 
 from undertale.exceptions import EnvironmentError as LocalEnvironmentError
@@ -1270,6 +1270,62 @@ class TestModelTransformer(TestCase):
             layer(state)
 
         self.assertIn("expected sequence length", str(c.exception))
+
+    def test_compute_instruction_index_basic(self):
+        state = tensor([[1, 2, 0, 3, 0, 4, 5]])
+        result = InstructionTracePositionEmbedding.compute_instruction_index(state, 0)
+
+        expected = tensor([[0, 0, 0, 1, 1, 2, 2]])
+        self.assertTrue(result.equal(expected))
+
+    def test_compute_instruction_index_no_next_tokens(self):
+        state = tensor([[1, 2, 3, 4]])
+        result = InstructionTracePositionEmbedding.compute_instruction_index(state, 0)
+
+        expected = tensor([[0, 0, 0, 0]])
+        self.assertTrue(result.equal(expected))
+
+    def test_compute_instruction_index_leading_next(self):
+        state = tensor([[0, 1, 2]])
+        result = InstructionTracePositionEmbedding.compute_instruction_index(state, 0)
+
+        expected = tensor([[0, 1, 1]])
+        self.assertTrue(result.equal(expected))
+
+    def test_compute_instruction_index_batch(self):
+        state = tensor([[1, 0, 2], [3, 4, 0]])
+        result = InstructionTracePositionEmbedding.compute_instruction_index(state, 0)
+
+        expected = tensor([[0, 0, 1], [0, 0, 0]])
+        self.assertTrue(result.equal(expected))
+
+    def test_compute_argument_index_basic(self):
+        state = tensor([[1, 2, 0, 3, 0, 4, 5]])
+        result = InstructionTracePositionEmbedding.compute_argument_index(state, 0)
+
+        expected = tensor([[0, 1, 2, 0, 1, 0, 1]])
+        self.assertTrue(result.equal(expected))
+
+    def test_compute_argument_index_no_next_tokens(self):
+        state = tensor([[1, 2, 3, 4]])
+        result = InstructionTracePositionEmbedding.compute_argument_index(state, 0)
+
+        expected = tensor([[0, 1, 2, 3]])
+        self.assertTrue(result.equal(expected))
+
+    def test_compute_argument_index_leading_next(self):
+        state = tensor([[0, 1, 2]])
+        result = InstructionTracePositionEmbedding.compute_argument_index(state, 0)
+
+        expected = tensor([[0, 0, 1]])
+        self.assertTrue(result.equal(expected))
+
+    def test_compute_argument_index_batch(self):
+        state = tensor([[1, 0, 2], [3, 4, 0]])
+        result = InstructionTracePositionEmbedding.compute_argument_index(state, 0)
+
+        expected = tensor([[0, 1, 0], [0, 1, 2]])
+        self.assertTrue(result.equal(expected))
 
     def test_instruction_argument_position_embedding_simple(self):
         layer = InstructionTracePositionEmbedding(768, 1024, 512, 0, 0.1, 1e-12)
