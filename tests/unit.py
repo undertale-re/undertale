@@ -1271,6 +1271,25 @@ class TestModelTransformer(TestCase):
 
         self.assertIn("expected sequence length", str(c.exception))
 
+    def test_transformer_encoder_simple(self):
+        layer = TransformerEncoder(2, 768, 1024, 512, 2, 3072, 0.1, 1e-12)
+        state = randint(0, 1024, size=(1, 512))
+        result = layer(state)
+
+        self.assertEqual(result.ndim, 3)
+
+        self.assertEqual(result.shape[0], 1)
+        self.assertEqual(result.shape[1], 512)
+        self.assertEqual(result.shape[2], 768)
+
+
+class TestModelCustom(TestCase):
+    def setUp(self):
+        set_grad_enabled(False)
+
+    def tearDown(self):
+        set_grad_enabled(True)
+
     def test_compute_instruction_index_basic(self):
         state = tensor([[1, 2, 0, 3, 0, 4, 5]])
         result = InstructionTracePositionEmbedding.compute_instruction_index(state, 0)
@@ -1355,17 +1374,6 @@ class TestModelTransformer(TestCase):
             layer(state)
 
         self.assertIn("expected sequence length", str(c.exception))
-
-    def test_transformer_encoder_simple(self):
-        layer = TransformerEncoder(2, 768, 1024, 512, 2, 3072, 0.1, 1e-12)
-        state = randint(0, 1024, size=(1, 512))
-        result = layer(state)
-
-        self.assertEqual(result.ndim, 3)
-
-        self.assertEqual(result.shape[0], 1)
-        self.assertEqual(result.shape[1], 512)
-        self.assertEqual(result.shape[2], 768)
 
 
 if __name__ == "__main__":
