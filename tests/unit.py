@@ -19,6 +19,7 @@ from utils import load_resource, main
 
 from undertale.exceptions import EnvironmentError as LocalEnvironmentError
 from undertale.exceptions import PathError, SchemaError
+from undertale.models.custom import InstructionTracePositionEmbedding
 from undertale.models.tokenizer import (
     TOKEN_UNKNOWN,
 )
@@ -32,7 +33,6 @@ from undertale.models.tokenizer import (
 from undertale.models.transformer import (
     Attention,
     FeedForward,
-    InstructionArgumentPositionEmbedding,
     MultiHeadAttention,
     PositionEmbedding,
     TransformerEncoder,
@@ -1272,7 +1272,7 @@ class TestModelTransformer(TestCase):
         self.assertIn("expected sequence length", str(c.exception))
 
     def test_instruction_argument_position_embedding_simple(self):
-        layer = InstructionArgumentPositionEmbedding(768, 1024, 512, 0, 0.1, 1e-12)
+        layer = InstructionTracePositionEmbedding(768, 1024, 512, 0, 0.1, 1e-12)
         state = randint(0, 1024, size=(1, 512))
         result = layer(state)
 
@@ -1283,7 +1283,7 @@ class TestModelTransformer(TestCase):
         self.assertEqual(result.shape[2], 768)
 
     def test_instruction_argument_position_embedding_mismatched_shape(self):
-        layer = InstructionArgumentPositionEmbedding(768, 1024, 512, 0, 0.1, 1e-12)
+        layer = InstructionTracePositionEmbedding(768, 1024, 512, 0, 0.1, 1e-12)
         state = randint(0, 1024, size=(512,))
 
         with self.assertRaises(ValueError) as c:
@@ -1292,7 +1292,7 @@ class TestModelTransformer(TestCase):
         self.assertIn("expected tensor of shape", str(c.exception))
 
     def test_instruction_argument_position_embedding_mismatched_sequence_length(self):
-        layer = InstructionArgumentPositionEmbedding(768, 1024, 512, 0, 0.1, 1e-12)
+        layer = InstructionTracePositionEmbedding(768, 1024, 512, 0, 0.1, 1e-12)
         state = randint(0, 1024, size=(1, 256))
 
         with self.assertRaises(ValueError) as c:

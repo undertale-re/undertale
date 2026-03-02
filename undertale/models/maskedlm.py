@@ -13,8 +13,8 @@ from torch.nn.functional import cross_entropy
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import LambdaLR
 
+from .custom import InstructionTraceTransformerEncoder
 from .tokenizer import SPECIAL_TOKENS, TOKEN_NEXT
-from .transformer import InstructionArgumentPositionEmbedding, TransformerEncoder
 
 
 class MaskedLMHead(Module):
@@ -57,7 +57,7 @@ class MaskedLMHead(Module):
         return output
 
 
-class TransformerEncoderForMaskedLM(LightningModule, Module):
+class InstructionTraceTransformerEncoderForMaskedLM(LightningModule, Module):
     """A transformer encoder with a masked language modeling head.
 
     Arguments:
@@ -89,23 +89,16 @@ class TransformerEncoderForMaskedLM(LightningModule, Module):
         super().__init__()
         self.save_hyperparameters()
 
-        self.encoder = TransformerEncoder(
+        self.encoder = InstructionTraceTransformerEncoder(
             depth,
             hidden_dimensions,
             vocab_size,
             sequence_length,
             heads,
             intermediate_dimensions,
+            SPECIAL_TOKENS.index(TOKEN_NEXT),
             dropout,
             eps,
-            InstructionArgumentPositionEmbedding(
-                hidden_dimensions,
-                vocab_size,
-                sequence_length,
-                SPECIAL_TOKENS.index(TOKEN_NEXT),
-                dropout,
-                eps,
-            ),
         )
         self.head = MaskedLMHead(hidden_dimensions, vocab_size, eps)
 
