@@ -11,7 +11,7 @@ from torch import (
 from torch.nn import GELU, LayerNorm, Linear, Module
 from torch.nn.functional import cross_entropy
 from torch.optim import AdamW
-from torch.optim.lr_scheduler import LambdaLR
+from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
 
 from .custom import InstructionTraceTransformerEncoder
 from .tokenizer import SPECIAL_TOKENS, TOKEN_NEXT
@@ -69,8 +69,8 @@ class InstructionTraceTransformerEncoderForMaskedLM(LightningModule, Module):
         intermediate_dimensions: The size of the intermediate state space.
         dropout: Dropout probability.
         eps: Layer normalization stabalization parameter.
-        lr: Learning rate.
-        warmup: Learning rate warmup steps.
+        lr: Peak learning rate reached after warmup.
+        warmup: Number of linear warmup steps before cosine decay begins.
     """
 
     def __init__(
@@ -84,10 +84,9 @@ class InstructionTraceTransformerEncoderForMaskedLM(LightningModule, Module):
         dropout: float,
         eps: float,
         lr: float,
-        warmup: float,
+        warmup: int,
     ):
         super().__init__()
-        self.save_hyperparameters()
 
         self.encoder = InstructionTraceTransformerEncoder(
             depth,
@@ -104,13 +103,6 @@ class InstructionTraceTransformerEncoderForMaskedLM(LightningModule, Module):
 
         self.lr = lr
         self.warmup = warmup
-        self.steps_per_epoch = None
-
-    def on_fit_start(self):
-        """"""
-        self.steps_per_epoch = (
-            self.trainer.estimated_stepping_batches // self.trainer.max_epochs
-        )
 
     def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
         """Encode and decode with the language modeling head.
@@ -132,12 +124,21 @@ class InstructionTraceTransformerEncoderForMaskedLM(LightningModule, Module):
         """"""
         optimizer = AdamW(self.parameters(), lr=self.lr)
 
-        def constant_with_linear_warmup(step):
-            if self.steps_per_epoch is None:
-                return 1
-            return min(step / self.warmup * self.steps_per_epoch, 1)
+        total_steps = self.trainer.estimated_stepping_batches
+        decay_steps = total_steps - self.warmup
 
-        scheduler = LambdaLR(optimizer, constant_with_linear_warmup)
+        warmup_scheduler = LinearLR(
+            optimizer,
+            start_factor=1 / self.warmup,
+            end_factor=1.0,
+            total_iters=self.warmup,
+        )
+        decay_scheduler = CosineAnnealingLR(optimizer, T_max=decay_steps)
+        scheduler = SequentialLR(
+            optimizer,
+            schedulers=[warmup_scheduler, decay_scheduler],
+            milestones=[self.warmup],
+        )
 
         return {
             "optimizer": optimizer,
