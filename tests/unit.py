@@ -47,6 +47,7 @@ from undertale.pipeline.cpp import compile_cpp
 from undertale.pipeline.json import merge_json
 from undertale.pipeline.parquet import hash_parquet_column, resize_parquet
 from undertale.pipeline.tarfile import extract_tarfile
+from undertale.schema import Dataset
 from undertale.utils import (
     RemoteException,
     assert_path_exists,
@@ -1440,6 +1441,26 @@ class TestModelDataset(TestCase):
         dataset = ParquetDataset(working.name)
 
         self.assertEqual(list(dataset), [])
+
+    def test_dataset_schema_valid(self):
+        working = TemporaryDirectory()
+        path = self.write_chunk(
+            working.name, "chunk.parquet", [{"id": "1", "value": 1}]
+        )
+
+        ParquetDataset(path, schema=Dataset)
+
+    def test_dataset_schema_invalid(self):
+        working = TemporaryDirectory()
+        path = self.write_chunk(working.name, "chunk.parquet", [{"value": 1}])
+
+        with self.assertRaises(SchemaError):
+            ParquetDataset(path, schema=Dataset)
+
+    def test_dataset_schema_empty_directory(self):
+        working = TemporaryDirectory()
+
+        ParquetDataset(working.name, schema=Dataset)
 
 
 if __name__ == "__main__":
