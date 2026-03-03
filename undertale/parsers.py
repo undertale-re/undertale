@@ -55,6 +55,13 @@ class ModelArgumentParser(ArgumentParser):
         )
         self.add_argument("-b", "--batch-size", type=int, default=8, help="batch size")
         self.add_argument(
+            "-s",
+            "--dataloaders",
+            type=int,
+            default=0,
+            help="number of parallel dataloaders",
+        )
+        self.add_argument(
             "-a", "--accelerator", default="auto", help="accelerator to use"
         )
         self.add_argument(
