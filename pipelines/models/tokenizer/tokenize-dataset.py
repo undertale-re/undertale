@@ -1,6 +1,6 @@
 from undertale.logging import get_logger
 from undertale.models.tokenizer import tokenize
-from undertale.parsers import PipelineArgumentParser
+from undertale.parsers import DatasetArgumentParser
 from undertale.pipeline import Client, Cluster, fanout, flush
 from undertale.pipeline.parquet import resize_parquet
 
@@ -8,7 +8,7 @@ logger = get_logger(__name__)
 
 
 if __name__ == "__main__":
-    parser = PipelineArgumentParser(description="dataset tokenization")
+    parser = DatasetArgumentParser(description="dataset tokenization")
 
     parser.add_argument(
         "-t", "--tokenizer", type=str, required=True, help="path to a trained tokenizer"

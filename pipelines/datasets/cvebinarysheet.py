@@ -7,7 +7,7 @@ import pandas as pd
 from pandas import DataFrame, Series, read_parquet
 
 from undertale.logging import get_logger
-from undertale.parsers import PipelineArgumentParser
+from undertale.parsers import DatasetArgumentParser
 from undertale.pipeline import Client, Cluster, fanout, flush
 from undertale.pipeline.binary import segment_and_disassemble_binary
 from undertale.pipeline.parquet import (
@@ -182,7 +182,7 @@ def associate_cve(input: str, output: str, raw_input: str) -> str:
 
 
 if __name__ == "__main__":
-    parser = PipelineArgumentParser(description="CVEBinarySheet")
+    parser = DatasetArgumentParser(description="CVEBinarySheet")
     arguments = parser.parse_args()
     parser.setup(arguments)
 

@@ -16,7 +16,7 @@ class ArgumentParser(ArgparseArgumentParser):
         setup_logging()
 
 
-class PipelineArgumentParser(ArgumentParser):
+class DatasetArgumentParser(ArgumentParser):
     """A custom argument parser for dataset pipelines."""
 
     def __init__(self, *args, **kwargs):
@@ -37,4 +37,4 @@ class PipelineArgumentParser(ArgumentParser):
         )
 
 
-__all__ = ["ArgumentParser", "PipelineArgumentParser"]
+__all__ = ["ArgumentParser", "DatasetArgumentParser"]

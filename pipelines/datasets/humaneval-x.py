@@ -5,7 +5,7 @@ from pandas import DataFrame
 
 from undertale.exceptions import PathDoesNotExist
 from undertale.logging import get_logger
-from undertale.parsers import PipelineArgumentParser
+from undertale.parsers import DatasetArgumentParser
 from undertale.pipeline import Client, Cluster, fanout, flush
 from undertale.pipeline.binary import segment_and_disassemble_binary
 from undertale.pipeline.cpp import compile_cpp
@@ -68,7 +68,7 @@ def parse_samples(input: str, output: str) -> str:
 
 
 if __name__ == "__main__":
-    parser = PipelineArgumentParser(description="humaneval-x dataset")
+    parser = DatasetArgumentParser(description="humaneval-x dataset")
     arguments = parser.parse_args()
     parser.setup(arguments)
 
