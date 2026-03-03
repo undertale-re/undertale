@@ -11,6 +11,16 @@ class Dataset(DataFrameModel):
     """Row identifier."""
 
 
+class TokenizedDataset(Dataset):
+    """A tokenized dataset."""
+
+    tokens: Series[object]
+    """The token IDs for the tokenized row."""
+
+    mask: Series[object]
+    """The attention mask for the tokenized row."""
+
+
 class SourceDataset(Dataset):
     """Source code."""
 

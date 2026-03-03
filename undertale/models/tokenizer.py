@@ -266,11 +266,9 @@ def tokenize(input: str, output: str, tokenizer: str) -> str:
     def process(disassembly: str) -> Series:
         encoding = tok.encode(disassembly)
 
-        return Series(
-            {"input_ids": encoding.ids, "attention_mask": encoding.attention_mask}
-        )
+        return Series({"tokens": encoding.ids, "mask": encoding.attention_mask})
 
-    frame[["input_ids", "attention_mask"]] = frame["disassembly"].apply(process)
+    frame[["tokens", "mask"]] = frame["disassembly"].apply(process)
     write_parquet(frame, output)
 
     logger.info(f"successfully tokenized {len(frame)} rows")

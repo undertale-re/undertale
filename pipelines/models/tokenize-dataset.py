@@ -47,7 +47,7 @@ if __name__ == "__main__":
             tokenized,
             arguments.output,
             size="100MB",
-            keep=["input_ids", "attention_mask"] if arguments.minimize else None,
+            keep=["id", "tokens", "mask"] if arguments.minimize else None,
         )
 
         merged.result()

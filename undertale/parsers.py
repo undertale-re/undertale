@@ -43,8 +43,10 @@ class ModelArgumentParser(ArgumentParser):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.add_argument("dataset", help="the dataset on which to train")
+        self.add_argument("dataset", help="training dataset path")
         self.add_argument("output", help="model output directory")
+
+        self.add_argument("-v", "--validation", help="validation dataset path")
 
         self.add_argument(
             "-c",
@@ -86,7 +88,7 @@ class ModelArgumentParser(ArgumentParser):
             default=None,
             help="learning rate warmup percentage (model-defined default)",
         )
-        self.add_argument("-v", "--version", help="training run version name")
+        self.add_argument("-m", "--name", help="training run version name")
 
 
 __all__ = ["ArgumentParser", "DatasetArgumentParser", "ModelArgumentParser"]
