@@ -73,6 +73,9 @@ class InstructionTraceTransformerEncoderForMaskedLM(LightningModule, Module):
         warmup: Number of linear warmup steps before cosine decay begins.
     """
 
+    LR = 1e-4
+    WARMUP = 0.025
+
     def __init__(
         self,
         depth: int,
@@ -84,8 +87,8 @@ class InstructionTraceTransformerEncoderForMaskedLM(LightningModule, Module):
         next_token_id: int,
         dropout: float,
         eps: float,
-        lr: float,
-        warmup: int,
+        lr: float = LR,
+        warmup: float = WARMUP,
     ):
         super().__init__()
 
@@ -102,8 +105,8 @@ class InstructionTraceTransformerEncoderForMaskedLM(LightningModule, Module):
         )
         self.head = MaskedLMHead(hidden_dimensions, vocab_size, eps)
 
-        self.lr = lr
-        self.warmup = warmup
+        self.lr = lr or self.LR
+        self.warmup = warmup or self.WARMUP
 
     def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
         """Encode and decode with the language modeling head.
@@ -126,19 +129,20 @@ class InstructionTraceTransformerEncoderForMaskedLM(LightningModule, Module):
         optimizer = AdamW(self.parameters(), lr=self.lr)
 
         total_steps = self.trainer.estimated_stepping_batches
-        decay_steps = total_steps - self.warmup
+        warmup_steps = self.warmup * total_steps
+        decay_steps = total_steps - warmup_steps
 
         warmup_scheduler = LinearLR(
             optimizer,
-            start_factor=1 / self.warmup,
+            start_factor=1 / self.warmup_steps,
             end_factor=1.0,
-            total_iters=self.warmup,
+            total_iters=self.warmup_steps,
         )
         decay_scheduler = CosineAnnealingLR(optimizer, T_max=decay_steps)
         scheduler = SequentialLR(
             optimizer,
             schedulers=[warmup_scheduler, decay_scheduler],
-            milestones=[self.warmup],
+            milestones=[self.warmup_steps],
         )
 
         return {
@@ -173,3 +177,27 @@ class InstructionTraceTransformerEncoderForMaskedLM(LightningModule, Module):
         f1 = f1_score(references.tolist(), predictions.tolist(), average="micro")
 
         self.log("valid_f1", f1, prog_bar=True, sync_dist=True)
+
+
+class InstructionTraceTransformerEncoderForMaskedLMConfiguration:
+    """Model size configurations with associated parameters.
+
+    To make use of this class, simply pass the model size dictionary to model
+    initialization as kwargs.
+    """
+
+    regularization = {
+        "dropout": 0.1,
+        "eps": 1e-12,
+    }
+
+    medium = {
+        "sequence_length": 512,
+        "depth": 12,
+        "heads": 12,
+        "hidden_dimensions": 768,
+        "intermediate_dimensions": 3072,
+        **regularization,
+    }
+
+    options = {"medium": medium}
