@@ -8,8 +8,10 @@ from os import listdir, makedirs
 from os.path import basename, exists, isdir, isfile, join
 from tempfile import TemporaryDirectory
 from time import sleep
+from types import SimpleNamespace
 from typing import Dict
 from unittest import SkipTest, TestCase
+from unittest.mock import patch
 
 from dask.dataframe import from_pandas
 from pandas import DataFrame, read_parquet
@@ -20,6 +22,7 @@ from utils import load_resource, main
 from undertale.exceptions import EnvironmentError as LocalEnvironmentError
 from undertale.exceptions import PathError, SchemaError
 from undertale.models.custom import InstructionTracePositionEmbedding
+from undertale.models.dataset import ParquetDataset
 from undertale.models.tokenizer import (
     TOKEN_UNKNOWN,
 )
@@ -1374,6 +1377,69 @@ class TestModelCustom(TestCase):
             layer(state)
 
         self.assertIn("expected sequence length", str(c.exception))
+
+
+class TestModelDataset(TestCase):
+    def write_chunk(self, directory: str, name: str, rows: list) -> str:
+        path = join(directory, name)
+        write_parquet(DataFrame(rows), path)
+        return path
+
+    def test_dataset_single_file(self):
+        working = TemporaryDirectory()
+        rows = [{"value": i} for i in range(10)]
+        path = self.write_chunk(working.name, "chunk.parquet", rows)
+
+        dataset = ParquetDataset(path)
+
+        self.assertEqual(list(dataset), rows)
+
+    def test_dataset_directory(self):
+        working = TemporaryDirectory()
+        self.write_chunk(working.name, "a.parquet", [{"value": i} for i in range(5)])
+        self.write_chunk(
+            working.name, "b.parquet", [{"value": i} for i in range(5, 10)]
+        )
+
+        dataset = ParquetDataset(working.name)
+
+        self.assertEqual(len(list(dataset)), 10)
+
+    def test_dataset_directory_sorted(self):
+        working = TemporaryDirectory()
+        self.write_chunk(working.name, "c.parquet", [{"chunk": "c"}])
+        self.write_chunk(working.name, "a.parquet", [{"chunk": "a"}])
+        self.write_chunk(working.name, "b.parquet", [{"chunk": "b"}])
+
+        dataset = ParquetDataset(working.name)
+
+        self.assertEqual([r["chunk"] for r in dataset], ["a", "b", "c"])
+
+    def test_dataset_multi_worker(self):
+        working = TemporaryDirectory()
+        for i in range(4):
+            self.write_chunk(working.name, f"chunk_{i}.parquet", [{"chunk": i}])
+
+        dataset = ParquetDataset(working.name)
+
+        with patch("undertale.models.dataset.get_worker_info") as mock:
+            mock.return_value = SimpleNamespace(id=0, num_workers=2)
+            worker_0 = list(dataset)
+
+            mock.return_value = SimpleNamespace(id=1, num_workers=2)
+            worker_1 = list(dataset)
+
+        self.assertEqual(len(worker_0) + len(worker_1), 4)
+        self.assertFalse(
+            set(r["chunk"] for r in worker_0) & set(r["chunk"] for r in worker_1)
+        )
+
+    def test_dataset_empty_directory(self):
+        working = TemporaryDirectory()
+
+        dataset = ParquetDataset(working.name)
+
+        self.assertEqual(list(dataset), [])
 
 
 if __name__ == "__main__":
