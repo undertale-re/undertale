@@ -47,8 +47,8 @@ for pre-training.
         --tokenizer tokenizer.json \
         --parallelism 8
 
-Dataset Splitting
-^^^^^^^^^^^^^^^^^
+Dataset Split (Optional) 
+""""""""""""""""""""""""
 
 Before pre-training, split your tokenized dataset into training and validation
 sets.
@@ -58,12 +58,12 @@ sets.
     # Split the tokenized HumanEval-X dataset (default: 90% training, 10% validation).
     #
     # Writes to humaneval-x-pretraining-training/ and humaneval-x-pretraining-validation/.
-    python pipelines/models/split-dataset.py \
+    python -m undertale.utils.datasets.split \
         humaneval-x-pretraining/ \
         humaneval-x-pretraining
 
     # Split with a custom fraction and parallelism.
-    python pipelines/models/split-dataset.py \
+    python -m undertale.utils.datasets.split \
         humaneval-x-pretraining/ \
         humaneval-x-pretraining \
         --fraction 0.95 \

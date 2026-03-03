@@ -1,3 +1,5 @@
+"""Split a dataset into training and validation."""
+
 from dask.dataframe import read_parquet as dask_read_parquet
 
 from undertale.logging import get_logger
@@ -8,7 +10,7 @@ from undertale.utils import assert_path_exists, get_or_create_directory, write_p
 logger = get_logger(__name__)
 
 
-if __name__ == "__main__":
+def main():
     parser = DatasetArgumentParser(
         description="split a dataset into training and validation"
     )
@@ -61,3 +63,7 @@ if __name__ == "__main__":
         flush(client)
 
     logger.info("split complete")
+
+
+if __name__ == "__main__":
+    main()
