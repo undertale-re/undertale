@@ -14,7 +14,6 @@ from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
 
 from .custom import InstructionTraceTransformerEncoder
-from .tokenizer import SPECIAL_TOKENS, TOKEN_NEXT
 
 
 class MaskedLMHead(Module):
@@ -67,6 +66,7 @@ class InstructionTraceTransformerEncoderForMaskedLM(LightningModule, Module):
         sequence_length: The fixed size of the input vector.
         heads: The number of attention heads.
         intermediate_dimensions: The size of the intermediate state space.
+        next_token_id: The ID of the special ``NEXT`` token.
         dropout: Dropout probability.
         eps: Layer normalization stabalization parameter.
         lr: Peak learning rate reached after warmup.
@@ -81,6 +81,7 @@ class InstructionTraceTransformerEncoderForMaskedLM(LightningModule, Module):
         sequence_length: int,
         heads: int,
         intermediate_dimensions: int,
+        next_token_id: int,
         dropout: float,
         eps: float,
         lr: float,
@@ -95,7 +96,7 @@ class InstructionTraceTransformerEncoderForMaskedLM(LightningModule, Module):
             sequence_length,
             heads,
             intermediate_dimensions,
-            SPECIAL_TOKENS.index(TOKEN_NEXT),
+            next_token_id,
             dropout,
             eps,
         )
