@@ -13,7 +13,7 @@ from lightning.pytorch.loggers import TensorBoardLogger
 # from pytorch_lightning.strategies import DDPStrategy
 from torch.optim import AdamW
 from torch.utils.data import DataLoader, RandomSampler
-from transformers import get_linear_schedule_with_warmup
+from transformers import get_linear_schedule_with_warmup, get_cosine_schedule_with_warmup
 
 from rouge_score import rouge_scorer
 from bert_score import score as bert_score
@@ -172,8 +172,8 @@ class ValidationCallback(Callback):
             path = os.path.join(
                 self.save_dir, f"{self.tag}_epoch_{trainer.current_epoch}.txt"
             )
-        self.log("rouge_l_f1", rouge_l_f1,sync_dist=True)
-        self.log("bert_f1", bert_f1,sync_dist=True)
+        self.log("rouge_l_f1", rouge_l_f1)
+        self.log("bert_f1", bert_f1)
         with open(path, "w") as f:
             
             f.write(
@@ -189,6 +189,7 @@ class ValidationCallback(Callback):
                 f.write("_________________\n")
 
         trainer.print(f"Saved validation outputs to {path}")
+
     def on_validation_epoch_end(self, trainer, pl_module):
         if self.run_on_val_end:
             self._run_validation(trainer,pl_module)
@@ -239,8 +240,8 @@ class SummarizeModel(LightningModule, torch.nn.Module):
             logits.reshape(-1, logits.shape[-1]), tokens.flatten(), ignore_index=0
         )
         
-        self.log("train_loss", loss,sync_dist=True)
-        self.log("lr", self.trainer.optimizers[0].param_groups[0]['lr'],sync_dist=True)
+        self.log("train_loss", loss)
+        self.log("lr", self.trainer.optimizers[0].param_groups[0]['lr'])
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -268,19 +269,26 @@ class SummarizeModel(LightningModule, torch.nn.Module):
             logits.reshape(-1, logits.shape[-1]), tokens.flatten(), ignore_index=0
         )
 
-        self.log("val_loss", loss,sync_dist=True)
+        self.log("val_loss", loss)
         return loss
 
     def configure_optimizers(self):
-
         total_steps = self.trainer.estimated_stepping_batches
 
-        optimizer = AdamW(self.model.parameters(), lr=self.lr)
-        scheduler = get_linear_schedule_with_warmup(
+        optimizer = AdamW(self.model.parameters(), lr=self.lr, weight_decay=0.01, betas=(0.9, 0.999), eps=1e-8)
+
+        warmup_steps = 5000
+        scheduler = get_cosine_schedule_with_warmup(
             optimizer,
-            num_warmup_steps=self.warmup_steps,
-            num_training_steps=total_steps,
+            num_warmup_steps=warmup_steps,
+            num_training_steps=1000000,
         )
+
+        #scheduler = get_linear_schedule_with_warmup(
+        #    optimizer,
+        #    num_warmup_steps=self.warmup_steps,
+        #    num_training_steps=total_steps,
+        #)
 
         config_optim = {
             "optimizer": optimizer,
@@ -404,7 +412,7 @@ if __name__ == "__main__":
         default=1, #used to be 50000
         help="number of warmup steps",
     )
-    parser.add_argument("--lr", type=float, default=1e-4, help="learning rate") #used to be 2e-5
+    parser.add_argument("--lr", type=float, default=2e-5, help="learning rate") #used to be 2e-5
     parser.add_argument(
         "-a", "--accelerator", default="auto", help="accelerator to use"
     )
@@ -456,10 +464,6 @@ if __name__ == "__main__":
 
     undertale_logging.setup_logging()
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    if torch.cuda.is_available():
-        torch.cuda.set_device(0)
-
     # set up dataloaders
     if args.end2end:
         dataset = Dataset.load(args.dataset)
@@ -499,13 +503,13 @@ if __name__ == "__main__":
     )
 
     # assembly_tokenizer = tokenizer.load(args.tokenizer)
-    collator = CustomCollator(args, train_dataset.max_seq_len, device,train_dataset.pad_id)
+    collator = CustomCollator(args, train_dataset.max_seq_len, train_dataset.pad_id)
 
     train_dataloader = DataLoader(
-        train_dataset, shuffle=True, batch_size=args.batch_size, collate_fn=collator,num_workers=8
+        train_dataset, shuffle=True, batch_size=args.batch_size, collate_fn=collator,num_workers=8, drop_last=True
     )
     val_dataloader = DataLoader(
-        val_dataset, shuffle=False, batch_size=args.batch_size, collate_fn=collator,num_workers=8
+        val_dataset, shuffle=False, batch_size=args.batch_size, collate_fn=collator,num_workers=8, drop_last=True
     )
 
     # set up model
@@ -598,7 +602,12 @@ if __name__ == "__main__":
         accelerator=args.accelerator,
         devices=args.devices,
         num_nodes=args.nodes,
-        max_epochs=args.num_epochs,
+        max_steps=1000000,
+        val_check_interval=2000,
+        log_every_n_steps=50,
+        gradient_clip_val=1.0,
+        gradient_clip_algorithm="norm",
+        #max_epochs=args.num_epochs,
         # Testing
         # log_every_n_steps=1,
         # limit_train_batches=2,

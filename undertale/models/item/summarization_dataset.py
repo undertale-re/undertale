@@ -106,7 +106,7 @@ class SummarizerDataset(torch.utils.data.Dataset):
 
 
 class CustomCollator:
-    def __init__(self, args, max_seq_len, device,pad_id):
+    def __init__(self, args, max_seq_len, pad_id):
 
         self.tokenizer = tokenizer.load(args.tokenizer)
         self.max_length = args.tokenizer_size
@@ -115,7 +115,6 @@ class CustomCollator:
         self.pad_id=pad_id
         self.max_seq_len = max_seq_len
         self.prefix_length = args.prefix_length_const
-        self.device = device
 
     def __call__(self, batch):
         if self.tok_fast==None:
