@@ -16,13 +16,9 @@ from torch.optim import AdamW
 from torch.utils.data import DataLoader, RandomSampler
 from transformers import get_linear_schedule_with_warmup
 
-from undertale.datasets.base import Dataset
-
-from ... import logging as undertale_logging
-from .classification_dataset import CustomCollator
-
-# from . import tokenizer
-from .model import TransformerEncoderForSequenceClassification
+from undertale.logging import setup_logging
+from undertale.models.item.classification_dataset import CustomCollator
+from undertale.models.item.model import TransformerEncoderForSequenceClassification
 
 
 def dataset_size_type(x):
@@ -86,16 +82,11 @@ class ValidationCallback(Callback):
                 labels = batch["labels"].to(device)
 
                 # ---------------- encoder path (UNCHANGED) ----------------
-                if self.end_to_end:
-                    encoder_embedding = pl_module.encoder(dis_tokens, dis_mask)
-                    encoder_embedding = encoder_embedding.mean(dim=1)
-                else:
-                    encoder_embedding = dis_tokens
-                    if encoder_embedding.dim() == 3:
-                        encoder_embedding = encoder_embedding.mean(dim=1)
+                encoder_embedding = model.assembly_encoder(dis_tokens, dis_mask)
+                encoder_embedding = encoder_embedding.mean(dim=1)
 
                 # ---------------- classification ----------------
-                classifiction = pl_module.head(encoder_embedding)
+                classifiction = pl_module.model.head(encoder_embedding)
                 score_sum += loss_function(classifiction, labels)
 
         if was_training:
@@ -139,9 +130,11 @@ class ClassifyModel(LightningModule, torch.nn.Module):
         self.lr = lr
         self.warmup_steps = warmup_steps
         self.end_to_end = end_to_end
+        for param in self.model.assembly_encoder.parameters():
+            param.requires_grad = False
 
-    def forward(self, encoder_embedding, mask=None):
-
+    def forward(self, inp, mask=None):
+        encoder_embedding = self.model.assembly_encoder(inp)
         return self.model(encoder_embedding, mask)
 
     def training_step(self, batch, batch_idx):
@@ -328,18 +321,15 @@ if __name__ == "__main__":
     # # optional: for older huggingface_hub versions:
     # os.environ["HUGGINGFACE_HUB_CACHE"] = cache_root
 
-    undertale_logging.setup_logging()
+    setup_logging()
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     if torch.cuda.is_available():
         torch.cuda.set_device(0)
 
     # set up dataloaders
-    if args.end_to_end:
-        dataset = Dataset.load(args.dataset)
-
-    elif os.path.exists(args.dataset):
-        dataset = load_dataset("parquet", data_files=args.dataset)
+    if os.path.exists(args.dataset):
+        dataset = load_dataset(args.dataset)
     else:
         raise FileNotFoundError(f"File not found: {args.dataset}")
 
@@ -347,11 +337,11 @@ if __name__ == "__main__":
         row["label"] = row["vulnerability"] != ""
         return row
 
-    cols = dataset.column_names
+    cols = dataset["train"].column_names
     if "vulnerability" in cols and "label" not in cols:
-        dataset = dataset.map(create_label)
+        dataset["train"] = dataset["train"].map(create_label)
 
-    dataset = dataset.select_columns(["disassembly", "label"])
+    dataset = dataset["train"].select_columns(["disassembly", "label"])
 
     if not args.dataset_size == -1:
         dataset = dataset.select(range(args.dataset_size))
@@ -362,9 +352,7 @@ if __name__ == "__main__":
     val_dataset = split_dataset["test"]
 
     # assembly_tokenizer = tokenizer.load(args.tokenizer)
-    collator = CustomCollator(
-        args, train_dataset.max_seq_len, device, train_dataset.pad_id
-    )
+    collator = CustomCollator(args, device)
 
     train_dataloader = DataLoader(
         train_dataset,
@@ -391,9 +379,9 @@ if __name__ == "__main__":
 
     model = TransformerEncoderForSequenceClassification(
         args.assembly_checkpoint,
-        connector_config_namespace,
-        args.end_to_end,
-        args.tune_llm,
+        2,
+        True,
+        False,
     )
 
     output = os.path.abspath(os.path.expanduser(args.output))
@@ -492,5 +480,5 @@ if __name__ == "__main__":
         classify_model,
         train_dataloaders=train_dataloader,
         val_dataloaders=val_dataloader,
-        ckpt_path=args.summarizer_checkpoint,
+        ckpt_path=args.classifier_checkpoint,
     )

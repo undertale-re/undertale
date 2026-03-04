@@ -23,8 +23,8 @@ from torch.optim import AdamW
 from torch.optim.lr_scheduler import LambdaLR
 from transformers import AutoTokenizer, GPT2LMHeadModel
 
-from .model_connector import MLP, TransformerConnector
-from .tokenizer import SPECIAL_TOKENS, TOKEN_NEXT
+from undertale.models.item.model_connector import MLP, TransformerConnector
+from undertale.models.tokenizer import SPECIAL_TOKENS, TOKEN_NEXT
 
 
 class Defaults:
@@ -359,12 +359,12 @@ class TransformerEncoderForSequenceClassification(Module):
         if end2end:
             self.assembly_encoder = TransformerEncoderForMaskedLM.load_from_checkpoint(
                 assembly_checkpoint
-            )
+            ).encoder
         else:
             raise ValueError("For now only end2end is supported")
-        output_size = self.assembly_encoder.hidden_dimensions
+        output_size = 768  # self.assembly_encoder.hidden_dimensions
 
-        self.head = MLP(output_size, head_hidden_size, num_classes)
+        self.head = MLP((output_size, head_hidden_size, num_classes))
 
     def embed_assembly(self, assembly_tokens, assembly_mask=None):
 
