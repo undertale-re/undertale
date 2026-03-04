@@ -110,7 +110,16 @@ directory. To host a TensorBoard server and monitor training progress, run:
 Inference
 """""""""
 
-Coming soon...
+With a trained model checkpoint, you can predict masked tokens in a piece of
+disassembly input.
+
+.. code-block:: bash
+
+    # Predict masked tokens in a piece of disassembly.
+    python pipelines/models/infer-maskedlm.py \
+        --tokenizer tokenizer.json \
+        --checkpoint maskedlm/checkpoint.ckpt \
+        "xor rax [MASK]"
 
 Fine-Tuning (Multi-Modal Summarization)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

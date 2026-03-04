@@ -158,6 +158,8 @@ class InstructionTraceTransformerEncoderForMaskedLM(LightningModule, Module):
     ):
         super().__init__()
 
+        self.save_hyperparameters()
+
         self.encoder = InstructionTraceTransformerEncoder(
             depth,
             hidden_dimensions,
