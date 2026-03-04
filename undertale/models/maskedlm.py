@@ -12,6 +12,7 @@ from torch import (
     randint,
     stack,
     tensor,
+    where,
 )
 from torch.nn import GELU, LayerNorm, Linear, Module
 from torch.nn.functional import cross_entropy
@@ -151,6 +152,7 @@ class InstructionTraceTransformerEncoderForMaskedLM(LightningModule, Module):
         heads: int,
         intermediate_dimensions: int,
         next_token_id: int,
+        mask_token_id: int,
         dropout: float,
         eps: float,
         lr: float = LR,
@@ -159,6 +161,8 @@ class InstructionTraceTransformerEncoderForMaskedLM(LightningModule, Module):
         super().__init__()
 
         self.save_hyperparameters()
+
+        self.mask_token_id = mask_token_id
 
         self.encoder = InstructionTraceTransformerEncoder(
             depth,
@@ -191,6 +195,29 @@ class InstructionTraceTransformerEncoderForMaskedLM(LightningModule, Module):
         output = self.head(hidden)
 
         return output
+
+    def infer(self, tokens: Tensor, mask: Optional[Tensor] = None) -> Tensor:
+        """Fill masked tokens given pre-tokenized input.
+
+        Runs a forward pass and replaces each masked position with the
+        highest-probability predicted token, leaving all other positions
+        unchanged.
+
+        Arguments:
+            tokens: Pre-tokenized input tensor.
+            mask: Optional attention mask tensor.
+
+        Returns:
+            A 1-D tensor of token IDs with masked positions filled.
+        """
+
+        output = self(tokens, mask).squeeze(0)
+        filled = where(
+            tokens.squeeze(0) == self.mask_token_id,
+            argmax(output, dim=-1),
+            tokens.squeeze(0),
+        )
+        return filled
 
     def configure_optimizers(self):
         """"""

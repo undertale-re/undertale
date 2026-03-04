@@ -2,7 +2,7 @@
 
 import argparse
 
-from torch import argmax, tensor, where
+from torch import no_grad, tensor
 
 from undertale.models import tokenizer
 from undertale.models.maskedlm import InstructionTraceTransformerEncoderForMaskedLM
@@ -31,17 +31,11 @@ if __name__ == "__main__":
     )
 
     encoded = tok.encode(arguments.input)
-    tokens = tensor(encoded.ids).to(model.device)
-    mask = tensor(encoded.attention_mask).to(model.device)
+    tokens = tensor(encoded.ids).unsqueeze(0).to(model.device)
+    mask = tensor(encoded.attention_mask).unsqueeze(0).to(model.device)
 
-    output = model(tokens.unsqueeze(0), mask.unsqueeze(0)).squeeze()
-
-    # TODO explore Top-K prediction with confidence scores from softmax logits.
-    # top = topk(softmax(output, dim=-1), k=5)
-
-    filled = where(
-        tokens == tok.token_to_id(tokenizer.TOKEN_MASK), argmax(output, dim=-1), tokens
-    )
+    with no_grad():
+        filled = model.infer(tokens, mask)
 
     predicted = tok.decode(filled.tolist(), skip_special_tokens=False)
     predicted = predicted.replace(tokenizer.TOKEN_PAD, "").strip()
