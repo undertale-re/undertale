@@ -47,30 +47,8 @@ for pre-training.
         --tokenizer tokenizer.json \
         --parallelism 8
 
-Dataset Split (Optional) 
-""""""""""""""""""""""""
-
-Before pre-training, split your tokenized dataset into training and validation
-sets.
-
-.. code-block:: bash
-
-    # Split the tokenized HumanEval-X dataset (default: 90% training, 10% validation).
-    #
-    # Writes to humaneval-x-pretraining-training/ and humaneval-x-pretraining-validation/.
-    python -m undertale.utils.datasets.split \
-        humaneval-x-pretraining/ \
-        humaneval-x-pretraining
-
-    # Split with a custom fraction and parallelism.
-    python -m undertale.utils.datasets.split \
-        humaneval-x-pretraining/ \
-        humaneval-x-pretraining \
-        --fraction 0.95 \
-        --parallelism 8
-
-The ``--seed`` option controls the random state used for splitting and defaults
-to ``42``. Fix this value across runs to ensure a reproducible split.
+Consider :ref:`splitting <dataset-splitting>` off some (10%) of your dataset
+for validation.
 
 Pre-Training (Maked Language Modeling)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -83,14 +61,12 @@ now ready to begin pretraining a model.
     # Start a pretraining run locally (as an example).
     #
     # Results will be written to maskedlm/.
-    
     python pipelines/models/pretrain-maskedlm.py \
         --tokenizer tokenizer.json \
         humaneval-x-pretraining/ \
         maskedlm
 
-    # Include validation data.
-
+    # Include validation data (pre-split).
     python pipelines/models/pretrain-maskedlm.py \
         --tokenizer tokenizer.json \
         humaneval-x-pretraining-training/ \
@@ -98,7 +74,6 @@ now ready to begin pretraining a model.
         maskedlm
 
     # Use multiple accelerators on the same host.
-
     python pipelines/models/pretrain-maskedlm.py \
         --devices 4 \
         --tokenizer tokenizer.json \
@@ -106,10 +81,7 @@ now ready to begin pretraining a model.
         --validation humaneval-x-pretraining-validation/ \
         maskedlm
 
-    # Distribute training across multiple accelerators on multiple hosts.
-    #
-    # This uses the Distributed Data Parallel distribution strategy.
-
+    # Distributed training.
     python pipelines/models/pretrain-maskedlm.py \
         --strategy ddp \
         --nodes 8 \
@@ -120,11 +92,7 @@ now ready to begin pretraining a model.
         maskedlm
 
 There are several other configurable parameters for other training scenarios -
-to get a full list, run:
-
-.. code-block:: bash
-
-    python pipelines/models/pretrain-maskedlm.py --help
+to get a full list, see the ``--help`` output.
 
 Saved model checkpoints are available in the output directory.
 

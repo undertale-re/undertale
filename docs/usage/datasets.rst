@@ -73,3 +73,41 @@ in Python in all the usual ways you would load parquet - for example,  with
     ...
 
 Where ``path`` is the path to the saved dataset directory.
+
+
+.. _dataset-splitting:
+
+Split a Dataset
+^^^^^^^^^^^^^^^
+
+Splitting a dataset ahead of training into training, validation, and test sets
+can be efficient and ensure a deterministic split. There is a helper utility
+available for that.
+
+.. code-block:: bash
+
+    # Two-way split: 90% training, 10% validation (default).
+    #
+    # Writes to humaneval-x-training/ and humaneval-x-validation/.
+    python -m undertale.utils.datasets.split \
+        humaneval-x/ \
+        humaneval-x
+
+    # Three-way split: 80% training, 10% validation, 10% test.
+    #
+    # Writes to humaneval-x-training/, humaneval-x-validation/, and
+    # humaneval-x-testing/.
+    python -m undertale.utils.datasets.split \
+        humaneval-x/ \
+        humaneval-x
+        --splits training:80 validation:10 testing:10
+
+    # With custom parallelism.
+    python -m undertale.utils.datasets.split \
+        humaneval-x/ \
+        humaneval-x
+        --splits training:80 validation:10 testing:10 \
+        --parallelism 8
+
+Percentages must sum to 100. See the ``--seed`` option to control split
+randomization.

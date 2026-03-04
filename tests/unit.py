@@ -1,3 +1,4 @@
+import argparse
 import json
 import logging
 import os
@@ -61,6 +62,8 @@ from undertale.utils import (
     timestamp,
     write_parquet,
 )
+from undertale.utils.datasets.split import parse_split
+from undertale.utils.datasets.split import split as split_dataset
 
 
 class TestUtilitiesHash(TestCase):
@@ -1145,7 +1148,7 @@ class TestModelTokenizer(TestCase):
 
         loaded = read_parquet(path)
 
-        tokens = loaded["input_ids"][0]
+        tokens = loaded["tokens"][0]
         unpadded = tokens[tokens != tokens[-1]]
 
         self.assertEqual(len(unpadded), len(sources["disassembly"][0].split()))
@@ -1547,6 +1550,67 @@ class TestModelMaskedLMCollator(TestCase):
         self.assertEqual(MaskedLMCollator.PROBABILITY, 0.15)
         collator = MaskedLMCollator(self.MASK_TOKEN_ID, self.VOCAB_SIZE)
         self.assertEqual(collator.probability, 0.15)
+
+
+class TestUtilitiesDatasetSplit(TestCase):
+    def write_dataset(self, directory: str, rows: list) -> str:
+        path = join(directory, "data.parquet")
+        write_parquet(DataFrame(rows), path)
+        return path
+
+    def test_two_way_split(self):
+        working = TemporaryDirectory()
+        rows = [{"value": i} for i in range(1000)]
+        source = self.write_dataset(working.name, rows)
+        output = join(working.name, "out")
+
+        with Cluster(type="local") as cluster, Client(cluster) as client:
+            split_dataset(source, output, [("training", 90.0), ("validation", 10.0)])
+            flush(client)
+
+        training = read_parquet(f"{output}-training")
+        validation = read_parquet(f"{output}-validation")
+
+        self.assertEqual(len(training) + len(validation), 1000)
+        self.assertAlmostEqual(len(training) / 1000, 0.9, delta=0.05)
+
+    def test_three_way_split(self):
+        working = TemporaryDirectory()
+        rows = [{"value": i} for i in range(1000)]
+        source = self.write_dataset(working.name, rows)
+        output = join(working.name, "out")
+
+        with Cluster(type="local") as cluster, Client(cluster) as client:
+            split_dataset(
+                source,
+                output,
+                [("training", 80.0), ("validation", 10.0), ("test", 10.0)],
+            )
+            flush(client)
+
+        training = read_parquet(f"{output}-training")
+        validation = read_parquet(f"{output}-validation")
+        test = read_parquet(f"{output}-test")
+
+        self.assertEqual(len(training) + len(validation) + len(test), 1000)
+        self.assertAlmostEqual(len(training) / 1000, 0.8, delta=0.05)
+
+    def test_percentages_must_sum_to_100(self):
+        working = TemporaryDirectory()
+        rows = [{"value": i} for i in range(10)]
+        source = self.write_dataset(working.name, rows)
+        output = join(working.name, "out")
+
+        with self.assertRaises(ValueError):
+            split_dataset(source, output, [("training", 80.0), ("validation", 10.0)])
+
+    def test_invalid_split_format_missing_colon(self):
+        with self.assertRaises(argparse.ArgumentTypeError):
+            parse_split("training")
+
+    def test_invalid_split_format_non_numeric_percentage(self):
+        with self.assertRaises(argparse.ArgumentTypeError):
+            parse_split("training:abc")
 
 
 if __name__ == "__main__":
