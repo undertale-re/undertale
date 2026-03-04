@@ -75,7 +75,69 @@ to ``42``. Fix this value across runs to ensure a reproducible split.
 Pre-Training (Maked Language Modeling)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Coming soon...
+With your tokenized training dataset (and optional validation split) you are
+now ready to begin pretraining a model.
+
+.. code-block:: bash
+
+    # Start a pretraining run locally (as an example).
+    #
+    # Results will be written to maskedlm/.
+    
+    python pipelines/models/pretrain-maskedlm.py \
+        --tokenizer tokenizer.json \
+        humaneval-x-pretraining/ \
+        maskedlm
+
+    # Include validation data.
+
+    python pipelines/models/pretrain-maskedlm.py \
+        --tokenizer tokenizer.json \
+        humaneval-x-pretraining-training/ \
+        --validation humaneval-x-pretraining-validation/ \
+        maskedlm
+
+    # Use multiple accelerators on the same host.
+
+    python pipelines/models/pretrain-maskedlm.py \
+        --devices 4 \
+        --tokenizer tokenizer.json \
+        humaneval-x-pretraining-training/ \
+        --validation humaneval-x-pretraining-validation/ \
+        maskedlm
+
+    # Distribute training across multiple accelerators on multiple hosts.
+    #
+    # This uses the Distributed Data Parallel distribution strategy.
+
+    python pipelines/models/pretrain-maskedlm.py \
+        --strategy ddp \
+        --nodes 8 \
+        --devices 2 \
+        --tokenizer tokenizer.json \
+        humaneval-x-pretraining-training/ \
+        --validation humaneval-x-pretraining-validation/ \
+        maskedlm
+
+There are several other configurable parameters for other training scenarios -
+to get a full list, run:
+
+.. code-block:: bash
+
+    python pipelines/models/pretrain-maskedlm.py --help
+
+Saved model checkpoints are available in the output directory.
+
+Tensorboard
+"""""""""""
+
+The pretraining pipeline produces `TensorBoard
+<https://www.tensorflow.org/tensorboard>`_-compatible logging in the output
+directory. To host a TensorBoard server and monitor training progress, run:
+
+.. code-block:: bash
+
+    tensorboard --logdir maskedlm/
 
 Inference
 """""""""

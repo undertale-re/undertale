@@ -4,6 +4,7 @@ from typing import Iterator, Optional, Type
 
 import pandas
 from pandera.errors import SchemaError as PanderaSchemaError
+from pyarrow import parquet
 from torch.utils.data import IterableDataset, get_worker_info
 
 from ..exceptions import SchemaError
@@ -48,6 +49,9 @@ class ParquetDataset(IterableDataset):
                 schema.validate(pandas.read_parquet(self.files[0]))
             except PanderaSchemaError as e:
                 raise SchemaError(str(e))
+
+    def __len__(self) -> int:
+        return sum(parquet.read_metadata(f).num_rows for f in self.files)
 
     def __iter__(self) -> Iterator[dict]:
         worker = get_worker_info()

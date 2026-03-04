@@ -23,6 +23,7 @@ from undertale.exceptions import EnvironmentError as LocalEnvironmentError
 from undertale.exceptions import PathError, SchemaError
 from undertale.models.custom import InstructionTracePositionEmbedding
 from undertale.models.dataset import ParquetDataset
+from undertale.models.maskedlm import MaskedLMCollator
 from undertale.models.tokenizer import (
     TOKEN_UNKNOWN,
 )
@@ -1461,6 +1462,91 @@ class TestModelDataset(TestCase):
         working = TemporaryDirectory()
 
         ParquetDataset(working.name, schema=Dataset)
+
+
+class TestModelMaskedLMCollator(TestCase):
+    SEQUENCE_LENGTH = 16
+    VOCAB_SIZE = 100
+    MASK_TOKEN_ID = 4
+
+    def make_batch(self, size: int) -> list:
+        return [
+            {
+                "tokens": list(range(1, self.SEQUENCE_LENGTH + 1)),
+                "mask": [1] * self.SEQUENCE_LENGTH,
+            }
+            for _ in range(size)
+        ]
+
+    def make_padded_batch(self, size: int, padding: int) -> list:
+        tokens = list(range(1, self.SEQUENCE_LENGTH - padding + 1)) + [0] * padding
+        mask = [1] * (self.SEQUENCE_LENGTH - padding) + [0] * padding
+        return [{"tokens": tokens, "mask": mask} for _ in range(size)]
+
+    def test_collator_returns_dict(self):
+        collator = MaskedLMCollator(self.MASK_TOKEN_ID, self.VOCAB_SIZE)
+        result = collator(self.make_batch(4))
+
+        self.assertIsInstance(result, dict)
+        self.assertIn("tokens", result)
+        self.assertIn("mask", result)
+        self.assertIn("labels", result)
+
+    def test_collator_output_shapes(self):
+        collator = MaskedLMCollator(self.MASK_TOKEN_ID, self.VOCAB_SIZE)
+        result = collator(self.make_batch(4))
+
+        self.assertEqual(result["tokens"].shape, (4, self.SEQUENCE_LENGTH))
+        self.assertEqual(result["mask"].shape, (4, self.SEQUENCE_LENGTH))
+        self.assertEqual(result["labels"].shape, (4, self.SEQUENCE_LENGTH))
+
+    def test_collator_labels_ignore_unmasked(self):
+        collator = MaskedLMCollator(
+            self.MASK_TOKEN_ID, self.VOCAB_SIZE, probability=1.0
+        )
+        result = collator(self.make_batch(4))
+
+        self.assertTrue((result["labels"] != -100).all())
+
+    def test_collator_labels_minus_100_at_unmasked(self):
+        collator = MaskedLMCollator(
+            self.MASK_TOKEN_ID, self.VOCAB_SIZE, probability=0.0
+        )
+        result = collator(self.make_batch(4))
+
+        self.assertTrue((result["labels"] == -100).all())
+
+    def test_collator_padding_not_masked(self):
+        collator = MaskedLMCollator(
+            self.MASK_TOKEN_ID, self.VOCAB_SIZE, probability=1.0
+        )
+        result = collator(self.make_padded_batch(4, padding=4))
+
+        # Labels at padding positions must remain -100.
+        self.assertTrue((result["labels"][:, -4:] == -100).all())
+
+    def test_collator_tokens_unchanged_where_not_candidate(self):
+        collator = MaskedLMCollator(
+            self.MASK_TOKEN_ID, self.VOCAB_SIZE, probability=0.0
+        )
+        batch = self.make_batch(2)
+        result = collator(batch)
+
+        expected = tensor([item["tokens"] for item in batch])
+        self.assertTrue(result["tokens"].equal(expected))
+
+    def test_collator_mask_preserved(self):
+        collator = MaskedLMCollator(self.MASK_TOKEN_ID, self.VOCAB_SIZE)
+        batch = self.make_padded_batch(4, padding=4)
+        result = collator(batch)
+
+        expected = tensor([item["mask"] for item in batch])
+        self.assertTrue(result["mask"].equal(expected))
+
+    def test_collator_default_probability(self):
+        self.assertEqual(MaskedLMCollator.PROBABILITY, 0.15)
+        collator = MaskedLMCollator(self.MASK_TOKEN_ID, self.VOCAB_SIZE)
+        self.assertEqual(collator.probability, 0.15)
 
 
 if __name__ == "__main__":

@@ -4,6 +4,8 @@
 #
 #    pip-compile --extra=development --output-file=constraints.txt --strip-extras pyproject.toml
 #
+absl-py==2.4.0
+    # via tensorboard
 aiohappyeyeballs==2.6.1
     # via aiohttp
 aiohttp==3.13.3
@@ -12,19 +14,21 @@ aiosignal==1.4.0
     # via aiohttp
 alabaster==1.0.0
     # via sphinx
+annotated-doc==0.0.4
+    # via typer
 annotated-types==0.7.0
     # via pydantic
 anyio==4.12.1
     # via httpx
 attrs==25.4.0
     # via aiohttp
-babel==2.17.0
+babel==2.18.0
     # via sphinx
-black==25.12.0
+black==26.1.0
     # via undertale (pyproject.toml)
-build==1.3.0
+build==1.4.0
     # via pip-tools
-certifi==2025.11.12
+certifi==2026.2.25
     # via
     #   httpcore
     #   httpx
@@ -39,12 +43,12 @@ click==8.3.1
     #   dask
     #   distributed
     #   pip-tools
-    #   typer-slim
+    #   typer
 cloudpickle==3.1.2
     # via
     #   dask
     #   distributed
-dask==2025.12.0
+dask==2026.1.2
     # via
     #   dask-jobqueue
     #   distributed
@@ -53,15 +57,16 @@ dask-jobqueue==0.9.0
     # via undertale (pyproject.toml)
 distlib==0.4.0
     # via virtualenv
-distributed==2025.12.0
+distributed==2026.1.2
     # via
     #   dask-jobqueue
     #   undertale (pyproject.toml)
-docutils==0.22.3
+docutils==0.22.4
     # via sphinx
-filelock==3.20.0
+filelock==3.25.0
     # via
     #   huggingface-hub
+    #   python-discovery
     #   torch
     #   virtualenv
 flake8==7.3.0
@@ -70,24 +75,26 @@ frozenlist==1.8.0
     # via
     #   aiohttp
     #   aiosignal
-fsspec==2025.12.0
+fsspec==2026.2.0
     # via
     #   dask
     #   huggingface-hub
     #   lightning
     #   pytorch-lightning
     #   torch
+grpcio==1.78.0
+    # via tensorboard
 h11==0.16.0
     # via httpcore
-hf-xet==1.2.0
+hf-xet==1.3.2
     # via huggingface-hub
 httpcore==1.0.9
     # via httpx
 httpx==0.28.1
     # via huggingface-hub
-huggingface-hub==1.3.1
+huggingface-hub==1.5.0
     # via tokenizers
-identify==2.6.15
+identify==2.6.17
     # via pre-commit
 idna==3.11
     # via
@@ -95,9 +102,9 @@ idna==3.11
     #   httpx
     #   requests
     #   yarl
-imagesize==1.4.1
+imagesize==2.0.0
     # via sphinx
-isort==7.0.0
+isort==8.0.1
     # via undertale (pyproject.toml)
 jinja2==3.1.6
     # via
@@ -106,11 +113,11 @@ jinja2==3.1.6
     #   torch
 joblib==1.5.3
     # via scikit-learn
-librt==0.7.4
+librt==0.8.1
     # via mypy
 lightning==2.6.1
     # via undertale (pyproject.toml)
-lightning-utilities==0.15.2
+lightning-utilities==0.15.3
     # via
     #   lightning
     #   pytorch-lightning
@@ -119,10 +126,18 @@ locket==1.0.0
     # via
     #   distributed
     #   partd
+markdown==3.10.2
+    # via tensorboard
+markdown-it-py==4.0.0
+    # via rich
 markupsafe==3.0.3
-    # via jinja2
+    # via
+    #   jinja2
+    #   werkzeug
 mccabe==0.7.0
     # via flake8
+mdurl==0.1.2
+    # via markdown-it-py
 mpmath==1.3.0
     # via sympy
 msgpack==1.1.2
@@ -140,15 +155,16 @@ mypy-extensions==1.1.0
     #   typing-inspect
 networkx==3.6.1
     # via torch
-nodeenv==1.9.1
+nodeenv==1.10.0
     # via pre-commit
-numpy==2.3.5
+numpy==2.4.2
     # via
     #   pandas
     #   scikit-learn
     #   scipy
+    #   tensorboard
     #   torchmetrics
-packaging==25.0
+packaging==26.0
     # via
     #   black
     #   build
@@ -160,36 +176,43 @@ packaging==25.0
     #   pandera
     #   pytorch-lightning
     #   sphinx
+    #   tensorboard
     #   torchmetrics
-pandas==2.3.3
+    #   wheel
+pandas==3.0.1
     # via undertale (pyproject.toml)
-pandera==0.27.0
+pandera==0.29.0
     # via undertale (pyproject.toml)
 partd==1.4.2
     # via dask
-pathspec==0.12.1
+pathspec==1.0.4
     # via
     #   black
     #   mypy
-pip-tools==7.5.2
+pillow==12.1.1
+    # via tensorboard
+pip-tools==7.5.3
     # via undertale (pyproject.toml)
-platformdirs==4.5.1
+platformdirs==4.9.2
     # via
     #   black
+    #   python-discovery
     #   virtualenv
-polars==1.37.1
+polars==1.38.1
     # via undertale (pyproject.toml)
-polars-runtime-32==1.37.1
+polars-runtime-32==1.38.1
     # via polars
-pre-commit==4.5.0
+pre-commit==4.5.1
     # via undertale (pyproject.toml)
 propcache==0.4.1
     # via
     #   aiohttp
     #   yarl
-psutil==7.1.3
+protobuf==7.34.0
+    # via tensorboard
+psutil==7.2.2
     # via distributed
-pyarrow==22.0.0
+pyarrow==23.0.1
     # via undertale (pyproject.toml)
 pycodestyle==2.14.0
     # via flake8
@@ -200,8 +223,10 @@ pydantic-core==2.41.5
 pyflakes==3.4.0
     # via flake8
 pygments==2.19.2
-    # via sphinx
-pyinstrument==5.1.1
+    # via
+    #   rich
+    #   sphinx
+pyinstrument==5.1.2
     # via undertale (pyproject.toml)
 pyproject-hooks==1.2.0
     # via
@@ -209,12 +234,12 @@ pyproject-hooks==1.2.0
     #   pip-tools
 python-dateutil==2.9.0.post0
     # via pandas
-pytokens==0.3.0
+python-discovery==1.1.0
+    # via virtualenv
+pytokens==0.4.1
     # via black
 pytorch-lightning==2.6.1
     # via lightning
-pytz==2025.2
-    # via pandas
 pyyaml==6.0.3
     # via
     #   dask
@@ -225,21 +250,23 @@ pyyaml==6.0.3
     #   pytorch-lightning
 requests==2.32.5
     # via sphinx
-roman-numerals==3.1.0
+rich==14.3.3
+    # via typer
+roman-numerals==4.1.0
     # via sphinx
 scikit-learn==1.8.0
     # via undertale (pyproject.toml)
-scipy==1.17.0
+scipy==1.17.1
     # via scikit-learn
 shellingham==1.5.4
-    # via huggingface-hub
+    # via typer
 six==1.17.0
     # via python-dateutil
 snowballstemmer==3.0.1
     # via sphinx
 sortedcontainers==2.4.0
     # via distributed
-sphinx==9.0.4
+sphinx==9.1.0
     # via undertale (pyproject.toml)
 sphinxcontrib-applehelp==2.0.0
     # via sphinx
@@ -257,13 +284,17 @@ sympy==1.14.0
     # via torch
 tblib==3.2.2
     # via distributed
+tensorboard==2.20.0
+    # via undertale (pyproject.toml)
+tensorboard-data-server==0.7.2
+    # via tensorboard
 threadpoolctl==3.6.0
     # via scikit-learn
 tokenizers==0.22.2
     # via undertale (pyproject.toml)
 toml-sort==0.24.3
     # via undertale (pyproject.toml)
-tomlkit==0.13.3
+tomlkit==0.14.0
     # via toml-sort
 toolz==1.1.0
     # via
@@ -280,21 +311,22 @@ torchmetrics==1.8.2
     # via
     #   lightning
     #   pytorch-lightning
-tornado==6.5.3
+tornado==6.5.4
     # via distributed
-tqdm==4.67.1
+tqdm==4.67.3
     # via
     #   huggingface-hub
     #   lightning
     #   pytorch-lightning
-typeguard==4.4.4
+typeguard==4.5.1
     # via pandera
-typer-slim==0.21.1
+typer==0.24.1
     # via huggingface-hub
 typing-extensions==4.15.0
     # via
     #   aiosignal
     #   anyio
+    #   grpcio
     #   huggingface-hub
     #   lightning
     #   lightning-utilities
@@ -305,24 +337,23 @@ typing-extensions==4.15.0
     #   pytorch-lightning
     #   torch
     #   typeguard
-    #   typer-slim
     #   typing-inspect
     #   typing-inspection
 typing-inspect==0.9.0
     # via pandera
 typing-inspection==0.4.2
     # via pydantic
-tzdata==2025.3
-    # via pandas
-urllib3==2.6.2
+urllib3==2.6.3
     # via
     #   distributed
     #   requests
-virtualenv==20.35.4
+virtualenv==21.1.0
     # via pre-commit
-wheel==0.45.1
+werkzeug==3.1.6
+    # via tensorboard
+wheel==0.46.3
     # via pip-tools
-yarl==1.22.0
+yarl==1.23.0
     # via aiohttp
 zict==3.0.0
     # via distributed

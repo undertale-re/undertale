@@ -7,6 +7,9 @@ CLAUDE.md
 *.parquet
 *.out
 *.err
+*.tfevents.*
+*.ckpt
+hparams.yaml
 
 *.DS_Store
 

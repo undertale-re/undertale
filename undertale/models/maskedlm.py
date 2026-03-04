@@ -1,12 +1,17 @@
 """Masked language modeling implementation."""
 
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 from lightning import LightningModule
 from sklearn.metrics import f1_score
 from torch import (
     Tensor,
     argmax,
+    full_like,
+    rand,
+    randint,
+    stack,
+    tensor,
 )
 from torch.nn import GELU, LayerNorm, Linear, Module
 from torch.nn.functional import cross_entropy
@@ -14,6 +19,67 @@ from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
 
 from .custom import InstructionTraceTransformerEncoder
+
+
+class MaskedLMCollator:
+    """Collation function for masked language modeling.
+
+    Masking follows the BERT convention: of the candidate positions selected
+    at the given ``probability``, 80% are replaced with ``[MASK]``, 10% with
+    a random token from the vocabulary, and 10% are left unchanged. Only
+    non-padding positions are eligible for masking.
+
+    Arguments:
+        mask_token_id: The token ID of the ``[MASK]`` special token.
+        vocab_size: The vocabulary size, used for random token replacement.
+        probability: The fraction of non-padding tokens selected as masking
+            candidates per sequence.
+    """
+
+    PROBABILITY = 0.15
+
+    def __init__(
+        self,
+        mask_token_id: int,
+        vocab_size: int,
+        probability: float = PROBABILITY,
+    ):
+        self.mask_token_id = mask_token_id
+        self.vocab_size = vocab_size
+        self.probability = probability
+
+    def __call__(self, batch: List[dict]) -> dict:
+        """Collate a batch of dataset rows.
+
+        Arguments:
+            batch: A list of dataset rows, each containing ``tokens`` and
+                ``mask`` fields.
+
+        Returns:
+            A masked batch ready for input to the model.
+        """
+
+        tokens = stack([tensor(item["tokens"]) for item in batch])
+        mask = stack([tensor(item["mask"]) for item in batch])
+
+        # Select masking candidates from non-padding positions.
+        candidates = (rand(tokens.shape) < self.probability) & (mask == 1)
+
+        # Labels are the original token IDs at masked positions, -100 elsewhere.
+        labels = full_like(tokens, -100)
+        labels[candidates] = tokens[candidates]
+
+        # Apply BERT masking strategy: 80% [MASK], 10% random, 10% unchanged.
+        decision = rand(tokens.shape)
+        replace_with_mask = candidates & (decision < 0.8)
+        replace_with_random = candidates & (decision >= 0.8) & (decision < 0.9)
+
+        tokens[replace_with_mask] = self.mask_token_id
+        tokens[replace_with_random] = randint(
+            0, self.vocab_size, (replace_with_random.sum().item(),)
+        )
+
+        return {"tokens": tokens, "mask": mask, "labels": labels}
 
 
 class MaskedLMHead(Module):
@@ -129,20 +195,20 @@ class InstructionTraceTransformerEncoderForMaskedLM(LightningModule, Module):
         optimizer = AdamW(self.parameters(), lr=self.lr)
 
         total_steps = self.trainer.estimated_stepping_batches
-        warmup_steps = self.warmup * total_steps
+        warmup_steps = int(self.warmup * total_steps)
         decay_steps = total_steps - warmup_steps
 
         warmup_scheduler = LinearLR(
             optimizer,
-            start_factor=1 / self.warmup_steps,
+            start_factor=1 / warmup_steps,
             end_factor=1.0,
-            total_iters=self.warmup_steps,
+            total_iters=warmup_steps,
         )
         decay_scheduler = CosineAnnealingLR(optimizer, T_max=decay_steps)
         scheduler = SequentialLR(
             optimizer,
             schedulers=[warmup_scheduler, decay_scheduler],
-            milestones=[self.warmup_steps],
+            milestones=[warmup_steps],
         )
 
         return {
@@ -156,8 +222,8 @@ class InstructionTraceTransformerEncoderForMaskedLM(LightningModule, Module):
 
     def training_step(self, batch, index):
         """"""
-        output = self(batch.input_ids, batch.attention_mask)
-        loss = cross_entropy(output.view(-1, output.size(-1)), batch.labels.view(-1))
+        output = self(batch["tokens"], batch["mask"])
+        loss = cross_entropy(output.view(-1, output.size(-1)), batch["labels"].view(-1))
 
         self.log("train_loss", loss, prog_bar=True, sync_dist=True)
         self.log("lr", self.trainer.optimizers[0].param_groups[0]["lr"], sync_dist=True)
@@ -166,9 +232,9 @@ class InstructionTraceTransformerEncoderForMaskedLM(LightningModule, Module):
 
     def validation_step(self, batch, index):
         """"""
-        output = self(batch.input_ids, batch.attention_mask)
+        output = self(batch["tokens"], batch["mask"])
 
-        references = batch.labels
+        references = batch["labels"]
         predictions = argmax(output, dim=-1)
 
         predictions = predictions[references != -100]
@@ -186,12 +252,12 @@ class InstructionTraceTransformerEncoderForMaskedLMConfiguration:
     initialization as kwargs.
     """
 
-    regularization = {
+    regularization: Dict[str, Any] = {
         "dropout": 0.1,
         "eps": 1e-12,
     }
 
-    medium = {
+    medium: Dict[str, Any] = {
         "sequence_length": 512,
         "depth": 12,
         "heads": 12,

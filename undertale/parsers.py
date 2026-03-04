@@ -55,14 +55,17 @@ class ModelArgumentParser(ArgumentParser):
         )
         self.add_argument("-b", "--batch-size", type=int, default=8, help="batch size")
         self.add_argument(
-            "-s",
+            "-l",
             "--dataloaders",
             type=int,
-            default=0,
+            default=8,
             help="number of parallel dataloaders",
         )
         self.add_argument(
             "-a", "--accelerator", default="auto", help="accelerator to use"
+        )
+        self.add_argument(
+            "-s", "--strategy", default="auto", help="acceleration strategy"
         )
         self.add_argument(
             "-d",
@@ -82,7 +85,7 @@ class ModelArgumentParser(ArgumentParser):
             help="maximum number of training epochs",
         )
         self.add_argument(
-            "-l",
+            "-r",
             "--learning-rate",
             type=float,
             default=None,
@@ -95,7 +98,7 @@ class ModelArgumentParser(ArgumentParser):
             default=None,
             help="learning rate warmup percentage (model-defined default)",
         )
-        self.add_argument("-m", "--name", help="training run version name")
+        self.add_argument("-m", "--version", help="training run version name")
 
 
 __all__ = ["ArgumentParser", "DatasetArgumentParser", "ModelArgumentParser"]
