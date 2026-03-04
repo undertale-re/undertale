@@ -111,3 +111,42 @@ available for that.
 
 Percentages must sum to 100. See the ``--seed`` option to control split
 randomization.
+
+Resize a Dataset
+^^^^^^^^^^^^^^^^
+
+To resize a dataset into a fixed number of chunks or by target chunk size, use
+the resize utility.
+
+.. code-block:: bash
+
+    # Resize to exactly 32 chunk files.
+    python -m undertale.utils.datasets.resize \
+        humaneval-x/ \
+        humaneval-x-resized \
+        --chunks 32
+
+    # Resize by target chunk size.
+    python -m undertale.utils.datasets.resize \
+        humaneval-x/ \
+        humaneval-x-resized \
+        --size 25MB
+
+    # Drop columns, deduplicate, and apply compression.
+    python -m undertale.utils.datasets.resize \
+        humaneval-x/ \
+        humaneval-x-resized \
+        --chunks 32 \
+        --drop metadata source \
+        --deduplicate id \
+        --compression snappy
+
+    # With custom parallelism.
+    python -m undertale.utils.datasets.resize \
+        humaneval-x/ \
+        humaneval-x-resized \
+        --chunks 32 \
+        --parallelism 8
+
+Exactly one of ``--chunks`` or ``--size`` must be specified. ``--drop`` and
+``--keep`` are mutually exclusive.
