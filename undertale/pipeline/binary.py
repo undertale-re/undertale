@@ -3,13 +3,11 @@
 from typing import Dict, List
 
 from pandas import DataFrame, Series, read_parquet
-from pandera.errors import SchemaError as PanderaSchemaError
 
 from ..exceptions import EnvironmentError as LocalEnvironmentError
-from ..exceptions import SchemaError
 from ..logging import get_logger
 from ..models.tokenizer import TOKEN_NEXT
-from ..schema import BinaryDataset
+from ..schema import BinaryDataset, validate_dataset
 from ..utils import assert_path_exists, get_or_create_file, write_parquet
 
 logger = get_logger(__name__)
@@ -272,12 +270,7 @@ def segment_and_disassemble_binary(input: str, output: str) -> str:
     logger.info(f"segmenting and disassembling binaries {input!r} to {output!r}")
 
     frame = read_parquet(input)
-
-    try:
-        BinaryDataset.validate(frame)
-    except PanderaSchemaError as e:
-        logger.error("dataset does not match the expected schema")
-        raise SchemaError(str(e))
+    validate_dataset(frame, BinaryDataset)
 
     segmented = []
     for _, row in frame.iterrows():

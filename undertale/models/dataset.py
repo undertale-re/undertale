@@ -2,13 +2,11 @@ from os import listdir
 from os.path import isfile, join
 from typing import Iterator, Optional, Type
 
-import pandas
-from pandera.errors import SchemaError as PanderaSchemaError
+from pandas import read_parquet
 from pyarrow import parquet
 from torch.utils.data import IterableDataset, get_worker_info
 
-from ..exceptions import SchemaError
-from ..schema import Dataset
+from ..schema import Dataset, validate_dataset
 
 
 class ParquetDataset(IterableDataset):
@@ -45,10 +43,8 @@ class ParquetDataset(IterableDataset):
             self.files = sorted(join(source, f) for f in listdir(source))
 
         if schema is not None and self.files:
-            try:
-                schema.validate(pandas.read_parquet(self.files[0]))
-            except PanderaSchemaError as e:
-                raise SchemaError(str(e))
+            frame = read_parquet(self.files[0])
+            validate_dataset(frame, schema)
 
     def __len__(self) -> int:
         return sum(parquet.read_metadata(f).num_rows for f in self.files)
@@ -62,4 +58,4 @@ class ParquetDataset(IterableDataset):
             files = self.files[worker.id :: worker.num_workers]
 
         for file in files:
-            yield from pandas.read_parquet(file).to_dict(orient="records")
+            yield from read_parquet(file).to_dict(orient="records")
