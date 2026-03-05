@@ -1,3 +1,4 @@
+import argparse
 import json
 import logging
 import os
@@ -8,17 +9,22 @@ from os import listdir, makedirs
 from os.path import basename, exists, isdir, isfile, join
 from tempfile import TemporaryDirectory
 from time import sleep
+from types import SimpleNamespace
 from typing import Dict
 from unittest import SkipTest, TestCase
+from unittest.mock import patch
 
 from dask.dataframe import from_pandas
 from pandas import DataFrame, read_parquet
 from pyarrow.parquet import read_metadata as pyarrow_read_metadata
-from torch import rand, randint, set_grad_enabled
+from torch import rand, randint, set_grad_enabled, tensor
 from utils import load_resource, main
 
 from undertale.exceptions import EnvironmentError as LocalEnvironmentError
 from undertale.exceptions import PathError, SchemaError
+from undertale.models.custom import InstructionTracePositionEmbedding
+from undertale.models.dataset import ParquetDataset
+from undertale.models.maskedlm import MaskedLMCollator
 from undertale.models.tokenizer import (
     TOKEN_UNKNOWN,
 )
@@ -32,7 +38,6 @@ from undertale.models.tokenizer import (
 from undertale.models.transformer import (
     Attention,
     FeedForward,
-    InstructionArgumentPositionEmbedding,
     MultiHeadAttention,
     PositionEmbedding,
     TransformerEncoder,
@@ -42,8 +47,17 @@ from undertale.pipeline import Client, Cluster, fanout, flush
 from undertale.pipeline.binary import segment_and_disassemble_binary
 from undertale.pipeline.cpp import compile_cpp
 from undertale.pipeline.json import merge_json
-from undertale.pipeline.parquet import hash_parquet_column, resize_parquet
+from undertale.pipeline.parquet import (
+    Deduplicate,
+    Drop,
+    Keep,
+    Rename,
+    Repartition,
+    hash_parquet_column,
+    modify_parquet,
+)
 from undertale.pipeline.tarfile import extract_tarfile
+from undertale.schema import Dataset
 from undertale.utils import (
     RemoteException,
     assert_path_exists,
@@ -56,6 +70,8 @@ from undertale.utils import (
     timestamp,
     write_parquet,
 )
+from undertale.utils.datasets.split import parse_split
+from undertale.utils.datasets.split import split as split_dataset
 
 
 class TestUtilitiesHash(TestCase):
@@ -241,7 +257,7 @@ class TestUtilitiesParquet(TestCase):
 
         self.assertEqual(metadata.row_group(0).column(0).compression, "UNCOMPRESSED")
 
-    def test_parquet_resize_compression_specified(self):
+    def test_write_parquet_compression_specified(self):
         working = TemporaryDirectory()
 
         dataset = [{"id": i, "foo": "bar"} for i in range(10)]
@@ -500,20 +516,116 @@ class TestPipelineParquet(TestCase):
         self.assertIn("hash", loaded.columns)
         self.assertEqual(loaded["hash"][0], hash(data))
 
-    def test_parquet_resize_chunks_and_size(self):
+    def test_parquet_repartition_chunks_and_size(self):
         with self.assertRaises(ValueError):
-            resize_parquet("", "", chunks=10, size=10)
+            Repartition(chunks=10, size=10)
 
-    def test_parquet_resize_neither_chunks_nor_size(self):
+    def test_parquet_repartition_neither_chunks_nor_size(self):
         with self.assertRaises(ValueError):
-            resize_parquet("", "")
+            Repartition()
 
-    def test_parquet_resize_one_to_many_chunks(self):
+    def test_parquet_rename_invalid_schema(self):
+        working = TemporaryDirectory()
+        dataset = self.mock_dataset(working, "dataset", size=10)
+
+        with self.assertRaises(SchemaError):
+            path = join(working.name, "resized")
+            modify_parquet(dataset, path, [Rename({"nonexistent": "other"})])
+
+    def test_parquet_rename_simple(self):
+        working = TemporaryDirectory()
+
+        dataset = [{"id": i, "foo": "bar"} for i in range(10)]
+
+        frame = DataFrame(dataset)
+        path = join(working.name, "dataset")
+        write_parquet(frame, path)
+
+        output = join(working.name, "resized")
+        modify_parquet(path, output, [Rename({"foo": "baz"})])
+
+        loaded = read_parquet(output)
+
+        self.assertNotIn("foo", loaded.columns)
+        self.assertIn("baz", loaded.columns)
+        self.assertEqual(list(loaded["baz"]), ["bar"] * 10)
+
+    def test_parquet_rename_multiple(self):
+        working = TemporaryDirectory()
+
+        dataset = [{"id": i, "foo": "bar", "alpha": "beta"} for i in range(10)]
+
+        frame = DataFrame(dataset)
+        path = join(working.name, "dataset")
+        write_parquet(frame, path)
+
+        output = join(working.name, "resized")
+        modify_parquet(path, output, [Rename({"foo": "baz", "alpha": "gamma"})])
+
+        loaded = read_parquet(output)
+
+        self.assertNotIn("foo", loaded.columns)
+        self.assertNotIn("alpha", loaded.columns)
+        self.assertIn("baz", loaded.columns)
+        self.assertIn("gamma", loaded.columns)
+
+    def test_parquet_rename_after_keep(self):
+        working = TemporaryDirectory()
+
+        dataset = [{"id": i, "foo": "bar", "extra": "drop"} for i in range(10)]
+
+        frame = DataFrame(dataset)
+        path = join(working.name, "dataset")
+        write_parquet(frame, path)
+
+        output = join(working.name, "resized")
+        modify_parquet(path, output, [Keep(["foo"]), Rename({"foo": "baz"})])
+
+        loaded = read_parquet(output)
+
+        self.assertNotIn("foo", loaded.columns)
+        self.assertNotIn("extra", loaded.columns)
+        self.assertIn("baz", loaded.columns)
+
+    def test_parquet_drop_preserves_chunks(self):
+        working = TemporaryDirectory()
+
+        dataset = [{"id": i, "foo": "bar"} for i in range(80)]
+        path = join(working.name, "dataset")
+        write_parquet(from_pandas(DataFrame(dataset), npartitions=8), path)
+
+        output = join(working.name, "dropped")
+        created = modify_parquet(path, output, [Drop(["foo"])])
+
+        # Dask does not guarantee exact partition count after a column drop on
+        # small data, so we only assert that chunking was not collapsed to one.
+        self.assertGreater(len(created), 1)
+
+        loaded = read_parquet(output)
+        self.assertNotIn("foo", loaded.columns)
+
+    def test_parquet_rename_preserves_chunks(self):
+        working = TemporaryDirectory()
+
+        dataset = [{"id": i, "foo": "bar"} for i in range(30)]
+        path = join(working.name, "dataset")
+        write_parquet(from_pandas(DataFrame(dataset), npartitions=3), path)
+
+        output = join(working.name, "renamed")
+        created = modify_parquet(path, output, [Rename({"foo": "baz"})])
+
+        self.assertEqual(len(created), 3)
+
+        loaded = read_parquet(output)
+        self.assertIn("baz", loaded.columns)
+        self.assertNotIn("foo", loaded.columns)
+
+    def test_parquet_repartition_one_to_many_chunks(self):
         working = TemporaryDirectory()
         dataset = self.mock_dataset(working, "dataset", size=100)
 
         path = join(working.name, "resized")
-        created = resize_parquet(dataset, path, chunks=20)
+        created = modify_parquet(dataset, path, [Repartition(chunks=20)])
 
         self.assertEqual(len(created), 20)
 
@@ -521,12 +633,12 @@ class TestPipelineParquet(TestCase):
 
         self.assertEqual(len(loaded), 100)
 
-    def test_parquet_resize_many_to_one_chunk(self):
+    def test_parquet_repartition_many_to_one_chunk(self):
         working = TemporaryDirectory()
         dataset = self.mock_dataset(working, "dataset", size=100, chunks=20)
 
         path = join(working.name, "resized")
-        created = resize_parquet(dataset, path, chunks=1)
+        created = modify_parquet(dataset, path, [Repartition(chunks=1)])
 
         self.assertEqual(len(created), 1)
 
@@ -534,12 +646,12 @@ class TestPipelineParquet(TestCase):
 
         self.assertEqual(len(loaded), 100)
 
-    def test_parquet_resize_many_to_many_chunks(self):
+    def test_parquet_repartition_many_to_many_chunks(self):
         working = TemporaryDirectory()
         dataset = self.mock_dataset(working, "dataset", size=100, chunks=20)
 
         path = join(working.name, "resized")
-        created = resize_parquet(dataset, path, chunks=25)
+        created = modify_parquet(dataset, path, [Repartition(chunks=25)])
 
         self.assertEqual(len(created), 25)
 
@@ -547,12 +659,12 @@ class TestPipelineParquet(TestCase):
 
         self.assertEqual(len(loaded), 100)
 
-    def test_parquet_resize_too_many_chunks(self):
+    def test_parquet_repartition_too_many_chunks(self):
         working = TemporaryDirectory()
         dataset = self.mock_dataset(working, "dataset", size=20)
 
         path = join(working.name, "resized")
-        created = resize_parquet(dataset, path, chunks=25)
+        created = modify_parquet(dataset, path, [Repartition(chunks=25)])
 
         self.assertEqual(len(created), 25)
 
@@ -560,12 +672,12 @@ class TestPipelineParquet(TestCase):
 
         self.assertEqual(len(loaded), 20)
 
-    def test_parquet_resize_size(self):
+    def test_parquet_repartition_size(self):
         working = TemporaryDirectory()
         dataset = self.mock_dataset(working, "dataset", size=100)
 
         path = join(working.name, "resized")
-        created = resize_parquet(dataset, path, size=64)
+        created = modify_parquet(dataset, path, [Repartition(size=64)])
 
         self.assertEqual(len(created), 26)
 
@@ -573,14 +685,14 @@ class TestPipelineParquet(TestCase):
 
         self.assertEqual(len(loaded), 100)
 
-    def test_parquet_resize_chunk_list_input(self):
+    def test_parquet_repartition_chunk_list_input(self):
         working = TemporaryDirectory()
         dataset = self.mock_dataset(working, "dataset", size=100, chunks=20)
 
         chunks = [join(dataset, f) for f in listdir(dataset)]
 
         path = join(working.name, "resized")
-        created = resize_parquet(chunks, path, chunks=25)
+        created = modify_parquet(chunks, path, [Repartition(chunks=25)])
 
         self.assertEqual(len(created), 25)
 
@@ -588,15 +700,15 @@ class TestPipelineParquet(TestCase):
 
         self.assertEqual(len(loaded), 100)
 
-    def test_parquet_resize_deduplicate_invalid_schema(self):
+    def test_parquet_deduplicate_invalid_schema(self):
         working = TemporaryDirectory()
         dataset = self.mock_dataset(working, "dataset", size=10)
 
         with self.assertRaises(SchemaError):
             path = join(working.name, "resized")
-            resize_parquet(dataset, path, chunks=1, deduplicate=["foo"])
+            modify_parquet(dataset, path, [Deduplicate(["foo"]), Repartition(chunks=1)])
 
-    def test_parquet_resize_deduplicate_simple(self):
+    def test_parquet_deduplicate_simple(self):
         working = TemporaryDirectory()
 
         dataset = [{"id": i} for i in range(10)]
@@ -616,26 +728,22 @@ class TestPipelineParquet(TestCase):
         write_parquet(frame, path)
 
         output = join(working.name, "resized")
-        resize_parquet(path, output, chunks=1, deduplicate=["id"])
+        modify_parquet(path, output, [Deduplicate(["id"]), Repartition(chunks=1)])
 
         loaded = read_parquet(output)
 
         self.assertEqual(len(loaded), 15)
         self.assertEqual(len(set(loaded["id"])), 15)
 
-    def test_parquet_resize_drop_and_keep(self):
-        with self.assertRaises(ValueError):
-            resize_parquet("", "", drop=["foo"], keep=["bar"])
-
-    def test_parquet_resize_drop_invalid_schema(self):
+    def test_parquet_drop_invalid_schema(self):
         working = TemporaryDirectory()
         dataset = self.mock_dataset(working, "dataset", size=10)
 
         with self.assertRaises(SchemaError):
             path = join(working.name, "resized")
-            resize_parquet(dataset, path, chunks=1, drop=["foo"])
+            modify_parquet(dataset, path, [Drop(["foo"]), Repartition(chunks=1)])
 
-    def test_parquet_resize_drop_simple(self):
+    def test_parquet_drop_simple(self):
         working = TemporaryDirectory()
 
         dataset = [{"id": i, "foo": "bar"} for i in range(10)]
@@ -645,21 +753,21 @@ class TestPipelineParquet(TestCase):
         write_parquet(frame, path)
 
         output = join(working.name, "resized")
-        resize_parquet(path, output, chunks=1, drop=["foo"])
+        modify_parquet(path, output, [Drop(["foo"]), Repartition(chunks=1)])
 
         loaded = read_parquet(output)
 
         self.assertNotIn("foo", loaded.columns)
 
-    def test_parquet_resize_keep_invalid_schema(self):
+    def test_parquet_keep_invalid_schema(self):
         working = TemporaryDirectory()
         dataset = self.mock_dataset(working, "dataset", size=10)
 
         with self.assertRaises(SchemaError):
             path = join(working.name, "resized")
-            resize_parquet(dataset, path, chunks=1, keep=["foo"])
+            modify_parquet(dataset, path, [Keep(["foo"]), Repartition(chunks=1)])
 
-    def test_parquet_resize_keep_simple(self):
+    def test_parquet_keep_simple(self):
         working = TemporaryDirectory()
 
         dataset = [{"id": i, "foo": "bar", "baz": "zaa"} for i in range(10)]
@@ -669,7 +777,7 @@ class TestPipelineParquet(TestCase):
         write_parquet(frame, path)
 
         output = join(working.name, "resized")
-        resize_parquet(path, output, chunks=1, keep=["foo"])
+        modify_parquet(path, output, [Keep(["foo"]), Repartition(chunks=1)])
 
         loaded = read_parquet(output)
 
@@ -677,7 +785,7 @@ class TestPipelineParquet(TestCase):
         self.assertNotIn("id", loaded.columns)
         self.assertNotIn("baz", loaded.columns)
 
-    def test_parquet_resize_compression(self):
+    def test_parquet_repartition_compression(self):
         working = TemporaryDirectory()
 
         dataset = [{"id": i, "foo": "bar"} for i in range(10)]
@@ -687,7 +795,7 @@ class TestPipelineParquet(TestCase):
         write_parquet(frame, path)
 
         output = join(working.name, "resized")
-        resize_parquet(path, output, chunks=1, compression="snappy")
+        modify_parquet(path, output, [Repartition(chunks=1)], compression="snappy")
 
         files = listdir(output)
 
@@ -1140,13 +1248,21 @@ class TestModelTokenizer(TestCase):
 
         loaded = read_parquet(path)
 
-        tokens = loaded["input_ids"][0]
+        tokens = loaded["tokens"][0]
         unpadded = tokens[tokens != tokens[-1]]
 
         self.assertEqual(len(unpadded), len(sources["disassembly"][0].split()))
 
 
 class TestModelTransformer(TestCase):
+    HIDDEN_DIMENSIONS = 768
+    VOCAB_SIZE = 1024
+    SEQUENCE_LENGTH = 512
+    HEADS = 12
+    INTERMEDIATE_DIMENSIONS = 3072
+    DROPOUT = 0.1
+    EPS = 1e-12
+
     def setUp(self):
         set_grad_enabled(False)
 
@@ -1154,23 +1270,23 @@ class TestModelTransformer(TestCase):
         set_grad_enabled(True)
 
     def test_attention_simple(self):
-        layer = Attention(768, 768)
-        state = rand(1, 512, 768)
+        layer = Attention(self.HIDDEN_DIMENSIONS, self.HIDDEN_DIMENSIONS)
+        state = rand(1, self.SEQUENCE_LENGTH, self.HIDDEN_DIMENSIONS)
         result = layer(state)
 
         self.assertEqual(result.shape, state.shape)
 
     def test_attention_masked(self):
-        layer = Attention(768, 768)
-        state = rand(1, 512, 768)
-        mask = rand(1, 512) <= 0.2
+        layer = Attention(self.HIDDEN_DIMENSIONS, self.HIDDEN_DIMENSIONS)
+        state = rand(1, self.SEQUENCE_LENGTH, self.HIDDEN_DIMENSIONS)
+        mask = rand(1, self.SEQUENCE_LENGTH) <= 0.2
         result = layer(state, mask)
 
         self.assertEqual(result.shape, state.shape)
 
     def test_attention_unbatched(self):
-        layer = Attention(768, 768)
-        state = rand(512, 768)
+        layer = Attention(self.HIDDEN_DIMENSIONS, self.HIDDEN_DIMENSIONS)
+        state = rand(self.SEQUENCE_LENGTH, self.HIDDEN_DIMENSIONS)
 
         with self.assertRaises(ValueError) as c:
             layer(state)
@@ -1178,8 +1294,8 @@ class TestModelTransformer(TestCase):
         self.assertIn("expected tensor of shape", str(c.exception))
 
     def test_attention_mismatched_shape(self):
-        layer = Attention(768, 768)
-        state = rand(1, 512, 720)
+        layer = Attention(self.HIDDEN_DIMENSIONS, self.HIDDEN_DIMENSIONS)
+        state = rand(1, self.SEQUENCE_LENGTH, 720)
 
         with self.assertRaises(ValueError) as c:
             layer(state)
@@ -1187,9 +1303,9 @@ class TestModelTransformer(TestCase):
         self.assertIn("expected tensor with hidden size", str(c.exception))
 
     def test_attention_masked_mismatched_shape(self):
-        layer = Attention(768, 768)
-        state = rand(1, 512, 768)
-        mask = rand(1, 512, 768) <= 0.2
+        layer = Attention(self.HIDDEN_DIMENSIONS, self.HIDDEN_DIMENSIONS)
+        state = rand(1, self.SEQUENCE_LENGTH, self.HIDDEN_DIMENSIONS)
+        mask = rand(1, self.SEQUENCE_LENGTH, self.HIDDEN_DIMENSIONS) <= 0.2
 
         with self.assertRaises(ValueError) as c:
             layer(state, mask)
@@ -1197,8 +1313,8 @@ class TestModelTransformer(TestCase):
         self.assertIn("expected mask tensor of shape", str(c.exception))
 
     def test_attention_masked_mismatched_sequence_length(self):
-        layer = Attention(768, 768)
-        state = rand(1, 512, 768)
+        layer = Attention(self.HIDDEN_DIMENSIONS, self.HIDDEN_DIMENSIONS)
+        state = rand(1, self.SEQUENCE_LENGTH, self.HIDDEN_DIMENSIONS)
         mask = rand(1, 256) <= 0.2
 
         with self.assertRaises(ValueError) as c:
@@ -1207,28 +1323,32 @@ class TestModelTransformer(TestCase):
         self.assertIn("mismatched sequence length", str(c.exception))
 
     def test_multi_head_attention_simple(self):
-        layer = MultiHeadAttention(768, 12)
-        state = rand(1, 512, 768)
+        layer = MultiHeadAttention(self.HIDDEN_DIMENSIONS, self.HEADS)
+        state = rand(1, self.SEQUENCE_LENGTH, self.HIDDEN_DIMENSIONS)
         result = layer(state)
 
         self.assertEqual(result.shape, state.shape)
 
     def test_multi_head_attention_invalid_head_count(self):
         with self.assertRaises(ValueError) as c:
-            MultiHeadAttention(768, 13)
+            MultiHeadAttention(self.HIDDEN_DIMENSIONS, 13)
 
         self.assertIn("invalid number of heads", str(c.exception))
 
     def test_feed_forward_simple(self):
-        layer = FeedForward(768, 3072, 0.1)
-        state = rand(1, 512, 768)
+        layer = FeedForward(
+            self.HIDDEN_DIMENSIONS, self.INTERMEDIATE_DIMENSIONS, self.DROPOUT
+        )
+        state = rand(1, self.SEQUENCE_LENGTH, self.HIDDEN_DIMENSIONS)
         result = layer(state)
 
         self.assertEqual(result.shape, state.shape)
 
     def test_feed_forward_mismatched_shape(self):
-        layer = FeedForward(768, 3072, 0.1)
-        state = rand(1, 512, 720)
+        layer = FeedForward(
+            self.HIDDEN_DIMENSIONS, self.INTERMEDIATE_DIMENSIONS, self.DROPOUT
+        )
+        state = rand(1, self.SEQUENCE_LENGTH, 720)
 
         with self.assertRaises(ValueError) as c:
             layer(state)
@@ -1236,26 +1356,43 @@ class TestModelTransformer(TestCase):
         self.assertIn("expected tensor with hidden size", str(c.exception))
 
     def test_transformer_encoder_layer_simple(self):
-        layer = TransformerEncoderLayer(768, 12, 3072, 0.1)
-        state = rand(1, 512, 768)
+        layer = TransformerEncoderLayer(
+            self.HIDDEN_DIMENSIONS,
+            self.HEADS,
+            self.INTERMEDIATE_DIMENSIONS,
+            self.DROPOUT,
+        )
+        state = rand(1, self.SEQUENCE_LENGTH, self.HIDDEN_DIMENSIONS)
         result = layer(state)
 
         self.assertEqual(result.shape, state.shape)
 
     def test_position_embedding_simple(self):
-        layer = PositionEmbedding(768, 1024, 512, 0.1, 1e-12)
-        state = randint(0, 1024, size=(1, 512))
+        layer = PositionEmbedding(
+            self.HIDDEN_DIMENSIONS,
+            self.VOCAB_SIZE,
+            self.SEQUENCE_LENGTH,
+            self.DROPOUT,
+            self.EPS,
+        )
+        state = randint(0, self.VOCAB_SIZE, size=(1, self.SEQUENCE_LENGTH))
         result = layer(state)
 
         self.assertEqual(result.ndim, 3)
 
         self.assertEqual(result.shape[0], 1)
-        self.assertEqual(result.shape[1], 512)
-        self.assertEqual(result.shape[2], 768)
+        self.assertEqual(result.shape[1], self.SEQUENCE_LENGTH)
+        self.assertEqual(result.shape[2], self.HIDDEN_DIMENSIONS)
 
     def test_position_embedding_mismatched_shape(self):
-        layer = PositionEmbedding(768, 1024, 512, 0.1, 1e-12)
-        state = randint(0, 1024, size=(512,))
+        layer = PositionEmbedding(
+            self.HIDDEN_DIMENSIONS,
+            self.VOCAB_SIZE,
+            self.SEQUENCE_LENGTH,
+            self.DROPOUT,
+            self.EPS,
+        )
+        state = randint(0, self.VOCAB_SIZE, size=(self.SEQUENCE_LENGTH,))
 
         with self.assertRaises(ValueError) as c:
             layer(state)
@@ -1263,37 +1400,14 @@ class TestModelTransformer(TestCase):
         self.assertIn("expected tensor of shape", str(c.exception))
 
     def test_position_embedding_mismatched_sequence_length(self):
-        layer = PositionEmbedding(768, 1024, 512, 0.1, 1e-12)
-        state = randint(0, 1024, size=(1, 256))
-
-        with self.assertRaises(ValueError) as c:
-            layer(state)
-
-        self.assertIn("expected sequence length", str(c.exception))
-
-    def test_instruction_argument_position_embedding_simple(self):
-        layer = InstructionArgumentPositionEmbedding(768, 1024, 512, 0, 0.1, 1e-12)
-        state = randint(0, 1024, size=(1, 512))
-        result = layer(state)
-
-        self.assertEqual(result.ndim, 3)
-
-        self.assertEqual(result.shape[0], 1)
-        self.assertEqual(result.shape[1], 512)
-        self.assertEqual(result.shape[2], 768)
-
-    def test_instruction_argument_position_embedding_mismatched_shape(self):
-        layer = InstructionArgumentPositionEmbedding(768, 1024, 512, 0, 0.1, 1e-12)
-        state = randint(0, 1024, size=(512,))
-
-        with self.assertRaises(ValueError) as c:
-            layer(state)
-
-        self.assertIn("expected tensor of shape", str(c.exception))
-
-    def test_instruction_argument_position_embedding_mismatched_sequence_length(self):
-        layer = InstructionArgumentPositionEmbedding(768, 1024, 512, 0, 0.1, 1e-12)
-        state = randint(0, 1024, size=(1, 256))
+        layer = PositionEmbedding(
+            self.HIDDEN_DIMENSIONS,
+            self.VOCAB_SIZE,
+            self.SEQUENCE_LENGTH,
+            self.DROPOUT,
+            self.EPS,
+        )
+        state = randint(0, self.VOCAB_SIZE, size=(1, 256))
 
         with self.assertRaises(ValueError) as c:
             layer(state)
@@ -1301,15 +1415,390 @@ class TestModelTransformer(TestCase):
         self.assertIn("expected sequence length", str(c.exception))
 
     def test_transformer_encoder_simple(self):
-        layer = TransformerEncoder(2, 768, 1024, 512, 2, 3072, 0.1, 1e-12)
-        state = randint(0, 1024, size=(1, 512))
+        layer = TransformerEncoder(
+            2,
+            self.HIDDEN_DIMENSIONS,
+            self.VOCAB_SIZE,
+            self.SEQUENCE_LENGTH,
+            2,
+            self.INTERMEDIATE_DIMENSIONS,
+            self.DROPOUT,
+            self.EPS,
+        )
+        state = randint(0, self.VOCAB_SIZE, size=(1, self.SEQUENCE_LENGTH))
         result = layer(state)
 
         self.assertEqual(result.ndim, 3)
 
         self.assertEqual(result.shape[0], 1)
-        self.assertEqual(result.shape[1], 512)
-        self.assertEqual(result.shape[2], 768)
+        self.assertEqual(result.shape[1], self.SEQUENCE_LENGTH)
+        self.assertEqual(result.shape[2], self.HIDDEN_DIMENSIONS)
+
+
+class TestModelCustom(TestCase):
+    HIDDEN_DIMENSIONS = 768
+    VOCAB_SIZE = 1024
+    SEQUENCE_LENGTH = 512
+    NEXT_TOKEN_ID = 0
+    DROPOUT = 0.1
+    EPS = 1e-12
+
+    def setUp(self):
+        set_grad_enabled(False)
+
+    def tearDown(self):
+        set_grad_enabled(True)
+
+    def test_compute_instruction_index_basic(self):
+        state = tensor([[1, 2, 0, 3, 0, 4, 5]])
+        result = InstructionTracePositionEmbedding.compute_instruction_index(
+            state, self.NEXT_TOKEN_ID
+        )
+
+        expected = tensor([[0, 0, 0, 1, 1, 2, 2]])
+        self.assertTrue(result.equal(expected))
+
+    def test_compute_instruction_index_no_next_tokens(self):
+        state = tensor([[1, 2, 3, 4]])
+        result = InstructionTracePositionEmbedding.compute_instruction_index(
+            state, self.NEXT_TOKEN_ID
+        )
+
+        expected = tensor([[0, 0, 0, 0]])
+        self.assertTrue(result.equal(expected))
+
+    def test_compute_instruction_index_leading_next(self):
+        state = tensor([[0, 1, 2]])
+        result = InstructionTracePositionEmbedding.compute_instruction_index(
+            state, self.NEXT_TOKEN_ID
+        )
+
+        expected = tensor([[0, 1, 1]])
+        self.assertTrue(result.equal(expected))
+
+    def test_compute_instruction_index_batch(self):
+        state = tensor([[1, 0, 2], [3, 4, 0]])
+        result = InstructionTracePositionEmbedding.compute_instruction_index(
+            state, self.NEXT_TOKEN_ID
+        )
+
+        expected = tensor([[0, 0, 1], [0, 0, 0]])
+        self.assertTrue(result.equal(expected))
+
+    def test_compute_argument_index_basic(self):
+        state = tensor([[1, 2, 0, 3, 0, 4, 5]])
+        result = InstructionTracePositionEmbedding.compute_argument_index(
+            state, self.NEXT_TOKEN_ID
+        )
+
+        expected = tensor([[0, 1, 2, 0, 1, 0, 1]])
+        self.assertTrue(result.equal(expected))
+
+    def test_compute_argument_index_no_next_tokens(self):
+        state = tensor([[1, 2, 3, 4]])
+        result = InstructionTracePositionEmbedding.compute_argument_index(
+            state, self.NEXT_TOKEN_ID
+        )
+
+        expected = tensor([[0, 1, 2, 3]])
+        self.assertTrue(result.equal(expected))
+
+    def test_compute_argument_index_leading_next(self):
+        state = tensor([[0, 1, 2]])
+        result = InstructionTracePositionEmbedding.compute_argument_index(
+            state, self.NEXT_TOKEN_ID
+        )
+
+        expected = tensor([[0, 0, 1]])
+        self.assertTrue(result.equal(expected))
+
+    def test_compute_argument_index_batch(self):
+        state = tensor([[1, 0, 2], [3, 4, 0]])
+        result = InstructionTracePositionEmbedding.compute_argument_index(
+            state, self.NEXT_TOKEN_ID
+        )
+
+        expected = tensor([[0, 1, 0], [0, 1, 2]])
+        self.assertTrue(result.equal(expected))
+
+    def test_instruction_argument_position_embedding_simple(self):
+        layer = InstructionTracePositionEmbedding(
+            self.HIDDEN_DIMENSIONS,
+            self.VOCAB_SIZE,
+            self.SEQUENCE_LENGTH,
+            self.NEXT_TOKEN_ID,
+            self.DROPOUT,
+            self.EPS,
+        )
+        state = randint(0, self.VOCAB_SIZE, size=(1, self.SEQUENCE_LENGTH))
+        result = layer(state)
+
+        self.assertEqual(result.ndim, 3)
+
+        self.assertEqual(result.shape[0], 1)
+        self.assertEqual(result.shape[1], self.SEQUENCE_LENGTH)
+        self.assertEqual(result.shape[2], self.HIDDEN_DIMENSIONS)
+
+    def test_instruction_argument_position_embedding_mismatched_shape(self):
+        layer = InstructionTracePositionEmbedding(
+            self.HIDDEN_DIMENSIONS,
+            self.VOCAB_SIZE,
+            self.SEQUENCE_LENGTH,
+            self.NEXT_TOKEN_ID,
+            self.DROPOUT,
+            self.EPS,
+        )
+        state = randint(0, self.VOCAB_SIZE, size=(self.SEQUENCE_LENGTH,))
+
+        with self.assertRaises(ValueError) as c:
+            layer(state)
+
+        self.assertIn("expected tensor of shape", str(c.exception))
+
+    def test_instruction_argument_position_embedding_mismatched_sequence_length(self):
+        layer = InstructionTracePositionEmbedding(
+            self.HIDDEN_DIMENSIONS,
+            self.VOCAB_SIZE,
+            self.SEQUENCE_LENGTH,
+            self.NEXT_TOKEN_ID,
+            self.DROPOUT,
+            self.EPS,
+        )
+        state = randint(0, self.VOCAB_SIZE, size=(1, 256))
+
+        with self.assertRaises(ValueError) as c:
+            layer(state)
+
+        self.assertIn("expected sequence length", str(c.exception))
+
+
+class TestModelDataset(TestCase):
+    def write_chunk(self, directory: str, name: str, rows: list) -> str:
+        path = join(directory, name)
+        write_parquet(DataFrame(rows), path)
+        return path
+
+    def test_dataset_single_file(self):
+        working = TemporaryDirectory()
+        rows = [{"value": i} for i in range(10)]
+        path = self.write_chunk(working.name, "chunk.parquet", rows)
+
+        dataset = ParquetDataset(path)
+
+        self.assertEqual(list(dataset), rows)
+
+    def test_dataset_directory(self):
+        working = TemporaryDirectory()
+        self.write_chunk(working.name, "a.parquet", [{"value": i} for i in range(5)])
+        self.write_chunk(
+            working.name, "b.parquet", [{"value": i} for i in range(5, 10)]
+        )
+
+        dataset = ParquetDataset(working.name)
+
+        self.assertEqual(len(list(dataset)), 10)
+
+    def test_dataset_directory_sorted(self):
+        working = TemporaryDirectory()
+        self.write_chunk(working.name, "c.parquet", [{"chunk": "c"}])
+        self.write_chunk(working.name, "a.parquet", [{"chunk": "a"}])
+        self.write_chunk(working.name, "b.parquet", [{"chunk": "b"}])
+
+        dataset = ParquetDataset(working.name)
+
+        self.assertEqual([r["chunk"] for r in dataset], ["a", "b", "c"])
+
+    def test_dataset_multi_worker(self):
+        working = TemporaryDirectory()
+        for i in range(4):
+            self.write_chunk(working.name, f"chunk_{i}.parquet", [{"chunk": i}])
+
+        dataset = ParquetDataset(working.name)
+
+        with patch("undertale.models.dataset.get_worker_info") as mock:
+            mock.return_value = SimpleNamespace(id=0, num_workers=2)
+            worker_0 = list(dataset)
+
+            mock.return_value = SimpleNamespace(id=1, num_workers=2)
+            worker_1 = list(dataset)
+
+        self.assertEqual(len(worker_0) + len(worker_1), 4)
+        self.assertFalse(
+            set(r["chunk"] for r in worker_0) & set(r["chunk"] for r in worker_1)
+        )
+
+    def test_dataset_empty_directory(self):
+        working = TemporaryDirectory()
+
+        dataset = ParquetDataset(working.name)
+
+        self.assertEqual(list(dataset), [])
+
+    def test_dataset_schema_valid(self):
+        working = TemporaryDirectory()
+        path = self.write_chunk(
+            working.name, "chunk.parquet", [{"id": "1", "value": 1}]
+        )
+
+        ParquetDataset(path, schema=Dataset)
+
+    def test_dataset_schema_invalid(self):
+        working = TemporaryDirectory()
+        path = self.write_chunk(working.name, "chunk.parquet", [{"value": 1}])
+
+        with self.assertRaises(SchemaError):
+            ParquetDataset(path, schema=Dataset)
+
+    def test_dataset_schema_empty_directory(self):
+        working = TemporaryDirectory()
+
+        ParquetDataset(working.name, schema=Dataset)
+
+
+class TestModelMaskedLMCollator(TestCase):
+    SEQUENCE_LENGTH = 16
+    VOCAB_SIZE = 100
+    MASK_TOKEN_ID = 4
+
+    def make_batch(self, size: int) -> list:
+        return [
+            {
+                "tokens": list(range(1, self.SEQUENCE_LENGTH + 1)),
+                "mask": [1] * self.SEQUENCE_LENGTH,
+            }
+            for _ in range(size)
+        ]
+
+    def make_padded_batch(self, size: int, padding: int) -> list:
+        tokens = list(range(1, self.SEQUENCE_LENGTH - padding + 1)) + [0] * padding
+        mask = [1] * (self.SEQUENCE_LENGTH - padding) + [0] * padding
+        return [{"tokens": tokens, "mask": mask} for _ in range(size)]
+
+    def test_collator_returns_dict(self):
+        collator = MaskedLMCollator(self.MASK_TOKEN_ID, self.VOCAB_SIZE)
+        result = collator(self.make_batch(4))
+
+        self.assertIsInstance(result, dict)
+        self.assertIn("tokens", result)
+        self.assertIn("mask", result)
+        self.assertIn("labels", result)
+
+    def test_collator_output_shapes(self):
+        collator = MaskedLMCollator(self.MASK_TOKEN_ID, self.VOCAB_SIZE)
+        result = collator(self.make_batch(4))
+
+        self.assertEqual(result["tokens"].shape, (4, self.SEQUENCE_LENGTH))
+        self.assertEqual(result["mask"].shape, (4, self.SEQUENCE_LENGTH))
+        self.assertEqual(result["labels"].shape, (4, self.SEQUENCE_LENGTH))
+
+    def test_collator_labels_ignore_unmasked(self):
+        collator = MaskedLMCollator(
+            self.MASK_TOKEN_ID, self.VOCAB_SIZE, probability=1.0
+        )
+        result = collator(self.make_batch(4))
+
+        self.assertTrue((result["labels"] != -100).all())
+
+    def test_collator_labels_minus_100_at_unmasked(self):
+        collator = MaskedLMCollator(
+            self.MASK_TOKEN_ID, self.VOCAB_SIZE, probability=0.0
+        )
+        result = collator(self.make_batch(4))
+
+        self.assertTrue((result["labels"] == -100).all())
+
+    def test_collator_padding_not_masked(self):
+        collator = MaskedLMCollator(
+            self.MASK_TOKEN_ID, self.VOCAB_SIZE, probability=1.0
+        )
+        result = collator(self.make_padded_batch(4, padding=4))
+
+        # Labels at padding positions must remain -100.
+        self.assertTrue((result["labels"][:, -4:] == -100).all())
+
+    def test_collator_tokens_unchanged_where_not_candidate(self):
+        collator = MaskedLMCollator(
+            self.MASK_TOKEN_ID, self.VOCAB_SIZE, probability=0.0
+        )
+        batch = self.make_batch(2)
+        result = collator(batch)
+
+        expected = tensor([item["tokens"] for item in batch])
+        self.assertTrue(result["tokens"].equal(expected))
+
+    def test_collator_mask_preserved(self):
+        collator = MaskedLMCollator(self.MASK_TOKEN_ID, self.VOCAB_SIZE)
+        batch = self.make_padded_batch(4, padding=4)
+        result = collator(batch)
+
+        expected = tensor([item["mask"] for item in batch])
+        self.assertTrue(result["mask"].equal(expected))
+
+    def test_collator_default_probability(self):
+        self.assertEqual(MaskedLMCollator.PROBABILITY, 0.15)
+        collator = MaskedLMCollator(self.MASK_TOKEN_ID, self.VOCAB_SIZE)
+        self.assertEqual(collator.probability, 0.15)
+
+
+class TestUtilitiesDatasetSplit(TestCase):
+    def write_dataset(self, directory: str, rows: list) -> str:
+        path = join(directory, "data.parquet")
+        write_parquet(DataFrame(rows), path)
+        return path
+
+    def test_two_way_split(self):
+        working = TemporaryDirectory()
+        rows = [{"value": i} for i in range(1000)]
+        source = self.write_dataset(working.name, rows)
+        output = join(working.name, "out")
+
+        with Cluster(type="local") as cluster, Client(cluster) as client:
+            split_dataset(source, output, [("training", 90.0), ("validation", 10.0)])
+            flush(client)
+
+        training = read_parquet(f"{output}-training")
+        validation = read_parquet(f"{output}-validation")
+
+        self.assertEqual(len(training) + len(validation), 1000)
+        self.assertAlmostEqual(len(training) / 1000, 0.9, delta=0.05)
+
+    def test_three_way_split(self):
+        working = TemporaryDirectory()
+        rows = [{"value": i} for i in range(1000)]
+        source = self.write_dataset(working.name, rows)
+        output = join(working.name, "out")
+
+        with Cluster(type="local") as cluster, Client(cluster) as client:
+            split_dataset(
+                source,
+                output,
+                [("training", 80.0), ("validation", 10.0), ("test", 10.0)],
+            )
+            flush(client)
+
+        training = read_parquet(f"{output}-training")
+        validation = read_parquet(f"{output}-validation")
+        test = read_parquet(f"{output}-test")
+
+        self.assertEqual(len(training) + len(validation) + len(test), 1000)
+        self.assertAlmostEqual(len(training) / 1000, 0.8, delta=0.05)
+
+    def test_percentages_must_sum_to_100(self):
+        working = TemporaryDirectory()
+        rows = [{"value": i} for i in range(10)]
+        source = self.write_dataset(working.name, rows)
+        output = join(working.name, "out")
+
+        with self.assertRaises(ValueError):
+            split_dataset(source, output, [("training", 80.0), ("validation", 10.0)])
+
+    def test_invalid_split_format_missing_colon(self):
+        with self.assertRaises(argparse.ArgumentTypeError):
+            parse_split("training")
+
+    def test_invalid_split_format_non_numeric_percentage(self):
+        with self.assertRaises(argparse.ArgumentTypeError):
+            parse_split("training:abc")
 
 
 if __name__ == "__main__":

@@ -1,7 +1,13 @@
 """Dataset schema definition and enforcement."""
 
+from typing import Type
+
+from pandas import DataFrame
+from pandera.errors import SchemaError as PanderaSchemaError
 from pandera.pandas import DataFrameModel
 from pandera.typing import Series
+
+from .exceptions import SchemaError
 
 
 class Dataset(DataFrameModel):
@@ -9,6 +15,16 @@ class Dataset(DataFrameModel):
 
     id: Series[str]
     """Row identifier."""
+
+
+class TokenizedDataset(Dataset):
+    """A tokenized dataset."""
+
+    tokens: Series[object]
+    """The token IDs for the tokenized row."""
+
+    mask: Series[object]
+    """The attention mask for the tokenized row."""
 
 
 class SourceDataset(Dataset):
@@ -77,6 +93,23 @@ class VulnerabilityDisassembledFunctionDatasetWithSource(
     VulnerabilityMixin, DisassembledFunctionDatasetWithSource
 ):
     """Disassembled functions with source code and associated vulnerabilities (if one exists)."""
+
+
+def validate_dataset(frame: DataFrame, schema: Type[Dataset]) -> None:
+    """Validate a dataset against a given schema.
+
+    Arguments:
+        frame: The dataset to validate.
+        schema: The schema class against which to validate.
+
+    Raises:
+        SchemaError: If ``frame`` does not obey ``schema``.
+    """
+
+    try:
+        schema.validate(frame)
+    except PanderaSchemaError as e:
+        raise SchemaError(str(e))
 
 
 __all__ = [

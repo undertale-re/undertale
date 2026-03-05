@@ -73,3 +73,126 @@ in Python in all the usual ways you would load parquet - for example,  with
     ...
 
 Where ``path`` is the path to the saved dataset directory.
+
+
+.. _dataset-splitting:
+
+Split a Dataset
+^^^^^^^^^^^^^^^
+
+Splitting a dataset ahead of training into training, validation, and test sets
+can be efficient and ensure a deterministic split. There is a helper utility
+available for that.
+
+.. code-block:: bash
+
+    # Two-way split: 90% training, 10% validation (default).
+    #
+    # Writes to humaneval-x-training/ and humaneval-x-validation/.
+    python -m undertale.utils.datasets.split \
+        humaneval-x/ \
+        humaneval-x
+
+    # Three-way split: 80% training, 10% validation, 10% test.
+    #
+    # Writes to humaneval-x-training/, humaneval-x-validation/, and
+    # humaneval-x-testing/.
+    python -m undertale.utils.datasets.split \
+        humaneval-x/ \
+        humaneval-x
+        --splits training:80 validation:10 testing:10
+
+    # With custom parallelism.
+    python -m undertale.utils.datasets.split \
+        humaneval-x/ \
+        humaneval-x
+        --splits training:80 validation:10 testing:10 \
+        --parallelism 8
+
+Percentages must sum to 100. See the ``--seed`` option to control split
+randomization.
+
+Repartition a Dataset
+^^^^^^^^^^^^^^^^^^^^^
+
+To repartition a dataset into a fixed number of chunks or by target chunk size,
+use the ``repartition`` utility.
+
+.. code-block:: bash
+
+    # Repartition to exactly 32 chunk files.
+    python -m undertale.utils.datasets.repartition \
+        humaneval-x/ \
+        humaneval-x-repartitioned \
+        --chunks 32
+
+    # Repartition by target chunk size.
+    python -m undertale.utils.datasets.repartition \
+        humaneval-x/ \
+        humaneval-x-repartitioned \
+        --size 25MB
+
+    # With custom parallelism.
+    python -m undertale.utils.datasets.repartition \
+        humaneval-x/ \
+        humaneval-x-repartitioned \
+        --chunks 32 \
+        --parallelism 8
+
+Exactly one of ``--chunks`` or ``--size`` must be specified.
+
+Drop or Keep Columns
+^^^^^^^^^^^^^^^^^^^^
+
+To drop or keep specific columns from a dataset, use the drop utility.
+
+.. code-block:: bash
+
+    # Drop specific columns.
+    python -m undertale.utils.datasets.drop \
+        humaneval-x/ \
+        humaneval-x-filtered \
+        --drop metadata source
+
+    # Keep only specific columns.
+    python -m undertale.utils.datasets.drop \
+        humaneval-x/ \
+        humaneval-x-filtered \
+        --keep id solution
+
+    # With custom parallelism.
+    python -m undertale.utils.datasets.drop \
+        humaneval-x/ \
+        humaneval-x-filtered \
+        --drop metadata \
+        --parallelism 8
+
+Exactly one of ``--drop`` or ``--keep`` must be specified.
+
+Rename Columns
+^^^^^^^^^^^^^^
+
+To rename one or more columns in a dataset, use the rename utility.
+
+.. code-block:: bash
+
+    # Rename a single column.
+    python -m undertale.utils.datasets.rename \
+        humaneval-x/ \
+        humaneval-x-renamed \
+        --rename source:origin
+
+    # Rename multiple columns at once.
+    python -m undertale.utils.datasets.rename \
+        humaneval-x/ \
+        humaneval-x-renamed \
+        --rename source:origin metadata:info
+
+    # With custom parallelism.
+    python -m undertale.utils.datasets.rename \
+        humaneval-x/ \
+        humaneval-x-renamed \
+        --rename source:origin \
+        --parallelism 8
+
+The output dataset preserves the same chunk structure as the input.

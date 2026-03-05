@@ -6,15 +6,13 @@ from typing import Dict, List
 
 from pandas import Series
 from pandas import read_parquet as pandas_read_parquet
-from pandera.errors import SchemaError as PanderaSchemaError
 from tokenizers import Tokenizer
 from tokenizers.models import BPE
 from tokenizers.pre_tokenizers import Whitespace
 from tokenizers.trainers import BpeTrainer
 
-from ..exceptions import SchemaError
 from ..logging import get_logger
-from ..schema import DisassembledFunctionDataset
+from ..schema import DisassembledFunctionDataset, validate_dataset
 from ..utils import (
     assert_path_exists,
     enforce_extension,
@@ -63,11 +61,7 @@ def preprocess_tokens(input: str, output: str) -> str:
 
     frame = pandas_read_parquet(input)
 
-    try:
-        DisassembledFunctionDataset.validate(frame)
-    except PanderaSchemaError as e:
-        logger.error("dataset does not match the expected schema")
-        raise SchemaError(str(e))
+    validate_dataset(frame, DisassembledFunctionDataset)
 
     logger.info(f"preprocessing tokens from {input!r}")
 
@@ -255,22 +249,16 @@ def tokenize(input: str, output: str, tokenizer: str) -> str:
 
     frame = pandas_read_parquet(input)
 
-    try:
-        DisassembledFunctionDataset.validate(frame)
-    except PanderaSchemaError as e:
-        logger.error("dataset does not match the expected schema")
-        raise SchemaError(str(e))
+    validate_dataset(frame, DisassembledFunctionDataset)
 
     logger.info(f"tokenizing {input!r} to {output!r}")
 
     def process(disassembly: str) -> Series:
         encoding = tok.encode(disassembly)
 
-        return Series(
-            {"input_ids": encoding.ids, "attention_mask": encoding.attention_mask}
-        )
+        return Series({"tokens": encoding.ids, "mask": encoding.attention_mask})
 
-    frame[["input_ids", "attention_mask"]] = frame["disassembly"].apply(process)
+    frame[["tokens", "mask"]] = frame["disassembly"].apply(process)
     write_parquet(frame, output)
 
     logger.info(f"successfully tokenized {len(frame)} rows")

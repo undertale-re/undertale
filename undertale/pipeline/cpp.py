@@ -5,11 +5,9 @@ from subprocess import PIPE, run
 from tempfile import TemporaryDirectory
 
 from pandas import Series, read_parquet
-from pandera.errors import SchemaError as PanderaSchemaError
 
-from ..exceptions import SchemaError
 from ..logging import get_logger
-from ..schema import SourceDataset
+from ..schema import SourceDataset, validate_dataset
 from ..utils import assert_path_exists, find, get_or_create_file, write_parquet
 
 logger = get_logger(__name__)
@@ -84,11 +82,7 @@ def compile_cpp(
 
     frame = read_parquet(input)
 
-    try:
-        SourceDataset.validate(frame)
-    except PanderaSchemaError as e:
-        logger.error("dataset does not match the expected schema")
-        raise SchemaError(str(e))
+    validate_dataset(frame, SourceDataset)
 
     frame["binary"] = frame.apply(compile, axis=1)
     success = frame[frame["binary"] != b""]

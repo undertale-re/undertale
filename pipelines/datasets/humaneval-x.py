@@ -5,13 +5,16 @@ from pandas import DataFrame
 
 from undertale.exceptions import PathDoesNotExist
 from undertale.logging import get_logger
-from undertale.parsers import PipelineArgumentParser
+from undertale.parsers import DatasetArgumentParser
 from undertale.pipeline import Client, Cluster, fanout, flush
 from undertale.pipeline.binary import segment_and_disassemble_binary
 from undertale.pipeline.cpp import compile_cpp
 from undertale.pipeline.parquet import (
+    Deduplicate,
+    Drop,
+    Repartition,
     hash_parquet_column,
-    resize_parquet,
+    modify_parquet,
 )
 from undertale.pipeline.tarfile import extract_tarfile
 from undertale.utils import assert_path_exists, get_or_create_directory, write_parquet
@@ -68,7 +71,7 @@ def parse_samples(input: str, output: str) -> str:
 
 
 if __name__ == "__main__":
-    parser = PipelineArgumentParser(description="humaneval-x dataset")
+    parser = DatasetArgumentParser(description="humaneval-x dataset")
     arguments = parser.parse_args()
     parser.setup(arguments)
 
@@ -86,10 +89,10 @@ if __name__ == "__main__":
         )
         parsed = client.submit(parse_samples, extracted, f"{arguments.output}-parsed")
         chunks = client.submit(
-            resize_parquet,
+            modify_parquet,
             parsed,
-            f"{arguments.output}-resized",
-            chunks=arguments.parallelism,
+            f"{arguments.output}-repartitioned",
+            [Repartition(chunks=arguments.parallelism)],
         )
         compiled = fanout(client, compile_cpp, chunks, f"{arguments.output}-compiled")
         disassembled = fanout(
@@ -107,12 +110,14 @@ if __name__ == "__main__":
             target="binary_hash",
         )
         merged = client.submit(
-            resize_parquet,
+            modify_parquet,
             hashed,
             arguments.output,
-            size="100MB",
-            deduplicate=["binary_hash"],
-            drop=["binary_hash"],
+            [
+                Deduplicate(["binary_hash"]),
+                Drop(["binary_hash"]),
+                Repartition(size="100MB"),
+            ],
             compression="snappy",
         )
 

@@ -4,15 +4,15 @@ from undertale.models.tokenizer import (
     preprocess_tokens,
     train_tokenizer,
 )
-from undertale.parsers import PipelineArgumentParser
+from undertale.parsers import DatasetArgumentParser
 from undertale.pipeline import Client, Cluster, fanout, flush
-from undertale.pipeline.parquet import resize_parquet
+from undertale.pipeline.parquet import Repartition, modify_parquet
 
 logger = get_logger(__name__)
 
 
 if __name__ == "__main__":
-    parser = PipelineArgumentParser(description="tokenizer training")
+    parser = DatasetArgumentParser(description="tokenizer training")
 
     parser.add_argument(
         "-b",
@@ -31,10 +31,10 @@ if __name__ == "__main__":
         logger.info("training tokenizer")
 
         chunks = client.submit(
-            resize_parquet,
+            modify_parquet,
             arguments.input,
-            f"{arguments.output}-resized",
-            chunks=arguments.parallelism,
+            f"{arguments.output}-repartitioned",
+            [Repartition(chunks=arguments.parallelism)],
         )
         preprocessed = fanout(
             client, preprocess_tokens, chunks, f"{arguments.output}-preprocessed"

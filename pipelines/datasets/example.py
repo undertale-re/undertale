@@ -6,7 +6,7 @@ from time import sleep
 from typing import List
 
 from undertale.logging import get_logger
-from undertale.parsers import PipelineArgumentParser
+from undertale.parsers import DatasetArgumentParser
 from undertale.pipeline import Client, Cluster, fanout
 from undertale.pipeline.json import merge_json
 from undertale.utils import (
@@ -87,7 +87,7 @@ def process_number(input: str, output: str, delay: int = 0) -> str:
 
 
 if __name__ == "__main__":
-    parser = PipelineArgumentParser(description="example dataset")
+    parser = DatasetArgumentParser(description="example dataset")
     arguments = parser.parse_args()
     parser.setup(arguments)
 

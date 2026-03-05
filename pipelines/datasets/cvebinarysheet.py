@@ -7,12 +7,15 @@ import pandas as pd
 from pandas import DataFrame, Series, read_parquet
 
 from undertale.logging import get_logger
-from undertale.parsers import PipelineArgumentParser
+from undertale.parsers import DatasetArgumentParser
 from undertale.pipeline import Client, Cluster, fanout, flush
 from undertale.pipeline.binary import segment_and_disassemble_binary
 from undertale.pipeline.parquet import (
+    Deduplicate,
+    Drop,
+    Repartition,
     hash_parquet_column,
-    resize_parquet,
+    modify_parquet,
 )
 from undertale.utils import (
     assert_path_exists,
@@ -182,7 +185,7 @@ def associate_cve(input: str, output: str, raw_input: str) -> str:
 
 
 if __name__ == "__main__":
-    parser = PipelineArgumentParser(description="CVEBinarySheet")
+    parser = DatasetArgumentParser(description="CVEBinarySheet")
     arguments = parser.parse_args()
     parser.setup(arguments)
 
@@ -200,10 +203,10 @@ if __name__ == "__main__":
         )
 
         chunks = client.submit(
-            resize_parquet,
+            modify_parquet,
             parsed,
-            f"{arguments.output}-resized",
-            size="20MB",
+            f"{arguments.output}-repartitioned",
+            [Repartition(size="20MB")],
         )
 
         disassembled = fanout(
@@ -231,12 +234,14 @@ if __name__ == "__main__":
         )
 
         merged = client.submit(
-            resize_parquet,
+            modify_parquet,
             hashed,
             arguments.output,
-            size="100MB",
-            deduplicate=["binary_hash"],
-            drop=["binary_hash"],
+            [
+                Deduplicate(["binary_hash"]),
+                Drop(["binary_hash"]),
+                Repartition(size="100MB"),
+            ],
         )
 
         merged.result()

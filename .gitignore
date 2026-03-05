@@ -1,3 +1,5 @@
+CLAUDE.md
+
 *.swp
 *.pyc
 *.json
@@ -5,6 +7,9 @@
 *.parquet
 *.out
 *.err
+*.tfevents.*
+*.ckpt
+hparams.yaml
 
 *.DS_Store
 
