@@ -127,18 +127,23 @@ if __name__ == "__main__":
     parser.setup(arguments)
 
     tokenizer = load_tokenizer(arguments.tokenizer)
+
+    vocab_size = tokenizer.get_vocab_size()
+    mask_token_id = tokenizer.token_to_id(TOKEN_MASK)
+    next_token_id = tokenizer.token_to_id(TOKEN_NEXT)
+
     model = InstructionTraceTransformerEncoderForMaskedLM(
-        vocab_size=tokenizer.get_vocab_size(),
-        next_token_id=tokenizer.token_to_id(TOKEN_NEXT),
-        mask_token_id=tokenizer.token_to_id(TOKEN_MASK),
+        vocab_size=vocab_size,
+        mask_token_id=mask_token_id,
+        next_token_id=next_token_id,
         lr=arguments.learning_rate,
         warmup=arguments.warmup,
         **InstructionTraceTransformerEncoderForMaskedLMConfiguration.medium,
     )
 
     collator = MaskedLMCollator(
-        mask_token_id=tokenizer.token_to_id(TOKEN_MASK),
-        vocab_size=tokenizer.get_vocab_size(),
+        mask_token_id=mask_token_id,
+        vocab_size=vocab_size,
     )
 
     training = load_dataset(
