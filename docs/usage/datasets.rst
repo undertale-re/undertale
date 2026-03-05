@@ -112,41 +112,87 @@ available for that.
 Percentages must sum to 100. See the ``--seed`` option to control split
 randomization.
 
-Resize a Dataset
-^^^^^^^^^^^^^^^^
+Repartition a Dataset
+^^^^^^^^^^^^^^^^^^^^^
 
-To resize a dataset into a fixed number of chunks or by target chunk size, use
-the resize utility.
+To repartition a dataset into a fixed number of chunks or by target chunk size,
+use the ``repartition`` utility.
 
 .. code-block:: bash
 
-    # Resize to exactly 32 chunk files.
-    python -m undertale.utils.datasets.resize \
+    # Repartition to exactly 32 chunk files.
+    python -m undertale.utils.datasets.repartition \
         humaneval-x/ \
-        humaneval-x-resized \
+        humaneval-x-repartitioned \
         --chunks 32
 
-    # Resize by target chunk size.
-    python -m undertale.utils.datasets.resize \
+    # Repartition by target chunk size.
+    python -m undertale.utils.datasets.repartition \
         humaneval-x/ \
-        humaneval-x-resized \
+        humaneval-x-repartitioned \
         --size 25MB
 
-    # Drop columns, deduplicate, and apply compression.
-    python -m undertale.utils.datasets.resize \
-        humaneval-x/ \
-        humaneval-x-resized \
-        --chunks 32 \
-        --drop metadata source \
-        --deduplicate id \
-        --compression snappy
-
     # With custom parallelism.
-    python -m undertale.utils.datasets.resize \
+    python -m undertale.utils.datasets.repartition \
         humaneval-x/ \
-        humaneval-x-resized \
+        humaneval-x-repartitioned \
         --chunks 32 \
         --parallelism 8
 
-Exactly one of ``--chunks`` or ``--size`` must be specified. ``--drop`` and
-``--keep`` are mutually exclusive.
+Exactly one of ``--chunks`` or ``--size`` must be specified.
+
+Drop or Keep Columns
+^^^^^^^^^^^^^^^^^^^^
+
+To drop or keep specific columns from a dataset, use the drop utility.
+
+.. code-block:: bash
+
+    # Drop specific columns.
+    python -m undertale.utils.datasets.drop \
+        humaneval-x/ \
+        humaneval-x-filtered \
+        --drop metadata source
+
+    # Keep only specific columns.
+    python -m undertale.utils.datasets.drop \
+        humaneval-x/ \
+        humaneval-x-filtered \
+        --keep id solution
+
+    # With custom parallelism.
+    python -m undertale.utils.datasets.drop \
+        humaneval-x/ \
+        humaneval-x-filtered \
+        --drop metadata \
+        --parallelism 8
+
+Exactly one of ``--drop`` or ``--keep`` must be specified.
+
+Rename Columns
+^^^^^^^^^^^^^^
+
+To rename one or more columns in a dataset, use the rename utility.
+
+.. code-block:: bash
+
+    # Rename a single column.
+    python -m undertale.utils.datasets.rename \
+        humaneval-x/ \
+        humaneval-x-renamed \
+        --rename source:origin
+
+    # Rename multiple columns at once.
+    python -m undertale.utils.datasets.rename \
+        humaneval-x/ \
+        humaneval-x-renamed \
+        --rename source:origin metadata:info
+
+    # With custom parallelism.
+    python -m undertale.utils.datasets.rename \
+        humaneval-x/ \
+        humaneval-x-renamed \
+        --rename source:origin \
+        --parallelism 8
+
+The output dataset preserves the same chunk structure as the input.

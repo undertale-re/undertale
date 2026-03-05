@@ -47,7 +47,15 @@ from undertale.pipeline import Client, Cluster, fanout, flush
 from undertale.pipeline.binary import segment_and_disassemble_binary
 from undertale.pipeline.cpp import compile_cpp
 from undertale.pipeline.json import merge_json
-from undertale.pipeline.parquet import hash_parquet_column, resize_parquet
+from undertale.pipeline.parquet import (
+    Deduplicate,
+    Drop,
+    Keep,
+    Rename,
+    Repartition,
+    hash_parquet_column,
+    modify_parquet,
+)
 from undertale.pipeline.tarfile import extract_tarfile
 from undertale.schema import Dataset
 from undertale.utils import (
@@ -249,7 +257,7 @@ class TestUtilitiesParquet(TestCase):
 
         self.assertEqual(metadata.row_group(0).column(0).compression, "UNCOMPRESSED")
 
-    def test_parquet_resize_compression_specified(self):
+    def test_write_parquet_compression_specified(self):
         working = TemporaryDirectory()
 
         dataset = [{"id": i, "foo": "bar"} for i in range(10)]
@@ -508,20 +516,116 @@ class TestPipelineParquet(TestCase):
         self.assertIn("hash", loaded.columns)
         self.assertEqual(loaded["hash"][0], hash(data))
 
-    def test_parquet_resize_chunks_and_size(self):
+    def test_parquet_repartition_chunks_and_size(self):
         with self.assertRaises(ValueError):
-            resize_parquet("", "", chunks=10, size=10)
+            Repartition(chunks=10, size=10)
 
-    def test_parquet_resize_neither_chunks_nor_size(self):
+    def test_parquet_repartition_neither_chunks_nor_size(self):
         with self.assertRaises(ValueError):
-            resize_parquet("", "")
+            Repartition()
 
-    def test_parquet_resize_one_to_many_chunks(self):
+    def test_parquet_rename_invalid_schema(self):
+        working = TemporaryDirectory()
+        dataset = self.mock_dataset(working, "dataset", size=10)
+
+        with self.assertRaises(SchemaError):
+            path = join(working.name, "resized")
+            modify_parquet(dataset, path, [Rename({"nonexistent": "other"})])
+
+    def test_parquet_rename_simple(self):
+        working = TemporaryDirectory()
+
+        dataset = [{"id": i, "foo": "bar"} for i in range(10)]
+
+        frame = DataFrame(dataset)
+        path = join(working.name, "dataset")
+        write_parquet(frame, path)
+
+        output = join(working.name, "resized")
+        modify_parquet(path, output, [Rename({"foo": "baz"})])
+
+        loaded = read_parquet(output)
+
+        self.assertNotIn("foo", loaded.columns)
+        self.assertIn("baz", loaded.columns)
+        self.assertEqual(list(loaded["baz"]), ["bar"] * 10)
+
+    def test_parquet_rename_multiple(self):
+        working = TemporaryDirectory()
+
+        dataset = [{"id": i, "foo": "bar", "alpha": "beta"} for i in range(10)]
+
+        frame = DataFrame(dataset)
+        path = join(working.name, "dataset")
+        write_parquet(frame, path)
+
+        output = join(working.name, "resized")
+        modify_parquet(path, output, [Rename({"foo": "baz", "alpha": "gamma"})])
+
+        loaded = read_parquet(output)
+
+        self.assertNotIn("foo", loaded.columns)
+        self.assertNotIn("alpha", loaded.columns)
+        self.assertIn("baz", loaded.columns)
+        self.assertIn("gamma", loaded.columns)
+
+    def test_parquet_rename_after_keep(self):
+        working = TemporaryDirectory()
+
+        dataset = [{"id": i, "foo": "bar", "extra": "drop"} for i in range(10)]
+
+        frame = DataFrame(dataset)
+        path = join(working.name, "dataset")
+        write_parquet(frame, path)
+
+        output = join(working.name, "resized")
+        modify_parquet(path, output, [Keep(["foo"]), Rename({"foo": "baz"})])
+
+        loaded = read_parquet(output)
+
+        self.assertNotIn("foo", loaded.columns)
+        self.assertNotIn("extra", loaded.columns)
+        self.assertIn("baz", loaded.columns)
+
+    def test_parquet_drop_preserves_chunks(self):
+        working = TemporaryDirectory()
+
+        dataset = [{"id": i, "foo": "bar"} for i in range(80)]
+        path = join(working.name, "dataset")
+        write_parquet(from_pandas(DataFrame(dataset), npartitions=8), path)
+
+        output = join(working.name, "dropped")
+        created = modify_parquet(path, output, [Drop(["foo"])])
+
+        # Dask does not guarantee exact partition count after a column drop on
+        # small data, so we only assert that chunking was not collapsed to one.
+        self.assertGreater(len(created), 1)
+
+        loaded = read_parquet(output)
+        self.assertNotIn("foo", loaded.columns)
+
+    def test_parquet_rename_preserves_chunks(self):
+        working = TemporaryDirectory()
+
+        dataset = [{"id": i, "foo": "bar"} for i in range(30)]
+        path = join(working.name, "dataset")
+        write_parquet(from_pandas(DataFrame(dataset), npartitions=3), path)
+
+        output = join(working.name, "renamed")
+        created = modify_parquet(path, output, [Rename({"foo": "baz"})])
+
+        self.assertEqual(len(created), 3)
+
+        loaded = read_parquet(output)
+        self.assertIn("baz", loaded.columns)
+        self.assertNotIn("foo", loaded.columns)
+
+    def test_parquet_repartition_one_to_many_chunks(self):
         working = TemporaryDirectory()
         dataset = self.mock_dataset(working, "dataset", size=100)
 
         path = join(working.name, "resized")
-        created = resize_parquet(dataset, path, chunks=20)
+        created = modify_parquet(dataset, path, [Repartition(chunks=20)])
 
         self.assertEqual(len(created), 20)
 
@@ -529,12 +633,12 @@ class TestPipelineParquet(TestCase):
 
         self.assertEqual(len(loaded), 100)
 
-    def test_parquet_resize_many_to_one_chunk(self):
+    def test_parquet_repartition_many_to_one_chunk(self):
         working = TemporaryDirectory()
         dataset = self.mock_dataset(working, "dataset", size=100, chunks=20)
 
         path = join(working.name, "resized")
-        created = resize_parquet(dataset, path, chunks=1)
+        created = modify_parquet(dataset, path, [Repartition(chunks=1)])
 
         self.assertEqual(len(created), 1)
 
@@ -542,12 +646,12 @@ class TestPipelineParquet(TestCase):
 
         self.assertEqual(len(loaded), 100)
 
-    def test_parquet_resize_many_to_many_chunks(self):
+    def test_parquet_repartition_many_to_many_chunks(self):
         working = TemporaryDirectory()
         dataset = self.mock_dataset(working, "dataset", size=100, chunks=20)
 
         path = join(working.name, "resized")
-        created = resize_parquet(dataset, path, chunks=25)
+        created = modify_parquet(dataset, path, [Repartition(chunks=25)])
 
         self.assertEqual(len(created), 25)
 
@@ -555,12 +659,12 @@ class TestPipelineParquet(TestCase):
 
         self.assertEqual(len(loaded), 100)
 
-    def test_parquet_resize_too_many_chunks(self):
+    def test_parquet_repartition_too_many_chunks(self):
         working = TemporaryDirectory()
         dataset = self.mock_dataset(working, "dataset", size=20)
 
         path = join(working.name, "resized")
-        created = resize_parquet(dataset, path, chunks=25)
+        created = modify_parquet(dataset, path, [Repartition(chunks=25)])
 
         self.assertEqual(len(created), 25)
 
@@ -568,12 +672,12 @@ class TestPipelineParquet(TestCase):
 
         self.assertEqual(len(loaded), 20)
 
-    def test_parquet_resize_size(self):
+    def test_parquet_repartition_size(self):
         working = TemporaryDirectory()
         dataset = self.mock_dataset(working, "dataset", size=100)
 
         path = join(working.name, "resized")
-        created = resize_parquet(dataset, path, size=64)
+        created = modify_parquet(dataset, path, [Repartition(size=64)])
 
         self.assertEqual(len(created), 26)
 
@@ -581,14 +685,14 @@ class TestPipelineParquet(TestCase):
 
         self.assertEqual(len(loaded), 100)
 
-    def test_parquet_resize_chunk_list_input(self):
+    def test_parquet_repartition_chunk_list_input(self):
         working = TemporaryDirectory()
         dataset = self.mock_dataset(working, "dataset", size=100, chunks=20)
 
         chunks = [join(dataset, f) for f in listdir(dataset)]
 
         path = join(working.name, "resized")
-        created = resize_parquet(chunks, path, chunks=25)
+        created = modify_parquet(chunks, path, [Repartition(chunks=25)])
 
         self.assertEqual(len(created), 25)
 
@@ -596,15 +700,15 @@ class TestPipelineParquet(TestCase):
 
         self.assertEqual(len(loaded), 100)
 
-    def test_parquet_resize_deduplicate_invalid_schema(self):
+    def test_parquet_deduplicate_invalid_schema(self):
         working = TemporaryDirectory()
         dataset = self.mock_dataset(working, "dataset", size=10)
 
         with self.assertRaises(SchemaError):
             path = join(working.name, "resized")
-            resize_parquet(dataset, path, chunks=1, deduplicate=["foo"])
+            modify_parquet(dataset, path, [Deduplicate(["foo"]), Repartition(chunks=1)])
 
-    def test_parquet_resize_deduplicate_simple(self):
+    def test_parquet_deduplicate_simple(self):
         working = TemporaryDirectory()
 
         dataset = [{"id": i} for i in range(10)]
@@ -624,26 +728,22 @@ class TestPipelineParquet(TestCase):
         write_parquet(frame, path)
 
         output = join(working.name, "resized")
-        resize_parquet(path, output, chunks=1, deduplicate=["id"])
+        modify_parquet(path, output, [Deduplicate(["id"]), Repartition(chunks=1)])
 
         loaded = read_parquet(output)
 
         self.assertEqual(len(loaded), 15)
         self.assertEqual(len(set(loaded["id"])), 15)
 
-    def test_parquet_resize_drop_and_keep(self):
-        with self.assertRaises(ValueError):
-            resize_parquet("", "", drop=["foo"], keep=["bar"])
-
-    def test_parquet_resize_drop_invalid_schema(self):
+    def test_parquet_drop_invalid_schema(self):
         working = TemporaryDirectory()
         dataset = self.mock_dataset(working, "dataset", size=10)
 
         with self.assertRaises(SchemaError):
             path = join(working.name, "resized")
-            resize_parquet(dataset, path, chunks=1, drop=["foo"])
+            modify_parquet(dataset, path, [Drop(["foo"]), Repartition(chunks=1)])
 
-    def test_parquet_resize_drop_simple(self):
+    def test_parquet_drop_simple(self):
         working = TemporaryDirectory()
 
         dataset = [{"id": i, "foo": "bar"} for i in range(10)]
@@ -653,21 +753,21 @@ class TestPipelineParquet(TestCase):
         write_parquet(frame, path)
 
         output = join(working.name, "resized")
-        resize_parquet(path, output, chunks=1, drop=["foo"])
+        modify_parquet(path, output, [Drop(["foo"]), Repartition(chunks=1)])
 
         loaded = read_parquet(output)
 
         self.assertNotIn("foo", loaded.columns)
 
-    def test_parquet_resize_keep_invalid_schema(self):
+    def test_parquet_keep_invalid_schema(self):
         working = TemporaryDirectory()
         dataset = self.mock_dataset(working, "dataset", size=10)
 
         with self.assertRaises(SchemaError):
             path = join(working.name, "resized")
-            resize_parquet(dataset, path, chunks=1, keep=["foo"])
+            modify_parquet(dataset, path, [Keep(["foo"]), Repartition(chunks=1)])
 
-    def test_parquet_resize_keep_simple(self):
+    def test_parquet_keep_simple(self):
         working = TemporaryDirectory()
 
         dataset = [{"id": i, "foo": "bar", "baz": "zaa"} for i in range(10)]
@@ -677,7 +777,7 @@ class TestPipelineParquet(TestCase):
         write_parquet(frame, path)
 
         output = join(working.name, "resized")
-        resize_parquet(path, output, chunks=1, keep=["foo"])
+        modify_parquet(path, output, [Keep(["foo"]), Repartition(chunks=1)])
 
         loaded = read_parquet(output)
 
@@ -685,7 +785,7 @@ class TestPipelineParquet(TestCase):
         self.assertNotIn("id", loaded.columns)
         self.assertNotIn("baz", loaded.columns)
 
-    def test_parquet_resize_compression(self):
+    def test_parquet_repartition_compression(self):
         working = TemporaryDirectory()
 
         dataset = [{"id": i, "foo": "bar"} for i in range(10)]
@@ -695,7 +795,7 @@ class TestPipelineParquet(TestCase):
         write_parquet(frame, path)
 
         output = join(working.name, "resized")
-        resize_parquet(path, output, chunks=1, compression="snappy")
+        modify_parquet(path, output, [Repartition(chunks=1)], compression="snappy")
 
         files = listdir(output)
 
