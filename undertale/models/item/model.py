@@ -320,71 +320,6 @@ class TransformerEncoderForSequenceSimilarity(Module):
     pass
 
 
-# from typing import Tuple
-
-# eventually move this to its own file
-# from torch import nn
-
-
-# class MLP(nn.Module):
-
-#     def forward(self, x: torch.Tensor) -> torch.Tensor:
-#         return self.model(x)
-
-#     def __init__(self, sizes: Tuple[int, ...], bias=True, act=nn.Tanh):
-#         super(MLP, self).__init__()
-#         layers = []
-#         for i in range(len(sizes) - 1):
-#             layers.append(nn.Linear(sizes[i], sizes[i + 1], bias=bias))
-#             if i < len(sizes) - 2:
-#                 layers.append(act())
-#         self.model = nn.Sequential(*layers)
-
-
-class TransformerEncoderForSequenceClassification(Module):
-    def __init__(
-        self,
-        assembly_checkpoint,
-        num_classes=2,
-        end2end=True,
-        tune_llm=True,
-        head_hidden_size=64,
-    ):
-        super().__init__()
-
-        self.tune_llm = tune_llm
-
-        self.assembly_checkpoint = assembly_checkpoint
-        self.assembly_encoder = None
-        if end2end:
-            self.assembly_encoder = TransformerEncoderForMaskedLM.load_from_checkpoint(
-                assembly_checkpoint
-            ).encoder
-        else:
-            raise ValueError("For now only end2end is supported")
-        output_size = 768  # self.assembly_encoder.hidden_dimensions
-
-        self.head = MLP((output_size, head_hidden_size, num_classes))
-
-    def embed_assembly(self, assembly_tokens, assembly_mask=None):
-
-        if self.assembly_encoder is None:
-            self.assembly_encoder = TransformerEncoderForMaskedLM.load_from_checkpoint(
-                self.assembly_checkpoint
-            )
-        if self.assembly_encoder.training:
-
-            self.assembly_encoder.eval()
-        return self.assembly_encoder.encoder(assembly_tokens, assembly_mask)
-
-    def forward(self, encoder_embedding, mask=None, labels=None):
-        encoder_embedding = encoder_embedding.mean(dim=1)
-
-        out = self.head(encoder_embedding)
-
-        return out
-
-
 class TransformerEncoderForSequenceSummarization(Module):
     """
     code based on https://github.com/rmokady/CLIP_prefix_caption/blob/main/train.py
@@ -662,6 +597,5 @@ __all__ = [
     "TransformerEncoder",
     "TransformerEncoderForMaskedLM",
     "TransformerEncoderForSequenceSimilarity",
-    "TransformerEncoderForSequenceClassification",
     "TransformerEncoderForSequenceSummarization",
 ]

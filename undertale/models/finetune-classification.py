@@ -17,8 +17,8 @@ from torch.utils.data import DataLoader, RandomSampler
 from transformers import get_linear_schedule_with_warmup
 
 from undertale.logging import setup_logging
-from undertale.models.item.classification_dataset import CustomCollator
-from undertale.models.item.model import TransformerEncoderForSequenceClassification
+from undertale.models.classification_dataset import CustomCollator
+from undertale.models.model import TransformerEncoderForSequenceClassification
 
 
 def dataset_size_type(x):
