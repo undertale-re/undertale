@@ -1155,6 +1155,14 @@ class TestModelTokenizer(TestCase):
 
 
 class TestModelTransformer(TestCase):
+    HIDDEN_DIMENSIONS = 768
+    VOCAB_SIZE = 1024
+    SEQUENCE_LENGTH = 512
+    HEADS = 12
+    INTERMEDIATE_DIMENSIONS = 3072
+    DROPOUT = 0.1
+    EPS = 1e-12
+
     def setUp(self):
         set_grad_enabled(False)
 
@@ -1162,23 +1170,23 @@ class TestModelTransformer(TestCase):
         set_grad_enabled(True)
 
     def test_attention_simple(self):
-        layer = Attention(768, 768)
-        state = rand(1, 512, 768)
+        layer = Attention(self.HIDDEN_DIMENSIONS, self.HIDDEN_DIMENSIONS)
+        state = rand(1, self.SEQUENCE_LENGTH, self.HIDDEN_DIMENSIONS)
         result = layer(state)
 
         self.assertEqual(result.shape, state.shape)
 
     def test_attention_masked(self):
-        layer = Attention(768, 768)
-        state = rand(1, 512, 768)
-        mask = rand(1, 512) <= 0.2
+        layer = Attention(self.HIDDEN_DIMENSIONS, self.HIDDEN_DIMENSIONS)
+        state = rand(1, self.SEQUENCE_LENGTH, self.HIDDEN_DIMENSIONS)
+        mask = rand(1, self.SEQUENCE_LENGTH) <= 0.2
         result = layer(state, mask)
 
         self.assertEqual(result.shape, state.shape)
 
     def test_attention_unbatched(self):
-        layer = Attention(768, 768)
-        state = rand(512, 768)
+        layer = Attention(self.HIDDEN_DIMENSIONS, self.HIDDEN_DIMENSIONS)
+        state = rand(self.SEQUENCE_LENGTH, self.HIDDEN_DIMENSIONS)
 
         with self.assertRaises(ValueError) as c:
             layer(state)
@@ -1186,8 +1194,8 @@ class TestModelTransformer(TestCase):
         self.assertIn("expected tensor of shape", str(c.exception))
 
     def test_attention_mismatched_shape(self):
-        layer = Attention(768, 768)
-        state = rand(1, 512, 720)
+        layer = Attention(self.HIDDEN_DIMENSIONS, self.HIDDEN_DIMENSIONS)
+        state = rand(1, self.SEQUENCE_LENGTH, 720)
 
         with self.assertRaises(ValueError) as c:
             layer(state)
@@ -1195,9 +1203,9 @@ class TestModelTransformer(TestCase):
         self.assertIn("expected tensor with hidden size", str(c.exception))
 
     def test_attention_masked_mismatched_shape(self):
-        layer = Attention(768, 768)
-        state = rand(1, 512, 768)
-        mask = rand(1, 512, 768) <= 0.2
+        layer = Attention(self.HIDDEN_DIMENSIONS, self.HIDDEN_DIMENSIONS)
+        state = rand(1, self.SEQUENCE_LENGTH, self.HIDDEN_DIMENSIONS)
+        mask = rand(1, self.SEQUENCE_LENGTH, self.HIDDEN_DIMENSIONS) <= 0.2
 
         with self.assertRaises(ValueError) as c:
             layer(state, mask)
@@ -1205,8 +1213,8 @@ class TestModelTransformer(TestCase):
         self.assertIn("expected mask tensor of shape", str(c.exception))
 
     def test_attention_masked_mismatched_sequence_length(self):
-        layer = Attention(768, 768)
-        state = rand(1, 512, 768)
+        layer = Attention(self.HIDDEN_DIMENSIONS, self.HIDDEN_DIMENSIONS)
+        state = rand(1, self.SEQUENCE_LENGTH, self.HIDDEN_DIMENSIONS)
         mask = rand(1, 256) <= 0.2
 
         with self.assertRaises(ValueError) as c:
@@ -1215,28 +1223,32 @@ class TestModelTransformer(TestCase):
         self.assertIn("mismatched sequence length", str(c.exception))
 
     def test_multi_head_attention_simple(self):
-        layer = MultiHeadAttention(768, 12)
-        state = rand(1, 512, 768)
+        layer = MultiHeadAttention(self.HIDDEN_DIMENSIONS, self.HEADS)
+        state = rand(1, self.SEQUENCE_LENGTH, self.HIDDEN_DIMENSIONS)
         result = layer(state)
 
         self.assertEqual(result.shape, state.shape)
 
     def test_multi_head_attention_invalid_head_count(self):
         with self.assertRaises(ValueError) as c:
-            MultiHeadAttention(768, 13)
+            MultiHeadAttention(self.HIDDEN_DIMENSIONS, 13)
 
         self.assertIn("invalid number of heads", str(c.exception))
 
     def test_feed_forward_simple(self):
-        layer = FeedForward(768, 3072, 0.1)
-        state = rand(1, 512, 768)
+        layer = FeedForward(
+            self.HIDDEN_DIMENSIONS, self.INTERMEDIATE_DIMENSIONS, self.DROPOUT
+        )
+        state = rand(1, self.SEQUENCE_LENGTH, self.HIDDEN_DIMENSIONS)
         result = layer(state)
 
         self.assertEqual(result.shape, state.shape)
 
     def test_feed_forward_mismatched_shape(self):
-        layer = FeedForward(768, 3072, 0.1)
-        state = rand(1, 512, 720)
+        layer = FeedForward(
+            self.HIDDEN_DIMENSIONS, self.INTERMEDIATE_DIMENSIONS, self.DROPOUT
+        )
+        state = rand(1, self.SEQUENCE_LENGTH, 720)
 
         with self.assertRaises(ValueError) as c:
             layer(state)
@@ -1244,26 +1256,43 @@ class TestModelTransformer(TestCase):
         self.assertIn("expected tensor with hidden size", str(c.exception))
 
     def test_transformer_encoder_layer_simple(self):
-        layer = TransformerEncoderLayer(768, 12, 3072, 0.1)
-        state = rand(1, 512, 768)
+        layer = TransformerEncoderLayer(
+            self.HIDDEN_DIMENSIONS,
+            self.HEADS,
+            self.INTERMEDIATE_DIMENSIONS,
+            self.DROPOUT,
+        )
+        state = rand(1, self.SEQUENCE_LENGTH, self.HIDDEN_DIMENSIONS)
         result = layer(state)
 
         self.assertEqual(result.shape, state.shape)
 
     def test_position_embedding_simple(self):
-        layer = PositionEmbedding(768, 1024, 512, 0.1, 1e-12)
-        state = randint(0, 1024, size=(1, 512))
+        layer = PositionEmbedding(
+            self.HIDDEN_DIMENSIONS,
+            self.VOCAB_SIZE,
+            self.SEQUENCE_LENGTH,
+            self.DROPOUT,
+            self.EPS,
+        )
+        state = randint(0, self.VOCAB_SIZE, size=(1, self.SEQUENCE_LENGTH))
         result = layer(state)
 
         self.assertEqual(result.ndim, 3)
 
         self.assertEqual(result.shape[0], 1)
-        self.assertEqual(result.shape[1], 512)
-        self.assertEqual(result.shape[2], 768)
+        self.assertEqual(result.shape[1], self.SEQUENCE_LENGTH)
+        self.assertEqual(result.shape[2], self.HIDDEN_DIMENSIONS)
 
     def test_position_embedding_mismatched_shape(self):
-        layer = PositionEmbedding(768, 1024, 512, 0.1, 1e-12)
-        state = randint(0, 1024, size=(512,))
+        layer = PositionEmbedding(
+            self.HIDDEN_DIMENSIONS,
+            self.VOCAB_SIZE,
+            self.SEQUENCE_LENGTH,
+            self.DROPOUT,
+            self.EPS,
+        )
+        state = randint(0, self.VOCAB_SIZE, size=(self.SEQUENCE_LENGTH,))
 
         with self.assertRaises(ValueError) as c:
             layer(state)
@@ -1271,8 +1300,14 @@ class TestModelTransformer(TestCase):
         self.assertIn("expected tensor of shape", str(c.exception))
 
     def test_position_embedding_mismatched_sequence_length(self):
-        layer = PositionEmbedding(768, 1024, 512, 0.1, 1e-12)
-        state = randint(0, 1024, size=(1, 256))
+        layer = PositionEmbedding(
+            self.HIDDEN_DIMENSIONS,
+            self.VOCAB_SIZE,
+            self.SEQUENCE_LENGTH,
+            self.DROPOUT,
+            self.EPS,
+        )
+        state = randint(0, self.VOCAB_SIZE, size=(1, 256))
 
         with self.assertRaises(ValueError) as c:
             layer(state)
@@ -1280,18 +1315,34 @@ class TestModelTransformer(TestCase):
         self.assertIn("expected sequence length", str(c.exception))
 
     def test_transformer_encoder_simple(self):
-        layer = TransformerEncoder(2, 768, 1024, 512, 2, 3072, 0.1, 1e-12)
-        state = randint(0, 1024, size=(1, 512))
+        layer = TransformerEncoder(
+            2,
+            self.HIDDEN_DIMENSIONS,
+            self.VOCAB_SIZE,
+            self.SEQUENCE_LENGTH,
+            2,
+            self.INTERMEDIATE_DIMENSIONS,
+            self.DROPOUT,
+            self.EPS,
+        )
+        state = randint(0, self.VOCAB_SIZE, size=(1, self.SEQUENCE_LENGTH))
         result = layer(state)
 
         self.assertEqual(result.ndim, 3)
 
         self.assertEqual(result.shape[0], 1)
-        self.assertEqual(result.shape[1], 512)
-        self.assertEqual(result.shape[2], 768)
+        self.assertEqual(result.shape[1], self.SEQUENCE_LENGTH)
+        self.assertEqual(result.shape[2], self.HIDDEN_DIMENSIONS)
 
 
 class TestModelCustom(TestCase):
+    HIDDEN_DIMENSIONS = 768
+    VOCAB_SIZE = 1024
+    SEQUENCE_LENGTH = 512
+    NEXT_TOKEN_ID = 0
+    DROPOUT = 0.1
+    EPS = 1e-12
+
     def setUp(self):
         set_grad_enabled(False)
 
@@ -1300,74 +1351,104 @@ class TestModelCustom(TestCase):
 
     def test_compute_instruction_index_basic(self):
         state = tensor([[1, 2, 0, 3, 0, 4, 5]])
-        result = InstructionTracePositionEmbedding.compute_instruction_index(state, 0)
+        result = InstructionTracePositionEmbedding.compute_instruction_index(
+            state, self.NEXT_TOKEN_ID
+        )
 
         expected = tensor([[0, 0, 0, 1, 1, 2, 2]])
         self.assertTrue(result.equal(expected))
 
     def test_compute_instruction_index_no_next_tokens(self):
         state = tensor([[1, 2, 3, 4]])
-        result = InstructionTracePositionEmbedding.compute_instruction_index(state, 0)
+        result = InstructionTracePositionEmbedding.compute_instruction_index(
+            state, self.NEXT_TOKEN_ID
+        )
 
         expected = tensor([[0, 0, 0, 0]])
         self.assertTrue(result.equal(expected))
 
     def test_compute_instruction_index_leading_next(self):
         state = tensor([[0, 1, 2]])
-        result = InstructionTracePositionEmbedding.compute_instruction_index(state, 0)
+        result = InstructionTracePositionEmbedding.compute_instruction_index(
+            state, self.NEXT_TOKEN_ID
+        )
 
         expected = tensor([[0, 1, 1]])
         self.assertTrue(result.equal(expected))
 
     def test_compute_instruction_index_batch(self):
         state = tensor([[1, 0, 2], [3, 4, 0]])
-        result = InstructionTracePositionEmbedding.compute_instruction_index(state, 0)
+        result = InstructionTracePositionEmbedding.compute_instruction_index(
+            state, self.NEXT_TOKEN_ID
+        )
 
         expected = tensor([[0, 0, 1], [0, 0, 0]])
         self.assertTrue(result.equal(expected))
 
     def test_compute_argument_index_basic(self):
         state = tensor([[1, 2, 0, 3, 0, 4, 5]])
-        result = InstructionTracePositionEmbedding.compute_argument_index(state, 0)
+        result = InstructionTracePositionEmbedding.compute_argument_index(
+            state, self.NEXT_TOKEN_ID
+        )
 
         expected = tensor([[0, 1, 2, 0, 1, 0, 1]])
         self.assertTrue(result.equal(expected))
 
     def test_compute_argument_index_no_next_tokens(self):
         state = tensor([[1, 2, 3, 4]])
-        result = InstructionTracePositionEmbedding.compute_argument_index(state, 0)
+        result = InstructionTracePositionEmbedding.compute_argument_index(
+            state, self.NEXT_TOKEN_ID
+        )
 
         expected = tensor([[0, 1, 2, 3]])
         self.assertTrue(result.equal(expected))
 
     def test_compute_argument_index_leading_next(self):
         state = tensor([[0, 1, 2]])
-        result = InstructionTracePositionEmbedding.compute_argument_index(state, 0)
+        result = InstructionTracePositionEmbedding.compute_argument_index(
+            state, self.NEXT_TOKEN_ID
+        )
 
         expected = tensor([[0, 0, 1]])
         self.assertTrue(result.equal(expected))
 
     def test_compute_argument_index_batch(self):
         state = tensor([[1, 0, 2], [3, 4, 0]])
-        result = InstructionTracePositionEmbedding.compute_argument_index(state, 0)
+        result = InstructionTracePositionEmbedding.compute_argument_index(
+            state, self.NEXT_TOKEN_ID
+        )
 
         expected = tensor([[0, 1, 0], [0, 1, 2]])
         self.assertTrue(result.equal(expected))
 
     def test_instruction_argument_position_embedding_simple(self):
-        layer = InstructionTracePositionEmbedding(768, 1024, 512, 0, 0.1, 1e-12)
-        state = randint(0, 1024, size=(1, 512))
+        layer = InstructionTracePositionEmbedding(
+            self.HIDDEN_DIMENSIONS,
+            self.VOCAB_SIZE,
+            self.SEQUENCE_LENGTH,
+            self.NEXT_TOKEN_ID,
+            self.DROPOUT,
+            self.EPS,
+        )
+        state = randint(0, self.VOCAB_SIZE, size=(1, self.SEQUENCE_LENGTH))
         result = layer(state)
 
         self.assertEqual(result.ndim, 3)
 
         self.assertEqual(result.shape[0], 1)
-        self.assertEqual(result.shape[1], 512)
-        self.assertEqual(result.shape[2], 768)
+        self.assertEqual(result.shape[1], self.SEQUENCE_LENGTH)
+        self.assertEqual(result.shape[2], self.HIDDEN_DIMENSIONS)
 
     def test_instruction_argument_position_embedding_mismatched_shape(self):
-        layer = InstructionTracePositionEmbedding(768, 1024, 512, 0, 0.1, 1e-12)
-        state = randint(0, 1024, size=(512,))
+        layer = InstructionTracePositionEmbedding(
+            self.HIDDEN_DIMENSIONS,
+            self.VOCAB_SIZE,
+            self.SEQUENCE_LENGTH,
+            self.NEXT_TOKEN_ID,
+            self.DROPOUT,
+            self.EPS,
+        )
+        state = randint(0, self.VOCAB_SIZE, size=(self.SEQUENCE_LENGTH,))
 
         with self.assertRaises(ValueError) as c:
             layer(state)
@@ -1375,8 +1456,15 @@ class TestModelCustom(TestCase):
         self.assertIn("expected tensor of shape", str(c.exception))
 
     def test_instruction_argument_position_embedding_mismatched_sequence_length(self):
-        layer = InstructionTracePositionEmbedding(768, 1024, 512, 0, 0.1, 1e-12)
-        state = randint(0, 1024, size=(1, 256))
+        layer = InstructionTracePositionEmbedding(
+            self.HIDDEN_DIMENSIONS,
+            self.VOCAB_SIZE,
+            self.SEQUENCE_LENGTH,
+            self.NEXT_TOKEN_ID,
+            self.DROPOUT,
+            self.EPS,
+        )
+        state = randint(0, self.VOCAB_SIZE, size=(1, 256))
 
         with self.assertRaises(ValueError) as c:
             layer(state)
