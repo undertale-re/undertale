@@ -13,8 +13,8 @@ from undertale.pipeline.binary import segment_and_disassemble_binary
 from undertale.pipeline.parquet import (
     Deduplicate,
     Drop,
+    HashColumn,
     Repartition,
-    hash_parquet_column,
     modify_parquet,
 )
 from undertale.utils import (
@@ -224,20 +224,12 @@ if __name__ == "__main__":
             arguments.input,
         )
 
-        hashed = fanout(
-            client,
-            hash_parquet_column,
-            linked,
-            f"{arguments.output}-hashed",
-            column="binary",
-            target="binary_hash",
-        )
-
         merged = client.submit(
             modify_parquet,
-            hashed,
+            linked,
             arguments.output,
             [
+                HashColumn("binary", "binary_hash"),
                 Deduplicate(["binary_hash"]),
                 Drop(["binary_hash"]),
                 Repartition(size="100MB"),

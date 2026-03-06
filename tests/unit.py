@@ -50,10 +50,10 @@ from undertale.pipeline.json import merge_json
 from undertale.pipeline.parquet import (
     Deduplicate,
     Drop,
+    HashColumn,
     Keep,
     Rename,
     Repartition,
-    hash_parquet_column,
     modify_parquet,
 )
 from undertale.pipeline.tarfile import extract_tarfile
@@ -497,7 +497,9 @@ class TestPipelineParquet(TestCase):
         dataset = self.mock_dataset(working, "dataset", size=10)
 
         with self.assertRaises(SchemaError):
-            hash_parquet_column(dataset, join(working.name, "hashed"), "mordor", "hash")
+            modify_parquet(
+                dataset, join(working.name, "hashed"), [HashColumn("mordor", "hash")]
+            )
 
     def test_parquet_hash_column_simple(self):
         working = TemporaryDirectory()
@@ -509,9 +511,10 @@ class TestPipelineParquet(TestCase):
         path = join(working.name, "dataset")
         write_parquet(frame, path)
 
-        hashed = hash_parquet_column(path, join(working.name, "hashed"), "data", "hash")
+        output = join(working.name, "hashed")
+        modify_parquet(path, output, [HashColumn("data", "hash")])
 
-        loaded = read_parquet(hashed)
+        loaded = read_parquet(output)
 
         self.assertIn("hash", loaded.columns)
         self.assertEqual(loaded["hash"][0], hash(data))

@@ -12,8 +12,8 @@ from undertale.pipeline.cpp import compile_cpp
 from undertale.pipeline.parquet import (
     Deduplicate,
     Drop,
+    HashColumn,
     Repartition,
-    hash_parquet_column,
     modify_parquet,
 )
 from undertale.pipeline.tarfile import extract_tarfile
@@ -101,19 +101,12 @@ if __name__ == "__main__":
             compiled,
             f"{arguments.output}-disassembled",
         )
-        hashed = fanout(
-            client,
-            hash_parquet_column,
-            disassembled,
-            f"{arguments.output}-hashed",
-            column="binary",
-            target="binary_hash",
-        )
         merged = client.submit(
             modify_parquet,
-            hashed,
+            disassembled,
             arguments.output,
             [
+                HashColumn("binary", "binary_hash"),
                 Deduplicate(["binary_hash"]),
                 Drop(["binary_hash"]),
                 Repartition(size="100MB"),
