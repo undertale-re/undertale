@@ -15,11 +15,7 @@ pipeline script:
         humaneval-x/ \
         tokenizer
 
-    # Train a tokenizer on the HumanEval-X dataset in parallel.
-    python pipelines/models/train-tokenizer.py \
-        humaneval-x/ \
-        tokenizer \
-        --parallelism 8
+See :ref:`parallelism` for controlling parallel workers and cluster backends.
 
 Tokenization
 ^^^^^^^^^^^^
@@ -38,17 +34,10 @@ for pre-training.
         --tokenizer tokenizer.json \
         --minimal
 
-    # Tokenize the HumanEval-X dataset in parallel.
-    #
-    # Retain all fields this time, as an example.
-    python pipelines/models/tokenize-dataset.py \
-        humaneval-x/ \
-        humaneval-x-tokenized \
-        --tokenizer tokenizer.json \
-        --parallelism 8
-
 Consider :ref:`splitting <dataset-splitting>` off some (10%) of your dataset
 for validation.
+
+See :ref:`parallelism` for controlling parallel workers and cluster backends.
 
 Pre-Training (Maked Language Modeling)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
