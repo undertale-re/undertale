@@ -12,7 +12,9 @@ from os.path import (
     expanduser,
     isfile,
     join,
+    normpath,
     relpath,
+    sep,
     splitext,
 )
 from queue import Empty
@@ -247,7 +249,7 @@ def cache_path(path: str) -> str:
     if not exists(path):
         raise FileNotFoundError(f"source path does not exist {path!r}")
 
-    destination = join(cache_root, basename(path))
+    destination = join(cache_root, basename(path.rstrip(sep)))
 
     def copy_if_stale(source: str, dest: str) -> None:
         if exists(dest):
@@ -267,7 +269,7 @@ def cache_path(path: str) -> str:
     else:
         for source_directory, _, filenames in walk(path):
             relative = relpath(source_directory, path)
-            destination_directory = join(destination, relative)
+            destination_directory = normpath(join(destination, relative))
             makedirs(destination_directory, exist_ok=True)
             for filename in filenames:
                 copy_if_stale(
