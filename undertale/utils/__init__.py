@@ -244,7 +244,8 @@ def cache_path(path: str) -> str:
         return path
 
     if not exists(cache_root):
-        raise FileNotFoundError(f"UNDERTALE_CACHE path does not exist {cache_root!r}")
+        makedirs(cache_root, exist_ok=True)
+        logger.info(f"UNDERTALE_CACHE directory created at {cache_root!r}")
 
     if not exists(path):
         raise FileNotFoundError(f"source path does not exist {path!r}")
