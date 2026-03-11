@@ -18,6 +18,7 @@ from undertale.models.tokenizer import TOKEN_MASK, TOKEN_NEXT, TOKEN_PAD
 from undertale.models.tokenizer import load as load_tokenizer
 from undertale.parsers import ModelArgumentParser
 from undertale.schema import TokenizedDataset
+from undertale.utils import cache_path
 
 
 class ProgressBar(TQDMProgressBar):
@@ -108,8 +109,10 @@ class InferenceLogger(Callback):
 def load_dataset(
     path: str, batch: int, collator: Optional[Callable] = None, workers: int = 0
 ) -> DataLoader:
+    cached = cache_path(path)
+
     return DataLoader(
-        ParquetDataset(path, schema=TokenizedDataset),
+        ParquetDataset(cached, schema=TokenizedDataset),
         batch_size=batch,
         collate_fn=collator,
         num_workers=workers,
@@ -126,7 +129,7 @@ if __name__ == "__main__":
     arguments = parser.parse_args()
     parser.setup(arguments)
 
-    tokenizer = load_tokenizer(arguments.tokenizer)
+    tokenizer = load_tokenizer(cache_path(arguments.tokenizer))
 
     vocab_size = tokenizer.get_vocab_size()
     mask_token_id = tokenizer.token_to_id(TOKEN_MASK)
