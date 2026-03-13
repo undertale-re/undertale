@@ -1,6 +1,7 @@
-from classification_connector import MLP
-from item.model import TransformerEncoderForMaskedLM
 from torch.nn import Module
+
+from undertale.models.classification_connector import MLP
+from undertale.models.item.model import TransformerEncoderForMaskedLM
 
 
 class TransformerEncoderForSequenceClassification(Module):

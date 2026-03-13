@@ -13,12 +13,15 @@ from torch.nn import CrossEntropyLoss
 
 # from pytorch_lightning.strategies import DDPStrategy
 from torch.optim import AdamW
-from torch.utils.data import DataLoader, RandomSampler
+from torch.utils.data import DataLoader
 from transformers import get_linear_schedule_with_warmup
 
 from undertale.logging import setup_logging
 from undertale.models.classification_dataset import CustomCollator
-from undertale.models.model import TransformerEncoderForSequenceClassification
+from undertale.models.classification_model import (
+    TransformerEncoderForSequenceClassification,
+)
+from undertale.parsers import ModelArgumentParser
 
 
 def dataset_size_type(x):
@@ -207,119 +210,31 @@ class ClassifyModel(LightningModule, torch.nn.Module):
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(
-        description="pretrain the model on a masked language modeling dataset",
+    parser = ModelArgumentParser()
+    parser.add_argument("--dataset_size", default=-1)
+    parser.add_argument("--test_size", default=0.1)
+    parser.add_argument("--seed", default=42)
+    parser.add_argument("--model_type", default="mlp", help="the type of the connector")
+    parser.add_argument(
+        "--num_layers", default=2, help="the number of layers in the connectro"
     )
-
-    # model info
-    parser.add_argument("--gpt2path", type=str)
-
     parser.add_argument(
         "--assembly_checkpoint",
-        type=str,
-        help="trained model checkpoint from which to resume training",
+        required=True,
+        help="The location of a trained assembly model",
     )
-
+    # parser.add_argument("--output", default="./vuln_class_output/")
+    parser.add_argument("--lr", default=1e-3)
+    parser.add_argument("--warmup_steps", default=1)
+    parser.add_argument("--tokenizer")
+    parser.add_argument("--generated_output_paths")
+    parser.add_argument("--tokenizer_size", default=512)
     parser.add_argument(
-        "-c",
         "--classifier_checkpoint",
         help="trained model checkpoint from which to resume training",
     )
 
-    parser.add_argument(
-        "--model_type", type=str, default="mlp", help="model for connector"
-    )
-
-    parser.add_argument(
-        "--num_layers", type=int, default=8, help="number layers for transformer"
-    )
-    parser.add_argument(
-        "-t", "--tokenizer", required=True, help="trained assembly tokenizer file"
-    )
-    parser.add_argument("--tokenizer_size", type=int, default=512)
-    parser.add_argument(
-        "-e",
-        "--end_to_end",
-        dest="end_to_end",
-        action="store_true",
-        help="whether to train from assembly codo embeddings ",
-    )
-    parser.add_argument("--tune_llm", dest="tune_llm", action="store_true")
-
-    # dataset info
-    parser.add_argument("--token_batchsize", type=int, default=1024)
-    parser.add_argument(
-        "--dataset", type=str, help="dataset on which to train the model"
-    )
-    parser.add_argument("--seed", type=int, default=42, help="seed to split dataset")
-    parser.add_argument(
-        "--test_size",
-        type=float,
-        default=0.1,
-        help="ratio size of test set. remaining size is train set",
-    )
-    parser.add_argument(
-        "--dataset_size",
-        type=dataset_size_type,
-        default=-1,
-        help="subsample dataset. -1 means use entire dataset. will throw error is choose 0",
-    )
-
-    # training info
-    parser.add_argument("--output", help="output model directory")
-
-    parser.add_argument("-b", "--batch_size", type=int, default=8, help="batch size")
-    parser.add_argument(
-        "-warmup",
-        "--warmup_steps",
-        type=int,
-        default=1,  # used to be 50000
-        help="number of warmup steps",
-    )
-    parser.add_argument(
-        "--lr", type=float, default=1e-4, help="learning rate"
-    )  # used to be 2e-5
-    parser.add_argument(
-        "-a", "--accelerator", default="auto", help="accelerator to use"
-    )
-    parser.add_argument(
-        "--num_epochs", type=int, default=50, help="number epochs to train model"
-    )
-    parser.add_argument(
-        "-d",
-        "--devices",
-        default=1,
-        type=int,
-        help="number of accelerator devices to use (per node)",
-    )
-    parser.add_argument(
-        "-n", "--nodes", default=1, type=int, help="number of nodes to use"
-    )
-    parser.add_argument("-v", "--version", help="training run version name")
-
-    parser.add_argument(
-        "--validation",
-        action="store_true",
-        help="whether to output validation examples",
-    )
-    parser.add_argument(
-        "--generated_output_paths",
-        default="./validation_outputs",
-        type=str,
-        help="where to output validation examples",
-    )
-
     args = parser.parse_args()
-
-    # cache_root= args.bertscore_model_path
-
-    # os.environ["HF_HUB_CACHE"] = cache_root
-    # os.environ["TRANSFORMERS_OFFLINE"] = "1"
-    # # optional but helps with older stacks:
-    # os.environ["HF_HOME"] = cache_root
-    # os.environ["TRANSFORMERS_CACHE"] = cache_root
-    # # optional: for older huggingface_hub versions:
-    # os.environ["HUGGINGFACE_HUB_CACHE"] = cache_root
 
     setup_logging()
 
@@ -351,7 +266,6 @@ if __name__ == "__main__":
 
     val_dataset = split_dataset["test"]
 
-    # assembly_tokenizer = tokenizer.load(args.tokenizer)
     collator = CustomCollator(args, device)
 
     train_dataloader = DataLoader(
@@ -398,55 +312,55 @@ if __name__ == "__main__":
         version=args.version,
     )
 
-    if args.validation:
+    # if args.validation:
 
-        random_sampler = RandomSampler(val_dataset, num_samples=5)
-        random_validation = DataLoader(
-            val_dataset,
-            sampler=random_sampler,
-            batch_size=1,
-            collate_fn=collator,
-            num_workers=8,
-        )
+    #     random_sampler = RandomSampler(val_dataset, num_samples=5)
+    #     random_validation = DataLoader(
+    #         val_dataset,
+    #         sampler=random_sampler,
+    #         batch_size=1,
+    #         collate_fn=collator,
+    #         num_workers=8,
+    #     )
 
-        final_validation = DataLoader(
-            val_dataset, batch_size=1, collate_fn=collator, num_workers=8
-        )
+    #     final_validation = DataLoader(
+    #         val_dataset, batch_size=1, collate_fn=collator, num_workers=8
+    #     )
 
-        final_validation_check = ValidationCallback(
-            final_validation,
-            end_to_end=args.end_to_end,
-            tag="final_full_val",
-            run_on_val_end=False,
-            run_on_fit_end=True,
-            args=args,
-        )
+    #     final_validation_check = ValidationCallback(
+    #         final_validation,
+    #         end_to_end=True,
+    #         tag="final_full_val",
+    #         run_on_val_end=False,
+    #         run_on_fit_end=True,
+    #         args=args,
+    #     )
 
-        validation_check = ValidationCallback(
-            random_validation,
-            end_to_end=args.end_to_end,
-            tag=None,
-            run_on_val_end=True,
-            run_on_fit_end=False,
-            args=args,
-        )
+    #     validation_check = ValidationCallback(
+    #         random_validation,
+    #         end_to_end=True,
+    #         tag=None,
+    #         run_on_val_end=True,
+    #         run_on_fit_end=False,
+    #         args=args,
+    #     )
 
-        callbacks = [
-            progress,
-            checkpoint,
-            stop,
-            validation_check,
-            final_validation_check,
-        ]
+    #     callbacks = [
+    #         progress,
+    #         checkpoint,
+    #         stop,
+    #         validation_check,
+    #         final_validation_check,
+    #     ]
 
-    else:
-        callbacks = [progress, checkpoint, stop]
+    # else:
+    callbacks = [progress, checkpoint, stop]
 
     classify_model = ClassifyModel(
         model,
         lr=args.lr,
         warmup_steps=args.warmup_steps,
-        end_to_end=args.end_to_end,
+        end_to_end=True,
     )
 
     sample = val_dataloader.dataset[0]
@@ -458,24 +372,9 @@ if __name__ == "__main__":
         accelerator=args.accelerator,
         devices=args.devices,
         num_nodes=args.nodes,
-        max_epochs=args.num_epochs,
-        # Testing
-        # log_every_n_steps=1,
-        # limit_train_batches=2,
-        # limit_val_batches=2,
+        max_epochs=args.epochs,
     )
 
-    # trainer = Trainer(
-    #     strategy="ddp_find_unused_parameters_true",
-    #     max_epochs=1,
-    #     callbacks=callbacks,
-    #     limit_train_batches=1,
-    #     limit_val_batches=1,
-    #     num_sanity_val_steps=0,
-    #     # optionally:
-    #     devices=args.devices,
-    #     logger=False,
-    # )
     trainer.fit(
         classify_model,
         train_dataloaders=train_dataloader,
