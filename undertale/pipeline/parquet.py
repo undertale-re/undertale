@@ -7,53 +7,17 @@ from typing import Dict, List, Optional
 
 from dask.dataframe import DataFrame
 from dask.dataframe import read_parquet as dask_read_parquet
-from pandas import read_parquet as pandas_read_parquet
 
 from ..exceptions import SchemaError
 from ..logging import get_logger
 from ..utils import (
     assert_path_exists,
     get_or_create_directory,
-    get_or_create_file,
     hash,
     write_parquet,
 )
 
 logger = get_logger(__name__)
-
-
-def hash_parquet_column(input: str, output: str, column: str, target: str) -> str:
-    """Hashes a dataset column.
-
-    Arguments:
-        input: Path to source dataset.
-        output: Path where the hashed dataset should be written.
-        column: Name of the column to hash.
-        target: Name of the hash column to create.
-
-    Returns:
-        The path to the generated parquet file.
-    """
-
-    input = assert_path_exists(input)
-    output, created = get_or_create_file(output)
-
-    if not created:
-        return output
-
-    frame = pandas_read_parquet(input)
-
-    if column not in frame.columns:
-        raise SchemaError(f"dataset doesn't include the column {column}")
-
-    logger.info(f"hashing column {column} in {input!r} to {output!r}")
-
-    frame[target] = frame[column].apply(hash)
-    write_parquet(frame, output)
-
-    logger.info(f"successfully hashed {len(frame)} rows")
-
-    return output
 
 
 class ParquetOperation(ABC):
@@ -69,6 +33,29 @@ class ParquetOperation(ABC):
         Returns:
             The transformed DataFrame.
         """
+
+
+class HashColumn(ParquetOperation):
+    """Add a column containing the hash of an existing column.
+
+    Arguments:
+        column: Name of the column to hash.
+        target: Name of the new hash column to create.
+    """
+
+    def __init__(self, column: str, target: str):
+        self.column = column
+        self.target = target
+
+    def __call__(self, frame: DataFrame) -> DataFrame:
+        logger.info(f"hashing column {self.column!r} into {self.target!r}")
+
+        if self.column not in frame.columns:
+            raise SchemaError(f"dataset does not include the column {self.column!r}")
+
+        return frame.assign(
+            **{self.target: frame[self.column].apply(hash, meta=(self.target, str))}
+        )
 
 
 class Deduplicate(ParquetOperation):
@@ -239,8 +226,8 @@ def modify_parquet(
 
 
 __all__ = [
-    "hash_parquet_column",
     "ParquetOperation",
+    "HashColumn",
     "Deduplicate",
     "Drop",
     "Keep",

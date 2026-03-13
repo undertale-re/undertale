@@ -50,10 +50,10 @@ from undertale.pipeline.json import merge_json
 from undertale.pipeline.parquet import (
     Deduplicate,
     Drop,
+    HashColumn,
     Keep,
     Rename,
     Repartition,
-    hash_parquet_column,
     modify_parquet,
 )
 from undertale.pipeline.tarfile import extract_tarfile
@@ -61,6 +61,7 @@ from undertale.schema import Dataset
 from undertale.utils import (
     RemoteException,
     assert_path_exists,
+    cache_path,
     enforce_extension,
     find,
     get_or_create_directory,
@@ -185,6 +186,145 @@ class TestUtilitiesPaths(TestCase):
 
         self.assertFalse(created)
         self.assertTrue(exists(target))
+
+
+class TestUtilitiesCachePath(TestCase):
+    def test_no_env_var(self):
+        source = TemporaryDirectory()
+        target = join(source.name, "artifact.txt")
+
+        with open(target, "w") as f:
+            f.write("data")
+
+        with patch.dict(os.environ, {}, clear=True):
+            with self.assertLogs(level="WARNING") as logs:
+                result = cache_path(target)
+
+        self.assertEqual(result, target)
+        self.assertTrue(any("UNDERTALE_CACHE" in line for line in logs.output))
+
+    def test_file_is_copied(self):
+        source = TemporaryDirectory()
+        cache = TemporaryDirectory()
+
+        target = join(source.name, "artifact.txt")
+        with open(target, "w") as f:
+            f.write("data")
+
+        with patch.dict(os.environ, {"UNDERTALE_CACHE": cache.name}):
+            with self.assertLogs(level="INFO") as logs:
+                result = cache_path(target)
+
+        self.assertTrue(result.endswith("artifact.txt"))
+        self.assertTrue(exists(result))
+        self.assertTrue(any("cached" in line for line in logs.output))
+
+    def test_directory_is_copied_recursively(self):
+        source = TemporaryDirectory()
+        cache = TemporaryDirectory()
+
+        subdir = join(source.name, "mydir", "sub")
+        makedirs(subdir)
+        for name in ("a.txt", "b.txt"):
+            with open(join(source.name, "mydir", name), "w") as f:
+                f.write(name)
+        with open(join(subdir, "c.txt"), "w") as f:
+            f.write("c")
+
+        source_dir = join(source.name, "mydir")
+
+        with patch.dict(os.environ, {"UNDERTALE_CACHE": cache.name}):
+            with self.assertLogs(level="INFO"):
+                result = cache_path(source_dir)
+
+        self.assertTrue(exists(join(result, "a.txt")))
+        self.assertTrue(exists(join(result, "b.txt")))
+        self.assertTrue(exists(join(result, "sub", "c.txt")))
+
+    def test_file_already_exists_up_to_date(self):
+        source = TemporaryDirectory()
+        cache = TemporaryDirectory()
+
+        target = join(source.name, "artifact.txt")
+        with open(target, "w") as f:
+            f.write("data")
+
+        with patch.dict(os.environ, {"UNDERTALE_CACHE": cache.name}):
+            with self.assertLogs(level="INFO"):
+                cache_path(target)
+            with self.assertLogs(level="INFO") as logs:
+                cache_path(target)
+
+        self.assertTrue(any("already exists" in line for line in logs.output))
+        self.assertFalse(any("cached" in line for line in logs.output))
+
+    def test_file_already_exists_stale(self):
+        source = TemporaryDirectory()
+        cache = TemporaryDirectory()
+
+        target = join(source.name, "artifact.txt")
+        with open(target, "w") as f:
+            f.write("old")
+
+        with patch.dict(os.environ, {"UNDERTALE_CACHE": cache.name}):
+            with self.assertLogs(level="INFO"):
+                cached = cache_path(target)
+
+            with open(target, "w") as f:
+                f.write("updated data")
+
+            with self.assertLogs(level="INFO") as logs:
+                cache_path(target)
+
+        self.assertTrue(any("cached" in line for line in logs.output))
+
+        with open(cached) as f:
+            self.assertEqual(f.read(), "updated data")
+
+    def test_same_basename_different_parents(self):
+        cache = TemporaryDirectory()
+        parent_a = TemporaryDirectory()
+        parent_b = TemporaryDirectory()
+
+        target_a = join(parent_a.name, "latest")
+        target_b = join(parent_b.name, "latest")
+        for target in (target_a, target_b):
+            with open(target, "w") as f:
+                f.write("data")
+
+        with patch.dict(os.environ, {"UNDERTALE_CACHE": cache.name}):
+            with self.assertLogs(level="INFO"):
+                result_a = cache_path(target_a)
+            with self.assertLogs(level="INFO"):
+                result_b = cache_path(target_b)
+
+        self.assertNotEqual(result_a, result_b)
+
+    def test_nonexistent_path(self):
+        cache = TemporaryDirectory()
+        self.addCleanup(cache.cleanup)
+        with patch.dict(os.environ, {"UNDERTALE_CACHE": cache.name}):
+            with self.assertRaises(FileNotFoundError):
+                cache_path("/nonexistent/path/to/file.txt")
+
+    def test_directory_already_exists_up_to_date(self):
+        source = TemporaryDirectory()
+        cache = TemporaryDirectory()
+
+        source_dir = join(source.name, "mydir")
+        makedirs(source_dir)
+        for name in ("x.txt", "y.txt"):
+            with open(join(source_dir, name), "w") as f:
+                f.write(name)
+
+        with patch.dict(os.environ, {"UNDERTALE_CACHE": cache.name}):
+            with self.assertLogs(level="INFO"):
+                cache_path(source_dir)
+            with self.assertLogs(level="INFO") as logs:
+                cache_path(source_dir)
+
+        self.assertTrue(any("already exists" in line for line in logs.output))
+        self.assertFalse(any("cached" in line for line in logs.output))
 
 
 class TestUtilitiesFind(TestCase):
@@ -497,7 +637,9 @@ class TestPipelineParquet(TestCase):
         dataset = self.mock_dataset(working, "dataset", size=10)
 
         with self.assertRaises(SchemaError):
-            hash_parquet_column(dataset, join(working.name, "hashed"), "mordor", "hash")
+            modify_parquet(
+                dataset, join(working.name, "hashed"), [HashColumn("mordor", "hash")]
+            )
 
     def test_parquet_hash_column_simple(self):
         working = TemporaryDirectory()
@@ -509,9 +651,10 @@ class TestPipelineParquet(TestCase):
         path = join(working.name, "dataset")
         write_parquet(frame, path)
 
-        hashed = hash_parquet_column(path, join(working.name, "hashed"), "data", "hash")
+        output = join(working.name, "hashed")
+        modify_parquet(path, output, [HashColumn("data", "hash")])
 
-        loaded = read_parquet(hashed)
+        loaded = read_parquet(output)
 
         self.assertIn("hash", loaded.columns)
         self.assertEqual(loaded["hash"][0], hash(data))

@@ -4,9 +4,22 @@ import hashlib
 import os
 from datetime import datetime
 from multiprocessing import Queue, get_context
-from os import makedirs
-from os.path import abspath, exists, expanduser, isfile, splitext
+from os import makedirs, stat, walk
+from os.path import (
+    abspath,
+    basename,
+    dirname,
+    exists,
+    expanduser,
+    isfile,
+    join,
+    normpath,
+    relpath,
+    sep,
+    splitext,
+)
 from queue import Empty
+from shutil import copy2
 from subprocess import CalledProcessError, check_output
 from traceback import format_exc
 from typing import Callable, Iterable, Optional, Tuple
@@ -209,6 +222,70 @@ def find(
     raise LocalEnvironmentError(message)
 
 
+def cache_path(path: str) -> str:
+    """Copy a file or directory to the cache and return the cache path.
+
+    Checks the ``UNDERTALE_CACHE`` environment variable. If set, copies
+    ``path`` to ``$UNDERTALE_CACHE/{md5(dirname(path))[:8]}-{basename(path)}``,
+    logging each file copied. The 8-character MD5 hex prefix of the parent
+    directory prevents basename collisions between paths that share the same
+    leaf name. If the destination already exists, verifies each file's size
+    and modification time (similar to rsync) and re-copies stale files.
+    If ``UNDERTALE_CACHE`` is not set, logs a warning and returns the
+    original ``path`` unchanged.
+
+    Args:
+        path: Path to the file or directory to cache.
+
+    Returns:
+        The cache path if ``UNDERTALE_CACHE`` is set, otherwise ``path``.
+    """
+
+    cache_root = os.environ.get("UNDERTALE_CACHE")
+    if cache_root is None:
+        logger.warning(f"UNDERTALE_CACHE is not set - skipping cache for {path!r}")
+        return path
+
+    if not exists(cache_root):
+        makedirs(cache_root, exist_ok=True)
+        logger.info(f"UNDERTALE_CACHE directory created at {cache_root!r}")
+
+    if not exists(path):
+        raise FileNotFoundError(f"source path does not exist {path!r}")
+
+    stripped = path.rstrip(sep)
+    digest = hashlib.md5(dirname(stripped).encode()).hexdigest()[:8]
+    destination = join(cache_root, f"{digest}-{basename(stripped)}")
+
+    def copy_if_stale(source: str, dest: str) -> None:
+        if exists(dest):
+            source_stat = stat(source)
+            dest_stat = stat(dest)
+            if (
+                source_stat.st_size == dest_stat.st_size
+                and source_stat.st_mtime == dest_stat.st_mtime
+            ):
+                logger.info(f"path already exists in cache {dest!r}")
+                return
+        copy2(source, dest)
+        logger.info(f"cached {source!r} to {dest!r}")
+
+    if isfile(path):
+        copy_if_stale(path, destination)
+    else:
+        for source_directory, _, filenames in walk(path):
+            relative = relpath(source_directory, path)
+            destination_directory = normpath(join(destination, relative))
+            makedirs(destination_directory, exist_ok=True)
+            for filename in filenames:
+                copy_if_stale(
+                    join(source_directory, filename),
+                    join(destination_directory, filename),
+                )
+
+    return destination
+
+
 def write_parquet(frame, path: str, **kwargs) -> None:
     """Write parquet to the given path.
 
@@ -322,6 +399,7 @@ def subprocess(
 __all__ = [
     "timestamp",
     "assert_path_exists",
+    "cache_path",
     "get_or_create_file",
     "get_or_create_directory",
     "find",

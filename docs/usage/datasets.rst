@@ -17,16 +17,32 @@ For example, to build the HumanEval-X dataset from the raw dataset snapshot at
 
 .. code-block:: bash
 
-    # Parse the HumanEval-X dataset.
+    # Process the HumanEval-X dataset.
     python pipelines/datasets/humaneval-x.py \
         humaneval-x-raw/20251114-100300.tgz \
         humaneval-x
 
-    # Parse the HumanEval-X dataset with 8 parallel processes.
+.. _parallelism:
+
+Parallelism
+^^^^^^^^^^^
+
+All dataset commands support being run in parallel.
+
+.. code-block:: bash
+
+    # Process HumanEval-X with custom local parallelism.
     python pipelines/datasets/humaneval-x.py \
         humaneval-x-raw/20251114-100300.tgz \
         humaneval-x \
         --parallelism 8
+
+    # On a SLURM cluster.
+    srun python pipelines/datasets/humaneval-x.py \
+        humaneval-x-raw/20251114-100300.tgz \
+        humaneval-x \
+        --cluster slurm \
+        --parallelism 16
 
 Explore a Dataset with a Shell
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -102,13 +118,6 @@ available for that.
         humaneval-x
         --splits training:80 validation:10 testing:10
 
-    # With custom parallelism.
-    python -m undertale.utils.datasets.split \
-        humaneval-x/ \
-        humaneval-x
-        --splits training:80 validation:10 testing:10 \
-        --parallelism 8
-
 Percentages must sum to 100. See the ``--seed`` option to control split
 randomization.
 
@@ -132,13 +141,6 @@ use the ``repartition`` utility.
         humaneval-x-repartitioned \
         --size 25MB
 
-    # With custom parallelism.
-    python -m undertale.utils.datasets.repartition \
-        humaneval-x/ \
-        humaneval-x-repartitioned \
-        --chunks 32 \
-        --parallelism 8
-
 Exactly one of ``--chunks`` or ``--size`` must be specified.
 
 Drop or Keep Columns
@@ -160,13 +162,6 @@ To drop or keep specific columns from a dataset, use the drop utility.
         humaneval-x-filtered \
         --keep id solution
 
-    # With custom parallelism.
-    python -m undertale.utils.datasets.drop \
-        humaneval-x/ \
-        humaneval-x-filtered \
-        --drop metadata \
-        --parallelism 8
-
 Exactly one of ``--drop`` or ``--keep`` must be specified.
 
 Rename Columns
@@ -187,12 +182,5 @@ To rename one or more columns in a dataset, use the rename utility.
         humaneval-x/ \
         humaneval-x-renamed \
         --rename source:origin metadata:info
-
-    # With custom parallelism.
-    python -m undertale.utils.datasets.rename \
-        humaneval-x/ \
-        humaneval-x-renamed \
-        --rename source:origin \
-        --parallelism 8
 
 The output dataset preserves the same chunk structure as the input.
