@@ -8,6 +8,7 @@ from os import makedirs, stat, walk
 from os.path import (
     abspath,
     basename,
+    dirname,
     exists,
     expanduser,
     isfile,
@@ -225,8 +226,10 @@ def cache_path(path: str) -> str:
     """Copy a file or directory to the cache and return the cache path.
 
     Checks the ``UNDERTALE_CACHE`` environment variable. If set, copies
-    ``path`` to ``$UNDERTALE_CACHE/basename(path)``, logging each file
-    copied. If the destination already exists, verifies each file's size
+    ``path`` to ``$UNDERTALE_CACHE/{md5(dirname(path))[:8]}-{basename(path)}``,
+    logging each file copied. The 8-character MD5 hex prefix of the parent
+    directory prevents basename collisions between paths that share the same
+    leaf name. If the destination already exists, verifies each file's size
     and modification time (similar to rsync) and re-copies stale files.
     If ``UNDERTALE_CACHE`` is not set, logs a warning and returns the
     original ``path`` unchanged.
@@ -250,7 +253,9 @@ def cache_path(path: str) -> str:
     if not exists(path):
         raise FileNotFoundError(f"source path does not exist {path!r}")
 
-    destination = join(cache_root, basename(path.rstrip(sep)))
+    stripped = path.rstrip(sep)
+    digest = hashlib.md5(dirname(stripped).encode()).hexdigest()[:8]
+    destination = join(cache_root, f"{digest}-{basename(stripped)}")
 
     def copy_if_stale(source: str, dest: str) -> None:
         if exists(dest):

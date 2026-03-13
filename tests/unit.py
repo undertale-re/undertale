@@ -2,7 +2,6 @@ import argparse
 import json
 import logging
 import os
-import shutil
 import tarfile
 from datetime import datetime
 from logging import WARNING
@@ -216,9 +215,8 @@ class TestUtilitiesCachePath(TestCase):
             with self.assertLogs(level="INFO") as logs:
                 result = cache_path(target)
 
-        expected = join(cache.name, "artifact.txt")
-        self.assertEqual(result, expected)
-        self.assertTrue(exists(expected))
+        self.assertTrue(result.endswith("artifact.txt"))
+        self.assertTrue(exists(result))
         self.assertTrue(any("cached" in line for line in logs.output))
 
     def test_directory_is_copied_recursively(self):
@@ -251,10 +249,9 @@ class TestUtilitiesCachePath(TestCase):
         with open(target, "w") as f:
             f.write("data")
 
-        cached = join(cache.name, "artifact.txt")
-        shutil.copy2(target, cached)
-
         with patch.dict(os.environ, {"UNDERTALE_CACHE": cache.name}):
+            with self.assertLogs(level="INFO"):
+                cache_path(target)
             with self.assertLogs(level="INFO") as logs:
                 cache_path(target)
 
@@ -267,20 +264,41 @@ class TestUtilitiesCachePath(TestCase):
 
         target = join(source.name, "artifact.txt")
         with open(target, "w") as f:
-            f.write("updated data")
-
-        cached = join(cache.name, "artifact.txt")
-        with open(cached, "w") as f:
             f.write("old")
 
         with patch.dict(os.environ, {"UNDERTALE_CACHE": cache.name}):
+            with self.assertLogs(level="INFO"):
+                cached = cache_path(target)
+
+            with open(target, "w") as f:
+                f.write("updated data")
+
             with self.assertLogs(level="INFO") as logs:
                 cache_path(target)
 
         self.assertTrue(any("cached" in line for line in logs.output))
 
-        with open(join(cache.name, "artifact.txt")) as f:
+        with open(cached) as f:
             self.assertEqual(f.read(), "updated data")
+
+    def test_same_basename_different_parents(self):
+        cache = TemporaryDirectory()
+        parent_a = TemporaryDirectory()
+        parent_b = TemporaryDirectory()
+
+        target_a = join(parent_a.name, "latest")
+        target_b = join(parent_b.name, "latest")
+        for target in (target_a, target_b):
+            with open(target, "w") as f:
+                f.write("data")
+
+        with patch.dict(os.environ, {"UNDERTALE_CACHE": cache.name}):
+            with self.assertLogs(level="INFO"):
+                result_a = cache_path(target_a)
+            with self.assertLogs(level="INFO"):
+                result_b = cache_path(target_b)
+
+        self.assertNotEqual(result_a, result_b)
 
     def test_nonexistent_path(self):
         cache = TemporaryDirectory()
@@ -299,12 +317,9 @@ class TestUtilitiesCachePath(TestCase):
             with open(join(source_dir, name), "w") as f:
                 f.write(name)
 
-        dest_dir = join(cache.name, "mydir")
-        makedirs(dest_dir)
-        for name in ("x.txt", "y.txt"):
-            shutil.copy2(join(source_dir, name), join(dest_dir, name))
-
         with patch.dict(os.environ, {"UNDERTALE_CACHE": cache.name}):
+            with self.assertLogs(level="INFO"):
+                cache_path(source_dir)
             with self.assertLogs(level="INFO") as logs:
                 cache_path(source_dir)
 
