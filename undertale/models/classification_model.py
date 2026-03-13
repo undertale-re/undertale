@@ -1,44 +1,48 @@
-from torch.nn import Module
-
 from undertale.models.classification_connector import MLP
 from undertale.models.item.model import TransformerEncoderForMaskedLM
 
 
-class TransformerEncoderForSequenceClassification(Module):
+class TransformerEncoderForSequenceClassification(TransformerEncoderForMaskedLM):
     def __init__(
         self,
-        assembly_checkpoint,
-        num_classes=2,
-        end2end=True,
-        tune_llm=True,
-        head_hidden_size=64,
+        # parameters from source model
+        depth: int,
+        hidden_dimensions: int,
+        vocab_size: int,
+        input_size: int,
+        heads: int,
+        intermediate_dimensions: int,
+        dropout: float,
+        eps: float,
+        lr: float,
+        warmup: float,
+        # specific parameters for sequence classification
+        num_classes: int = 2,
+        head_hidden_size: int = 64,
     ):
-        super().__init__()
+        super().__init__(
+            depth,
+            hidden_dimensions,
+            vocab_size,
+            input_size,
+            heads,
+            intermediate_dimensions,
+            dropout,
+            eps,
+            lr,
+            warmup,
+        )
 
-        self.tune_llm = tune_llm
-
-        self.assembly_checkpoint = assembly_checkpoint
-        self.assembly_encoder = None
-        if end2end:
-            self.assembly_encoder = TransformerEncoderForMaskedLM.load_from_checkpoint(
-                assembly_checkpoint
-            ).encoder
-        else:
-            raise ValueError("For now only end2end is supported")
         output_size = 768  # self.assembly_encoder.hidden_dimensions
 
         self.head = MLP((output_size, head_hidden_size, num_classes))
 
     def embed_assembly(self, assembly_tokens, assembly_mask=None):
 
-        if self.assembly_encoder is None:
-            self.assembly_encoder = TransformerEncoderForMaskedLM.load_from_checkpoint(
-                self.assembly_checkpoint
-            )
-        if self.assembly_encoder.training:
+        if self.encoder.training:
 
-            self.assembly_encoder.eval()
-        return self.assembly_encoder.encoder(assembly_tokens, assembly_mask)
+            self.encoder.eval()
+        return self.encoder(assembly_tokens, assembly_mask)
 
     def forward(self, encoder_embedding, mask=None, labels=None):
         encoder_embedding = encoder_embedding.mean(dim=1)

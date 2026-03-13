@@ -21,6 +21,11 @@ from undertale.models.classification_dataset import CustomCollator
 from undertale.models.classification_model import (
     TransformerEncoderForSequenceClassification,
 )
+from undertale.models.maskedlm import (
+    InstructionTraceTransformerEncoderForMaskedLMConfiguration,
+)
+from undertale.models.tokenizer import TOKEN_MASK, TOKEN_NEXT
+from undertale.models.tokenizer import load as load_tokenizer
 from undertale.parsers import ModelArgumentParser
 
 
@@ -133,11 +138,11 @@ class ClassifyModel(LightningModule, torch.nn.Module):
         self.lr = lr
         self.warmup_steps = warmup_steps
         self.end_to_end = end_to_end
-        for param in self.model.assembly_encoder.parameters():
+        for param in self.model.encoder.parameters():
             param.requires_grad = False
 
     def forward(self, inp, mask=None):
-        encoder_embedding = self.model.assembly_encoder(inp)
+        encoder_embedding = self.model.encoder(inp)
         return self.model(encoder_embedding, mask)
 
     def training_step(self, batch, batch_idx):
@@ -216,26 +221,17 @@ if __name__ == "__main__":
     parser.add_argument("--seed", default=42)
     parser.add_argument("--model_type", default="mlp", help="the type of the connector")
     parser.add_argument(
-        "--num_layers", default=2, help="the number of layers in the connectro"
-    )
-    parser.add_argument(
-        "--assembly_checkpoint",
-        required=True,
-        help="The location of a trained assembly model",
+        "--num_layers", default=2, help="the number of layers in the connector"
     )
     # parser.add_argument("--output", default="./vuln_class_output/")
     parser.add_argument("--lr", default=1e-3)
     parser.add_argument("--warmup_steps", default=1)
-    parser.add_argument("--tokenizer")
     parser.add_argument("--generated_output_paths")
     parser.add_argument("--tokenizer_size", default=512)
-    parser.add_argument(
-        "--classifier_checkpoint",
-        help="trained model checkpoint from which to resume training",
-    )
+    parser.add_argument("--tokenizer")
 
     args = parser.parse_args()
-
+    parser.setup(args)
     setup_logging()
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -291,11 +287,19 @@ if __name__ == "__main__":
 
     connector_config_namespace = SimpleNamespace(**connector_config)
 
+    tokenizer = load_tokenizer(args.tokenizer)
+
+    vocab_size = tokenizer.get_vocab_size()
+    mask_token_id = tokenizer.token_to_id(TOKEN_MASK)
+    next_token_id = tokenizer.token_to_id(TOKEN_NEXT)
+
     model = TransformerEncoderForSequenceClassification(
-        args.assembly_checkpoint,
-        2,
-        True,
-        False,
+        vocab_size=vocab_size,
+        lr=args.learning_rate,
+        warmup=args.warmup,
+        num_classes=2,
+        head_hidden_size=64,
+        **InstructionTraceTransformerEncoderForMaskedLMConfiguration.medium,
     )
 
     output = os.path.abspath(os.path.expanduser(args.output))
@@ -366,7 +370,7 @@ if __name__ == "__main__":
     sample = val_dataloader.dataset[0]
 
     trainer = Trainer(
-        strategy="ddp_find_unused_parameters_true",
+        strategy="ddp",
         callbacks=callbacks,
         logger=logger,
         accelerator=args.accelerator,
