@@ -16,6 +16,7 @@ from os.path import (
     relpath,
     sep,
     splitext,
+    split
 )
 from queue import Empty
 from shutil import copy2
@@ -250,7 +251,7 @@ def cache_path(path: str) -> str:
     if not exists(path):
         raise FileNotFoundError(f"source path does not exist {path!r}")
 
-    destination = join(cache_root, basename(path.rstrip(sep)))
+    destination = join(cache_root, "-".join(split(path.rstrip(sep))))
 
     def copy_if_stale(source: str, dest: str) -> None:
         if exists(dest):
