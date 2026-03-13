@@ -7,7 +7,6 @@ from multiprocessing import Queue, get_context
 from os import makedirs, stat, walk
 from os.path import (
     abspath,
-    basename,
     exists,
     expanduser,
     isfile,
@@ -15,8 +14,8 @@ from os.path import (
     normpath,
     relpath,
     sep,
+    split,
     splitext,
-    split
 )
 from queue import Empty
 from shutil import copy2
