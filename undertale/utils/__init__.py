@@ -7,6 +7,7 @@ from multiprocessing import Queue, get_context
 from os import makedirs, stat, walk
 from os.path import (
     abspath,
+    basename,
     exists,
     expanduser,
     isfile,
@@ -14,7 +15,6 @@ from os.path import (
     normpath,
     relpath,
     sep,
-    split,
     splitext,
 )
 from queue import Empty
@@ -250,7 +250,7 @@ def cache_path(path: str) -> str:
     if not exists(path):
         raise FileNotFoundError(f"source path does not exist {path!r}")
 
-    destination = join(cache_root, "-".join(split(path.rstrip(sep))))
+    destination = join(cache_root, basename(path.rstrip(sep)))
 
     def copy_if_stale(source: str, dest: str) -> None:
         if exists(dest):
