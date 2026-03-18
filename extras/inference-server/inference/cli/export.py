@@ -1,7 +1,6 @@
 import logging
 from datetime import date
 
-import pandas as pd
 from sqlalchemy.orm import Session
 
 from ..models import Completion, CompletionRating, CompletionType, User, connect
@@ -24,6 +23,8 @@ class Export(Command):
         )
 
     def handle(self, arguments):
+        import pandas as pd
+
         settings = fetch_settings()
         engine = connect(settings["database"])
 
