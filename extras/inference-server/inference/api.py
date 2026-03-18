@@ -37,6 +37,13 @@ def require_fields(data: Optional[Dict], *fields: str) -> None:
             abort(400)
 
 
+def current_user(session: Session) -> User:
+    user = session.query(User).filter_by(username=get_jwt_identity()).first()
+    if user is None:
+        abort(401)
+    return user
+
+
 def serialize_completion(completion: Completion) -> Dict[str, Any]:
     return {
         "id": completion.id,
@@ -94,6 +101,10 @@ def create_app() -> Flask:
     @application.errorhandler(401)
     def unauthorized(error):
         return jsonify({"error": "unauthorized"}), 401
+
+    @application.errorhandler(403)
+    def forbidden(error):
+        return jsonify({"error": "forbidden"}), 403
 
     @application.route("/login/", methods=["POST"])
     def login():
@@ -154,12 +165,15 @@ def create_app() -> Flask:
     @application.route("/maskedlm/completion/", methods=["GET"])
     @jwt_required()
     def list_completions():
-        completions = (
+        user = current_user(g.session)
+        query = (
             g.session.query(Completion)
             .options(joinedload(Completion.user))
             .filter_by(type=int(CompletionType.MaskedLM))
-            .all()
         )
+        if not user.admin:
+            query = query.filter_by(user_id=user.id)
+        completions = query.all()
         return jsonify([serialize_completion(c) for c in completions])
 
     @application.route("/maskedlm/completion/", methods=["POST"])
@@ -168,9 +182,7 @@ def create_app() -> Flask:
         data = request.get_json(silent=True)
         require_fields(data, "input")
 
-        user = g.session.query(User).filter_by(username=get_jwt_identity()).first()
-        if user is None:
-            abort(401)
+        user = current_user(g.session)
 
         completion = Completion(
             user=user,
@@ -189,18 +201,23 @@ def create_app() -> Flask:
     @application.route("/maskedlm/completion/<int:completion_id>/", methods=["GET"])
     @jwt_required()
     def get_completion(completion_id: int):
+        user = current_user(g.session)
         completion = (
             g.session.query(Completion)
+            .options(joinedload(Completion.user))
             .filter_by(id=completion_id, type=int(CompletionType.MaskedLM))
             .first()
         )
         if completion is None:
             abort(404)
+        if not user.admin and completion.user_id != user.id:
+            abort(404)  # 404 not 403, to avoid leaking existence
         return jsonify(serialize_completion(completion))
 
     @application.route("/maskedlm/completion/<int:completion_id>/", methods=["DELETE"])
     @jwt_required()
     def delete_completion(completion_id: int):
+        user = current_user(g.session)
         completion = (
             g.session.query(Completion)
             .filter_by(id=completion_id, type=int(CompletionType.MaskedLM))
@@ -208,6 +225,8 @@ def create_app() -> Flask:
         )
         if completion is None:
             abort(404)
+        if not user.admin and completion.user_id != user.id:
+            abort(404)  # 404 not 403, to avoid leaking existence
 
         g.session.delete(completion)
         g.session.commit()
@@ -221,6 +240,7 @@ def create_app() -> Flask:
     )
     @jwt_required()
     def upsert_feedback(completion_id: int):
+        user = current_user(g.session)
         completion = (
             g.session.query(Completion)
             .filter_by(id=completion_id, type=int(CompletionType.MaskedLM))
@@ -228,6 +248,8 @@ def create_app() -> Flask:
         )
         if completion is None:
             abort(404)
+        if not user.admin and completion.user_id != user.id:
+            abort(404)  # 404 not 403, to avoid leaking existence
 
         data = request.get_json(silent=True)
         require_fields(data, "rating")
