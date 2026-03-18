@@ -1,5 +1,3 @@
-from flask import Flask
-from flask_jwt_extended import JWTManager, create_access_token
 from sqlalchemy.orm import Session
 
 from ..models import User, connect
@@ -15,6 +13,9 @@ class Authenticate(Command):
         parser.add_argument("username", help="username to authenticate as")
 
     def handle(self, arguments):
+        from flask import Flask
+        from flask_jwt_extended import JWTManager, create_access_token
+
         settings = fetch_settings()
         engine = connect(settings["database"])
 
