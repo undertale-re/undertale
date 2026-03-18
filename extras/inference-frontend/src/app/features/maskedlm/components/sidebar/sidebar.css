@@ -1,0 +1,21 @@
+.sidebar-item {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0 !important;
+}
+
+.sidebar-item.active {
+  background-color: #e8f4fd;
+}
+
+.sidebar-text {
+  font-size: 0.85rem;
+  color: #555;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.new-item {
+  font-weight: 500;
+}

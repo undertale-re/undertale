@@ -1,0 +1,10 @@
+[Unit]
+Description=Undertale Inference Server
+After=network.target
+
+[Service]
+ExecStart=gunicorn --workers=4 --bind 127.0.0.1:8000 inference.api:app
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

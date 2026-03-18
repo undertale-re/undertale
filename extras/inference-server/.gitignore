@@ -1,0 +1,4 @@
+*.ini
+*.sqlite3
+
+CLAUDE.md
