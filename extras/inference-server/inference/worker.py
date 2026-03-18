@@ -8,11 +8,6 @@ from inference.logging import get_logger, setup_logging
 from inference.models import Completion, CompletionState, CompletionType, connect
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
-from torch import no_grad, tensor
-
-from undertale.models.maskedlm import InstructionTraceTransformerEncoderForMaskedLM
-from undertale.models.tokenizer import TOKEN_PAD
-from undertale.models.tokenizer import load as load_tokenizer
 
 logger = get_logger(__name__)
 
@@ -21,6 +16,11 @@ class Worker(multiprocessing.Process):
     """Background process that consumes queued completions and runs inference."""
 
     def run(self):
+        from undertale.models.maskedlm import (
+            InstructionTraceTransformerEncoderForMaskedLM,
+        )
+        from undertale.models.tokenizer import load as load_tokenizer
+
         if not logging.root.handlers:
             setup_logging()
 
@@ -94,6 +94,10 @@ class Worker(multiprocessing.Process):
         Returns:
             The input string with [MASK] tokens replaced by predictions.
         """
+
+        from torch import no_grad, tensor
+
+        from undertale.models.tokenizer import TOKEN_PAD
 
         encoded = self.tokenizer.encode(input)
 
