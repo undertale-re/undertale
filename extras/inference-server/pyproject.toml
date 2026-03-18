@@ -12,6 +12,7 @@ requires-python = ">=3.12"
 dependencies = [
     "flask",
     "flask-jwt-extended",
+    "gunicorn",
     "ldap3",
     "pandas",
     "pyarrow",
