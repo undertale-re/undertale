@@ -12,7 +12,7 @@ logger = get_logger(__name__)
 
 
 WORKSPACE_ENVIRONMENT = "UNDERTALE_WORKSPACE"
-WORKSPACE_DEFAULT = "/etc/undertale-workspace/"
+WORKSPACE_DEFAULT = "/etc/undertale-inference/"
 SETTINGS_PATH = "{workspace}/settings.ini"
 SETTINGS_SECTION = "undertale-inference"
 
