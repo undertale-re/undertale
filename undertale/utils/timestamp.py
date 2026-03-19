@@ -1,3 +1,5 @@
+"""Generate a timestamp in the standard format."""
+
 from argparse import ArgumentParser
 
 from . import timestamp

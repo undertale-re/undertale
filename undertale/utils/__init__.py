@@ -2,11 +2,27 @@
 
 import hashlib
 import os
-import subprocess
 from datetime import datetime
-from os import makedirs
-from os.path import abspath, exists, expanduser, isfile, splitext
-from typing import Iterable, Optional, Tuple
+from multiprocessing import Queue, get_context
+from os import makedirs, stat, walk
+from os.path import (
+    abspath,
+    basename,
+    dirname,
+    exists,
+    expanduser,
+    isfile,
+    join,
+    normpath,
+    relpath,
+    sep,
+    splitext,
+)
+from queue import Empty
+from shutil import copy2
+from subprocess import CalledProcessError, check_output
+from traceback import format_exc
+from typing import Callable, Iterable, Optional, Tuple
 
 from ..exceptions import EnvironmentError as LocalEnvironmentError
 from ..exceptions import PathDoesNotExist
@@ -185,12 +201,10 @@ def find(
 
     try:
         with open(os.devnull, "w") as output:
-            path = subprocess.check_output([search, name], stderr=output).decode(
-                "utf-8"
-            )
+            path = check_output([search, name], stderr=output).decode("utf-8")
 
         return sanitize(abspath(path.strip()))
-    except subprocess.CalledProcessError:
+    except CalledProcessError:
         pass
 
     if guesses:
@@ -208,10 +222,188 @@ def find(
     raise LocalEnvironmentError(message)
 
 
+def cache_path(path: str) -> str:
+    """Copy a file or directory to the cache and return the cache path.
+
+    Checks the ``UNDERTALE_CACHE`` environment variable. If set, copies
+    ``path`` to ``$UNDERTALE_CACHE/{md5(dirname(path))[:8]}-{basename(path)}``,
+    logging each file copied. The 8-character MD5 hex prefix of the parent
+    directory prevents basename collisions between paths that share the same
+    leaf name. If the destination already exists, verifies each file's size
+    and modification time (similar to rsync) and re-copies stale files.
+    If ``UNDERTALE_CACHE`` is not set, logs a warning and returns the
+    original ``path`` unchanged.
+
+    Args:
+        path: Path to the file or directory to cache.
+
+    Returns:
+        The cache path if ``UNDERTALE_CACHE`` is set, otherwise ``path``.
+    """
+
+    cache_root = os.environ.get("UNDERTALE_CACHE")
+    if cache_root is None:
+        logger.warning(f"UNDERTALE_CACHE is not set - skipping cache for {path!r}")
+        return path
+
+    if not exists(cache_root):
+        makedirs(cache_root, exist_ok=True)
+        logger.info(f"UNDERTALE_CACHE directory created at {cache_root!r}")
+
+    if not exists(path):
+        raise FileNotFoundError(f"source path does not exist {path!r}")
+
+    stripped = path.rstrip(sep)
+    digest = hashlib.md5(dirname(stripped).encode()).hexdigest()[:8]
+    destination = join(cache_root, f"{digest}-{basename(stripped)}")
+
+    def copy_if_stale(source: str, dest: str) -> None:
+        if exists(dest):
+            source_stat = stat(source)
+            dest_stat = stat(dest)
+            if (
+                source_stat.st_size == dest_stat.st_size
+                and source_stat.st_mtime == dest_stat.st_mtime
+            ):
+                logger.info(f"path already exists in cache {dest!r}")
+                return
+        copy2(source, dest)
+        logger.info(f"cached {source!r} to {dest!r}")
+
+    if isfile(path):
+        copy_if_stale(path, destination)
+    else:
+        for source_directory, _, filenames in walk(path):
+            relative = relpath(source_directory, path)
+            destination_directory = normpath(join(destination, relative))
+            makedirs(destination_directory, exist_ok=True)
+            for filename in filenames:
+                copy_if_stale(
+                    join(source_directory, filename),
+                    join(destination_directory, filename),
+                )
+
+    return destination
+
+
+def write_parquet(frame, path: str, **kwargs) -> None:
+    """Write parquet to the given path.
+
+    This helper method enforces some defaults on a typical
+    ``frame.to_parquet()`` operation.
+
+    Arguments:
+        frame: A ``DataFrame``-like object to write (e.g.,
+            ``pandas.DataFrame``, ``polars.DataFrame``, etc.)
+        path: The path where the parquet file should be written.
+        **kargs: Additional kwargs to pass to the underlying ``to_parquet``
+            method, or override from defaults.
+
+    Raises:
+        ValueError: If the given ``frame`` object does not support
+        ``.to_parquet()``.
+    """
+
+    if not hasattr(frame, "to_parquet"):
+        raise ValueError(
+            f"{frame.__class__.__module__}.{frame.__class__.__name__} does not support `.to_parquet()`"
+        )
+
+    defaults = {
+        "compression": None,
+        "schema": None,
+    }
+    defaults.update(kwargs)
+
+    frame.to_parquet(path, **defaults)  # noqa: UT001
+
+
+class RemoteException(Exception):
+    """A wrapper around an exception raised by a remote process."""
+
+    def __init__(self, type: str, representation: str, traceback: str):
+        super().__init__()
+
+        self.type = type
+        self.representation = representation
+        self.traceback = traceback
+
+    def __str__(self):
+        return f"{self.type}: {self.representation}\n------ Remote Traceback ------\n{self.traceback}"
+
+    @classmethod
+    def from_exception(cls, exception: BaseException):
+        return cls(exception.__class__.__name__, str(exception), traceback=format_exc())
+
+
+def subprocess(
+    function: Optional[Callable] = None, timeout: Optional[float] = None
+) -> Callable:
+    """A decorator that runs the given function in a subprocess.
+
+    Arguments:
+        timeout: A timeout (seconds) after which to raise an exception. If
+            ``None``, then the subprocess will be allowed to run indefinitely.
+
+    Raises:
+        TimeoutError: If ``timeout`` seconds have passed and ``function`` has
+            not returned.
+        Exception: If an exception is raised by the decorated function.
+    """
+
+    context = get_context("fork")
+
+    def inner(function: Callable):
+        def wrapper(*args, **kwargs):
+            queue = Queue(maxsize=1)
+
+            def target(q: Queue, *args, **kwargs) -> None:
+                try:
+                    q.put(function(*args, **kwargs))
+                except BaseException as e:
+                    q.put(RemoteException.from_exception(e))
+
+            process = context.Process(
+                target=target, args=[queue, *args], kwargs=kwargs, daemon=True
+            )
+            process.start()
+
+            try:
+                result = queue.get(timeout=timeout)
+            except Empty:
+                if process.is_alive():
+                    process.terminate()
+
+                process.join()
+                queue.cancel_join_thread()
+                queue.close()
+
+                raise TimeoutError(
+                    f"{function.__name__} subprocess timeout after {timeout}s"
+                )
+
+            process.join()
+
+            if isinstance(result, RemoteException):
+                raise result
+
+            return result
+
+        return wrapper
+
+    if function is None:
+        return inner
+    return inner(function)
+
+
 __all__ = [
     "timestamp",
     "assert_path_exists",
+    "cache_path",
     "get_or_create_file",
     "get_or_create_directory",
     "find",
+    "write_parquet",
+    "subprocess",
+    "RemoteException",
 ]

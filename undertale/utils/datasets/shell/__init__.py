@@ -1,3 +1,8 @@
+"""Shells for inspecting datasets locally.
+
+By default, calling this script loads the ``pandas`` shell.
+"""
+
 from argparse import ArgumentParser
 from code import interact
 from typing import Any, Callable
@@ -8,6 +13,8 @@ logger = logging.get_logger(__name__)
 
 
 def main(load: Callable[[str], Any], mode: str):
+    """Generic dataset shell implementation."""
+
     logging.setup_logging()
 
     parser = ArgumentParser(

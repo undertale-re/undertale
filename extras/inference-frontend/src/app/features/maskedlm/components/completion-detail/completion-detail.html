@@ -1,0 +1,58 @@
+@if (completion(); as c) {
+  <div class="completion-detail">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div class="d-flex align-items-center gap-2">
+        <span [class]="stateBadgeClass(c.state)">{{ stateLabel(c.state) }}</span>
+      </div>
+      <small class="text-muted">{{ c.timestamp | date: 'medium' }}</small>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label fw-semibold">Input</label>
+      <pre class="bg-light p-3 rounded border">{{ displayText(c.input) }}</pre>
+    </div>
+
+    @if (c.output) {
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Output</label>
+        <pre class="bg-light p-3 rounded border">{{ displayText(c.output) }}</pre>
+      </div>
+    } @else if (!c.completed) {
+      <div class="mb-3 d-flex align-items-center gap-2 text-muted">
+        <span class="spinner-border spinner-border-sm"></span>
+        <span>Processing...</span>
+      </div>
+    }
+
+    @if (c.completed) {
+      <div class="feedback-section mt-4 border-top pt-3">
+        <p class="fw-semibold mb-2">How was this response?</p>
+        <div class="d-flex gap-3 mb-3 justify-content-center">
+          @for (smiley of smileys; track $index) {
+            <button
+              type="button"
+              class="btn smiley-btn"
+              [class.selected]="rating() === $index"
+              (click)="setRating($index)"
+            >
+              {{ smiley }}
+            </button>
+          }
+        </div>
+
+        <div class="comments-container" [class.open]="showComments()">
+          <div class="mb-2">
+            <label class="form-label">Comments</label>
+            <textarea
+              class="form-control"
+              rows="3"
+              placeholder="Share your thoughts..."
+              [ngModel]="comments()"
+              (ngModelChange)="onCommentsChange($event)"
+            ></textarea>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+}

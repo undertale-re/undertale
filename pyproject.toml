@@ -15,11 +15,15 @@ dependencies = [
     "dask",
     "dask-jobqueue",
     "distributed",
+    "lightning",
     "pandas",
     "pandera",
     "polars",
     "pyarrow",
-    "tokenizers"
+    "scikit-learn",
+    "tensorboard",
+    "tokenizers",
+    "torch"
 ]
 dynamic = ["version"]
 

@@ -1,14 +1,19 @@
 from undertale.logging import get_logger
 from undertale.models.tokenizer import tokenize
-from undertale.parsers import PipelineArgumentParser
+from undertale.parsers import DatasetArgumentParser
 from undertale.pipeline import Client, Cluster, fanout, flush
-from undertale.pipeline.parquet import resize_parquet
+from undertale.pipeline.parquet import (
+    Keep,
+    ParquetOperation,
+    Repartition,
+    modify_parquet,
+)
 
 logger = get_logger(__name__)
 
 
 if __name__ == "__main__":
-    parser = PipelineArgumentParser(description="dataset tokenization")
+    parser = DatasetArgumentParser(description="dataset tokenization")
 
     parser.add_argument(
         "-t", "--tokenizer", type=str, required=True, help="path to a trained tokenizer"
@@ -30,10 +35,10 @@ if __name__ == "__main__":
         logger.info("tokenizing dataset")
 
         chunks = client.submit(
-            resize_parquet,
+            modify_parquet,
             arguments.input,
-            f"{arguments.output}-resized",
-            chunks=arguments.parallelism,
+            f"{arguments.output}-repartitioned",
+            [Repartition(chunks=arguments.parallelism)],
         )
         tokenized = fanout(
             client,
@@ -42,12 +47,16 @@ if __name__ == "__main__":
             f"{arguments.output}-processed",
             tokenizer=arguments.tokenizer,
         )
+
+        merge_operations: list[ParquetOperation] = [Repartition(size="100MB")]
+        if arguments.minimize:
+            merge_operations = [Keep(["id", "tokens", "mask"]), *merge_operations]
+
         merged = client.submit(
-            resize_parquet,
+            modify_parquet,
             tokenized,
             arguments.output,
-            size="100MB",
-            keep=["input_ids", "attention_mask"] if arguments.minimize else None,
+            merge_operations,
         )
 
         merged.result()

@@ -1,3 +1,5 @@
+"""Compute the hash of one or more files."""
+
 from argparse import ArgumentParser
 
 from . import hash
