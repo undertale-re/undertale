@@ -1,6 +1,5 @@
 """Custom Dask wrappers and utilities."""
 
-from os import listdir
 from os.path import basename, join
 from typing import Callable, List, Optional
 
