@@ -1,0 +1,27 @@
+Login page should look like a central box with the app name and a username and password field, opaque over the rest of the UI until logged in.
+
+Upon login open a modal containing EULA/warning information about data collection for future model training purposes that the user can dismiss.
+
+Initial landing page at / that shows options for types of completion. For now this is just MaskedLM so we can bypass and go directly to /maskedlm/ which is a Completion UI.
+
+The Completion UI should be somewhat reminiscent of ChatGPT/Claude
+- Left side panel with selectable list of Completions
+- Top choice in the list is new completion (with a plus icon) that opens a form in the middle to submit a new completion
+- Search bar at the top that filters by text contents icontains and highlights the searched text
+- Completions in the side bar have a truncated bit of their input text so the user can recognize them. Truncated with ellipsis to column width. Completions are labeled by their state in the sidebar.
+- Selecting a previous completion puts the details in the middle, centered in the remaining page space
+- Users can add/update feedback to previous completions, but can’t edit Completion.input or output
+- Feedback takes the form of five selectable smiley faces at the bottom of the page - unhappy to happy. If a user selects a smiley, the comments box is animated in. Feedback POST requests submitted on selecting a smiley, and also on a timeout after the last character in the comments box (i.e., when the user stops typing).
+- Submitting a new completion, or selecting on in a queued or running state, polls the API until the completion is finished, showing a spinner of some sort to indicate work is in progress.
+- Polling happens if there are any completions in a non-complete state anywhere on the page (including the sidebar).
+- Queued = blue, running = yellow, complete = default (grey)
+
+Username in the top right with a logout button that pops up a modal to confirm
+
+Admins can see completions by all users and need special UI handling so that completions have a user label for the user that created them.
+
+Version number and a link to re-open the EULA modal in a footer at the bottom of the page.
+
+Bootstrap for styles. Font Awesome for icons. These are already installed.
+
+UI should be deployable with Nginx but also runnable locally with the angular development server, and proxy /api/ to one running locally. Assume port 5000 (Flask default).

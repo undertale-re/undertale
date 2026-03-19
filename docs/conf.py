@@ -13,7 +13,7 @@ import glob
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath(".."))
+sys.path.insert(0, os.path.abspath(os.pardir))
 
 import undertale
 
@@ -45,6 +45,7 @@ autodoc_default_options = {
     "show-inheritance": None,
     "members": None,
 }
+autodoc_inherit_docstrings = False
 autosummary_generate = True
 
 # -- Custom modifications ----------------------------------------------------

@@ -12,23 +12,18 @@ readme = "README.md"
 license-files = ["LICENSE.txt"]
 requires-python = ">=3.12"
 dependencies = [
-    "bs4",
-    "capstone",
-    "datasets",
-    "datatrove",
-    "filelock",
-    "lief",
+    "dask",
+    "dask-jobqueue",
+    "distributed",
     "lightning",
-    "networkx",
-    "openai",
-    "pefile", # FIXME remove
+    "pandas",
+    "pandera",
     "polars",
-    "pyghidra",
-    "requests",
+    "pyarrow",
     "scikit-learn",
     "tensorboard",
-    "torch",
-    "transformers"
+    "tokenizers",
+    "torch"
 ]
 dynamic = ["version"]
 
@@ -37,12 +32,16 @@ development = [
     "black",
     "flake8",
     "isort",
+    "mypy",
     "pip-tools",
     "pre-commit",
     "pyinstrument",
     "sphinx",
     "toml-sort"
 ]
+
+[tool.isort]
+profile = "black"
 
 [tool.setuptools.dynamic]
 version = {attr = "undertale.__version__"}

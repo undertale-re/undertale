@@ -1,16 +1,18 @@
+CLAUDE.md
+
 *.swp
 *.pyc
 *.json
 *.jsonl
-*.log
 *.parquet
-*.safetensors
-*.zip
+*.out
+*.err
+*.tfevents.*
 *.ckpt
+hparams.yaml
 
 *.DS_Store
 
 *.egg-info/
 dist/
-
-*-logs/
+build/
