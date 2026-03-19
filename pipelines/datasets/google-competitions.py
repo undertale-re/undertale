@@ -9,17 +9,24 @@ from typing import List
 from pandas import DataFrame
 
 from undertale.logging import get_logger
-from undertale.parsers import PipelineArgumentParser
+from undertale.parsers import DatasetArgumentParser
 from undertale.pipeline import Client, Cluster, fanout, flush
 from undertale.pipeline.binary import segment_and_disassemble_binary
 from undertale.pipeline.cpp import compile_cpp
 from undertale.pipeline.dask import merge
-from undertale.pipeline.parquet import hash_parquet_column, resize_parquet
+from undertale.pipeline.parquet import (
+    Deduplicate,
+    Drop,
+    HashColumn,
+    Repartition,
+    modify_parquet,
+)
 from undertale.pipeline.zip import unzip_file
 from undertale.utils import (
     assert_path_exists,
     get_or_create_directory,
     get_or_create_file,
+    write_parquet,
 )
 
 logger = get_logger(__name__)
@@ -246,18 +253,21 @@ def parse_challenge(input: str, output: str) -> str:
             total += 1
 
         frame = DataFrame(rows)
-        frame.to_parquet(output)
+
+        write_parquet(frame, output)
 
         return output
 
 
 if __name__ == "__main__":
-    parser = PipelineArgumentParser(description="google competitions dataset")
+    parser = DatasetArgumentParser(description="google competitions dataset")
     arguments = parser.parse_args()
     parser.setup(arguments)
 
     with (
-        Cluster(type=arguments.cluster, partition="gaia", parallelism=arguments.parallelism) as cluster,
+        Cluster(
+            type=arguments.cluster, partition="gaia", parallelism=arguments.parallelism
+        ) as cluster,
         Client(cluster) as client,
     ):
 
@@ -299,45 +309,44 @@ if __name__ == "__main__":
         logger.info("successfully parsed competitions")
 
         ## Resize dataset.
+        logger.info("submitting repartitioning of the dataset to the cluster")
         chunks = client.submit(
-            resize_parquet,
+            modify_parquet,
             parsed,
             f"{arguments.output}-resized",
-            size="50MB",
+            [Repartition(size="100MB")],
         )
 
         # Post-process
-        logger.info("compiling")
+        logger.info(
+            "materializing repartition results and submitting compilation tasks to the cluster"
+        )
         compiled = fanout(client, compile_cpp, chunks, f"{arguments.output}-compiled")
-        logger.info("successfully compiled the dataset")
 
-        logger.info("segmenting and disassembling")
+        logger.info(
+            "materializing compilation results and submitting segmentation/disassembly tasks to the cluster"
+        )
         disassembled = fanout(
             client,
             segment_and_disassemble_binary,
             compiled,
             f"{arguments.output}-disassembled",
         )
-        logger.info("successfully segmented and disassembled the dataset")
 
-        logger.info("deduplicating by `binary_hash`")
-        hashed = fanout(
-            client,
-            hash_parquet_column,
-            disassembled,
-            f"{arguments.output}-hashed",
-            column="binary",
-            target="binary_hash",
+        logger.info(
+            "materializing segmentation/disassembly results and submitting deduplication task to the cluster"
         )
-        logger.info("successfully deduplicated by `binary_hash`")
-
         merged = client.submit(
-            resize_parquet,
-            hashed,
+            modify_parquet,
+            disassembled,
             arguments.output,
-            size="100MB",
-            deduplicate=["binary_hash"],
-            drop=["binary_hash"],
+            [
+                HashColumn("binary", "binary_hash"),
+                Deduplicate(["binary_hash"]),
+                Drop(["binary_hash"]),
+                Repartition(size="100MB"),
+            ],
+            compression="snappy",
         )
 
         merged.result()
