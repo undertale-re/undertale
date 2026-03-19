@@ -22,6 +22,24 @@ For example, to build the HumanEval-X dataset from the raw dataset snapshot at
         humaneval-x-raw/20251114-100300.tgz \
         humaneval-x
 
+.. _environments:
+
+Environments
+^^^^^^^^^^^^
+
+It can be useful to customize your environment to make controling Undertale
+parameters for your specific setup a bit easier. There are a couple of example
+environment files included in the ``environments`` directory which can be
+activated as follows:
+
+.. code-block:: bash
+
+    source environments/example.env
+
+The ``environments`` directory includes a simple example for local development
+as well as a more complex example representing a SLURM cluster for distributed
+pipelines and training.
+
 .. _parallelism:
 
 Parallelism
