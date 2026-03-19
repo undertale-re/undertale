@@ -7,6 +7,8 @@ Undertale inference frontend.
 A lightweight LLM-like inference UI that sits on top of the Undertale inference
 server API.
 
+![Undertale Inference Frontend UI](images/completion.png)
+
 ## Installation
 
 ### Prerequisites
@@ -34,7 +36,11 @@ nginx -s reload
 
 ## Usage
 
-Access the app via a web browser.
+Access the app via a web browser. Enter assembly with `[MASK]` tokens and
+submit to get model predictions. After a completion is returned, rate the
+response and leave optional comments.
+
+![Completed inference with feedback](images/feedback.png)
 
 ## Contributing
 
