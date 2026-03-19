@@ -1,8 +1,11 @@
 {
   "name": "undertale-frontend",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "scripts": {
     "ng": "ng",
+    "prebuild": "node scripts/set-version.mjs",
+    "prestart": "node scripts/set-version.mjs",
+    "preserve": "node scripts/set-version.mjs",
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",

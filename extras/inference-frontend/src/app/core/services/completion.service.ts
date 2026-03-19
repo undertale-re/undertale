@@ -51,7 +51,7 @@ export class CompletionService {
 
   create(input: string): void {
     this.http.post<Completion>('/api/maskedlm/completion/', { input }).subscribe((completion) => {
-      this.completions.update((list) => [...list, completion]);
+      this.completions.update((list) => [completion, ...list]);
       this.selected.set(completion);
     });
   }

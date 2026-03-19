@@ -173,7 +173,7 @@ def create_app() -> Flask:
         )
         if not user.admin:
             query = query.filter_by(user_id=user.id)
-        completions = query.all()
+        completions = query.order_by(Completion.timestamp.desc()).all()
         return jsonify([serialize_completion(c) for c in completions])
 
     @application.route("/maskedlm/completion/", methods=["POST"])

@@ -6,6 +6,7 @@ import { EulaService } from './core/services/eula.service';
 import { Login } from './features/login/login';
 import { EulaModal } from './shared/components/eula-modal/eula-modal';
 import { ConfirmModal } from './shared/components/confirm-modal/confirm-modal';
+import { version } from '../environments/version';
 
 @Component({
   selector: 'app-root',
@@ -18,7 +19,7 @@ export class App {
   private readonly completionService = inject(CompletionService);
   private readonly eulaService = inject(EulaService);
 
-  protected readonly version = '0.1.0';
+  protected readonly version = version;
   protected showEula = signal(false);
   protected showLogoutConfirm = signal(false);
 
