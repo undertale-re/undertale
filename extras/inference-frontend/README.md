@@ -11,15 +11,30 @@ server API.
 
 ### Prerequisites
 
-Coming soon...
+- [NGINX][nginx] as a reverse proxy (to serve static files and proxy `/api/`)
+- The inference server must be installed and running
+
+[nginx]: https://nginx.org/
 
 ### Installing
 
-Coming soon...
+Copy the production bundle to the NGINX web root:
+
+```bash
+cp -r dist/undertale-frontend/browser/* /var/www/html/
+```
+
+Configure NGINX to serve the static files using the example configuration as a
+reference:
+
+```bash
+cp examples/nginx.conf /etc/nginx/conf.d/undertale-frontend.conf
+nginx -s reload
+```
 
 ## Usage
 
-Coming soon...
+Access the app via a web browser.
 
 ## Contributing
 
@@ -41,4 +56,19 @@ conda activate undertale
 
 ### Development Server
 
-Coming soon...
+```bash
+npm start
+```
+
+This runs `ng serve` and starts the Angular dev server at
+`http://localhost:4200`. It proxies all `/api/` requests to
+`http://localhost:5000` (the Flask dev server). The inference server must be
+running before starting the development frontend.
+
+### Production Bundle
+
+To deploy the app, build the production bundle:
+
+```bash
+npm run build
+```
