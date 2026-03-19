@@ -3,7 +3,7 @@
     <div class="sidebar-backdrop d-md-none" (click)="closeSidebar()"></div>
   }
   <app-sidebar class="sidebar-panel border-end" [class.open]="showSidebar()" />
-  <main class="flex-grow-1 d-flex align-items-center justify-content-center overflow-auto p-4">
+  <main class="flex-grow-1 d-flex justify-content-center overflow-auto p-4">
     <button
       class="sidebar-toggle btn btn-outline-secondary btn-sm d-md-none position-absolute top-0 start-0 m-2"
       type="button"
@@ -11,10 +11,12 @@
     >
       <i class="fa fa-bars"></i>
     </button>
-    @if (completionService.selected() === null) {
-      <app-new-completion />
-    } @else {
-      <app-completion-detail />
-    }
+    <div class="my-auto">
+      @if (completionService.selected() === null) {
+        <app-new-completion />
+      } @else {
+        <app-completion-detail />
+      }
+    </div>
   </main>
 </div>
