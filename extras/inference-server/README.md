@@ -129,9 +129,18 @@ conda env update -f environment.development.yml
 conda activate undertale
 ```
 
+You might also find the environment file `environment/development.env` useful
+for development purposes. This file sets environment variables for the project
+to a useful configuration for development. To activate it, run:
+
+```bash
+source environment/development.env
+```
+
 ### Development Server
 
-Start the Flask development server directly:
+After initialization and migration, you can start the Flask development server
+directly:
 
 ```bash
 flask --app inference.api run
