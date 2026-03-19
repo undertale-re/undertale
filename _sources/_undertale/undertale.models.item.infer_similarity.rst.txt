@@ -1,6 +1,0 @@
-infer\_similarity
-=================
-
-.. automodule:: undertale.models.item.infer_similarity
-
-   

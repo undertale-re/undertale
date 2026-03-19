@@ -23,14 +23,21 @@ commit.
 We also use `isort <https://pycqa.github.io/isort/>`_ for automatic import
 sorting.
 
-Linting
-^^^^^^^
+Linting & Type Checking
+^^^^^^^^^^^^^^^^^^^^^^^
 
 Code linting helps catch errors, clean up dead code, and anticipate edge cases
 early. 
 
 `Flake8 <https://flake8.pycqa.org/en/latest/>`_ is a popular python linter.
 We use it on all code, every commit.
+
+`mypy <https://github.com/python/mypy>`_ is the Python static type checker.
+We use it on all code, every commit.
+
+We also try to use Python type hints everywhere to get the most out of MyPy,
+but acknowledge that it's not necessary/helpful in all cases (e.g., interfacing
+with external code that doesn't have type hints).
 
 Pre-Commit Hooks
 ^^^^^^^^^^^^^^^^

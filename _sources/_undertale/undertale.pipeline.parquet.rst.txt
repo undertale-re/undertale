@@ -1,0 +1,24 @@
+parquet
+=======
+
+.. automodule:: undertale.pipeline.parquet
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      modify_parquet
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      Deduplicate
+      Drop
+      HashColumn
+      Keep
+      ParquetOperation
+      Rename
+      Repartition
+   

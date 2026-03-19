@@ -8,6 +8,27 @@ utils
 
    .. autosummary::
    
-      allow_sigint
-      suppress_sigint
+      assert_path_exists
+      cache_path
+      enforce_extension
+      find
+      get_or_create_directory
+      get_or_create_file
+      hash
+      subprocess
+      timestamp
+      write_parquet
    
+   .. rubric:: Exceptions
+
+   .. autosummary::
+   
+      RemoteException
+   
+.. rubric:: Modules
+
+.. autosummary::
+   :toctree:
+   :recursive:
+
+   datasets

@@ -8,6 +8,7 @@ logging
 
    .. autosummary::
    
+      get_logger
       setup_logging
    
    .. rubric:: Classes

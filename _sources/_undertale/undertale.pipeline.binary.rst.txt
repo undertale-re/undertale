@@ -1,0 +1,13 @@
+binary
+======
+
+.. automodule:: undertale.pipeline.binary
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      segment_and_disassemble
+      segment_and_disassemble_binary
+   

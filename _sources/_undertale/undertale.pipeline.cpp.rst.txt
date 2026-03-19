@@ -1,0 +1,13 @@
+cpp
+===
+
+.. automodule:: undertale.pipeline.cpp
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      compile
+      compile_cpp
+   

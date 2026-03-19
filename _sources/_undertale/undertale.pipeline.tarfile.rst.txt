@@ -1,0 +1,13 @@
+tarfile
+=======
+
+.. automodule:: undertale.pipeline.tarfile
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      compress_tarfile
+      extract_tarfile
+   

@@ -1,6 +1,0 @@
-finetune\_summarization
-=======================
-
-.. automodule:: undertale.models.item.finetune_summarization
-
-   

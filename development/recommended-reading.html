@@ -5,13 +5,13 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Recommended Reading &#8212; Undertale 0.1.0 documentation</title>
+    <title>Recommended Reading &#8212; Undertale 0.2.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
-    <script src="../_static/documentation_options.js?v=01f34227"></script>
-    <script src="../_static/doctools.js?v=9bcbadda"></script>
-    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/documentation_options.js?v=938c9ccc"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="author" title="About these documents" href="../about.html" />
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -36,13 +36,15 @@
             
   <section id="recommended-reading">
 <h1>Recommended Reading<a class="headerlink" href="#recommended-reading" title="Link to this heading">¶</a></h1>
-<p>We use a lot of external libraries in Undertale - if you’re not already pretty
-familiar with the following, it’s worth reading through their documentation and
-possibly completing their tutorial(s) before contributing.</p>
+<p>We use a lot of external libraries and tools in Undertale - if you’re not
+already pretty familiar with the following, it’s worth reading through their
+documentation and possibly completing their tutorial(s) before contributing.</p>
 <dl class="simple">
-<dt><a class="reference external" href="https://github.com/huggingface/datatrove">datatrove</a></dt><dd><p>The dataset building pipeline library from the folks at HuggingFace. We use
-this to codify all of our dataset building pipelines and parallelize them
-across compute infrastructure.</p>
+<dt><a class="reference external" href="https://www.dask.org/">dask</a></dt><dd><p>The parallel computing library that supports distributed computing via
+SLURM (among others). We use dask for all of our data processing pipelines.</p>
+</dd>
+<dt><a class="reference external" href="https://pandera.readthedocs.io/">Pandera</a></dt><dd><p>The DataFrame schema validation library. We use Pandera to validate
+datasets and enforce common schema across processing stages.</p>
 </dd>
 <dt><a class="reference external" href="https://pytorch.org/">PyTorch</a></dt><dd><p>The deep learning library. If you’re not already deeply familiar with
 PyTorch, the textbook <a class="reference external" href="https://isip.piconepress.com/courses/temple/ece_4822/resources/books/Deep-Learning-with-PyTorch.pdf">Deep Learning with Pytorch</a>
@@ -52,6 +54,10 @@ is an excellent resource.</p>
 We largely let Lightning handle the complexities of multi-node, multi-GPU
 training, validation, and integration with tensorboard for monitoring
 training.</p>
+</dd>
+<dt><a class="reference external" href="https://binary.ninja/">Binary Ninja</a></dt><dd><p>Binary Ninja is our disassembler/decompiler of choice. It’s fast and has a
+robust Python API. Most of our dataset pipelines require an active Binary
+Ninja license.</p>
 </dd>
 <dt><a class="reference external" href="https://www.tensorflow.org/tensorboard">Tensorboard</a></dt><dd><p>The visualization tool we use for tracking training runs.</p>
 </dd>

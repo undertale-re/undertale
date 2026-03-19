@@ -1,0 +1,17 @@
+datasets
+========
+
+.. automodule:: undertale.utils.datasets
+
+   
+.. rubric:: Modules
+
+.. autosummary::
+   :toctree:
+   :recursive:
+
+   drop
+   rename
+   repartition
+   shell
+   split

@@ -5,18 +5,18 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>utils &#8212; Undertale 0.1.0 documentation</title>
+    <title>utils &#8212; Undertale 0.2.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
-    <script src="../_static/documentation_options.js?v=01f34227"></script>
-    <script src="../_static/doctools.js?v=9bcbadda"></script>
-    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/documentation_options.js?v=938c9ccc"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="author" title="About these documents" href="../about.html" />
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Glossary" href="../glossary.html" />
-    <link rel="prev" title="patch" href="undertale.patch.html" />
+    <link rel="next" title="datasets" href="undertale.utils.datasets.html" />
+    <link rel="prev" title="schema" href="undertale.schema.html" />
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
@@ -36,33 +36,218 @@
             
   <section id="module-undertale.utils">
 <span id="utils"></span><h1>utils<a class="headerlink" href="#module-undertale.utils" title="Link to this heading">¶</a></h1>
-<p>Miscellaneous utilities.</p>
+<p>Utilities and helper scripts.</p>
 <p class="rubric">Functions</p>
 <table class="autosummary longtable docutils align-default">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.utils.allow_sigint" title="undertale.utils.allow_sigint"><code class="xref py py-obj docutils literal notranslate"><span class="pre">allow_sigint</span></code></a>()</p></td>
-<td><p>Enable the default SIGINT (Ctrl-C) handler.</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.utils.assert_path_exists" title="undertale.utils.assert_path_exists"><code class="xref py py-obj docutils literal notranslate"><span class="pre">assert_path_exists</span></code></a>(path)</p></td>
+<td><p>Assert that a given path exists.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#undertale.utils.suppress_sigint" title="undertale.utils.suppress_sigint"><code class="xref py py-obj docutils literal notranslate"><span class="pre">suppress_sigint</span></code></a>()</p></td>
-<td><p>Replace the usual SIGINT (Ctrl-C) to exit gracefully.</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#undertale.utils.cache_path" title="undertale.utils.cache_path"><code class="xref py py-obj docutils literal notranslate"><span class="pre">cache_path</span></code></a>(path)</p></td>
+<td><p>Copy a file or directory to the cache and return the cache path.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">enforce_extension</span></code>(path, extension)</p></td>
+<td><p>Set the file extension of the given path.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#undertale.utils.find" title="undertale.utils.find"><code class="xref py py-obj docutils literal notranslate"><span class="pre">find</span></code></a>(name[, environment, guesses])</p></td>
+<td><p>Finds a particular binary on this system.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.utils.get_or_create_directory" title="undertale.utils.get_or_create_directory"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_or_create_directory</span></code></a>(path)</p></td>
+<td><p>Get the given directory, creating it if it doesn't already exist.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#undertale.utils.get_or_create_file" title="undertale.utils.get_or_create_file"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_or_create_file</span></code></a>(path)</p></td>
+<td><p>Get the given file, creating it if it doesn't already exist.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">hash</span></code>(data)</p></td>
+<td><p>Compute the cryptographic hash of the given bytes.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#undertale.utils.subprocess" title="undertale.utils.subprocess"><code class="xref py py-obj docutils literal notranslate"><span class="pre">subprocess</span></code></a>([function, timeout])</p></td>
+<td><p>A decorator that runs the given function in a subprocess.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.utils.timestamp" title="undertale.utils.timestamp"><code class="xref py py-obj docutils literal notranslate"><span class="pre">timestamp</span></code></a>([time])</p></td>
+<td><p>Generate a timestamp string in the standard format.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#undertale.utils.write_parquet" title="undertale.utils.write_parquet"><code class="xref py py-obj docutils literal notranslate"><span class="pre">write_parquet</span></code></a>(frame, path, **kwargs)</p></td>
+<td><p>Write parquet to the given path.</p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Exceptions</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.utils.RemoteException" title="undertale.utils.RemoteException"><code class="xref py py-obj docutils literal notranslate"><span class="pre">RemoteException</span></code></a>(type, representation, traceback)</p></td>
+<td><p>A wrapper around an exception raised by a remote process.</p></td>
 </tr>
 </tbody>
 </table>
 <dl class="py function">
-<dt class="sig sig-object py" id="undertale.utils.suppress_sigint">
-<span class="sig-prename descclassname"><span class="pre">undertale.utils.</span></span><span class="sig-name descname"><span class="pre">suppress_sigint</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#undertale.utils.suppress_sigint" title="Link to this definition">¶</a></dt>
-<dd><p>Replace the usual SIGINT (Ctrl-C) to exit gracefully.</p>
-<p>This just suppresses the stack trace and prints an error message instead.</p>
+<dt class="sig sig-object py" id="undertale.utils.timestamp">
+<span class="sig-prename descclassname"><span class="pre">undertale.utils.</span></span><span class="sig-name descname"><span class="pre">timestamp</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">datetime</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#undertale.utils.timestamp" title="Link to this definition">¶</a></dt>
+<dd><p>Generate a timestamp string in the standard format.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>time</strong> – An optional datetime for which to generate a timestamp. If not
+provided the current date and time will be used.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A string timestamp in the standard format.</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="undertale.utils.allow_sigint">
-<span class="sig-prename descclassname"><span class="pre">undertale.utils.</span></span><span class="sig-name descname"><span class="pre">allow_sigint</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#undertale.utils.allow_sigint" title="Link to this definition">¶</a></dt>
-<dd><p>Enable the default SIGINT (Ctrl-C) handler.</p>
-<p>This may be called after <cite>suppress_sigint()</cite> to enable the default handler
-again.</p>
+<dt class="sig sig-object py" id="undertale.utils.assert_path_exists">
+<span class="sig-prename descclassname"><span class="pre">undertale.utils.</span></span><span class="sig-name descname"><span class="pre">assert_path_exists</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#undertale.utils.assert_path_exists" title="Link to this definition">¶</a></dt>
+<dd><p>Assert that a given path exists.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>path</strong> – The path to check.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The absolute version of the given path.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="undertale.exceptions.html#undertale.exceptions.PathDoesNotExist" title="undertale.exceptions.PathDoesNotExist"><strong>PathDoesNotExist</strong></a> – If the given path does not exist.</p>
+</dd>
+</dl>
 </dd></dl>
 
+<dl class="py function">
+<dt class="sig sig-object py" id="undertale.utils.cache_path">
+<span class="sig-prename descclassname"><span class="pre">undertale.utils.</span></span><span class="sig-name descname"><span class="pre">cache_path</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#undertale.utils.cache_path" title="Link to this definition">¶</a></dt>
+<dd><p>Copy a file or directory to the cache and return the cache path.</p>
+<p>Checks the <code class="docutils literal notranslate"><span class="pre">UNDERTALE_CACHE</span></code> environment variable. If set, copies
+<code class="docutils literal notranslate"><span class="pre">path</span></code> to <code class="docutils literal notranslate"><span class="pre">$UNDERTALE_CACHE/{md5(dirname(path))[:8]}-{basename(path)}</span></code>,
+logging each file copied. The 8-character MD5 hex prefix of the parent
+directory prevents basename collisions between paths that share the same
+leaf name. If the destination already exists, verifies each file’s size
+and modification time (similar to rsync) and re-copies stale files.
+If <code class="docutils literal notranslate"><span class="pre">UNDERTALE_CACHE</span></code> is not set, logs a warning and returns the
+original <code class="docutils literal notranslate"><span class="pre">path</span></code> unchanged.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>path</strong> – Path to the file or directory to cache.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The cache path if <code class="docutils literal notranslate"><span class="pre">UNDERTALE_CACHE</span></code> is set, otherwise <code class="docutils literal notranslate"><span class="pre">path</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="undertale.utils.get_or_create_file">
+<span class="sig-prename descclassname"><span class="pre">undertale.utils.</span></span><span class="sig-name descname"><span class="pre">get_or_create_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">bool</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#undertale.utils.get_or_create_file" title="Link to this definition">¶</a></dt>
+<dd><p>Get the given file, creating it if it doesn’t already exist.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>path</strong> – The path to the file to get or create.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The absolute version of the given path and a boolean indicating if it
+was created by this function.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="undertale.utils.get_or_create_directory">
+<span class="sig-prename descclassname"><span class="pre">undertale.utils.</span></span><span class="sig-name descname"><span class="pre">get_or_create_directory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">bool</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#undertale.utils.get_or_create_directory" title="Link to this definition">¶</a></dt>
+<dd><p>Get the given directory, creating it if it doesn’t already exist.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>path</strong> – The path to the directory to get or create.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The absolute version of the given path and a boolean indicating if it
+was created by this function.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="undertale.utils.find">
+<span class="sig-prename descclassname"><span class="pre">undertale.utils.</span></span><span class="sig-name descname"><span class="pre">find</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">environment</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">guesses</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Iterable</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#undertale.utils.find" title="Link to this definition">¶</a></dt>
+<dd><p>Finds a particular binary on this system.</p>
+<p>Attempts to find the binary given by <code class="docutils literal notranslate"><span class="pre">name</span></code>, first checking the value of
+the environment variable named <code class="docutils literal notranslate"><span class="pre">environment</span></code> (if provided), then by
+checking the system path, then finally checking hardcoded paths in
+<code class="docutils literal notranslate"><span class="pre">guesses</span></code> (if provided). This function is cross-platform compatible - it
+works on Windows, Linux, and Mac. If there are spaces in the path found,
+this function will wrap its return value in double quotes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> – Binary name.</p></li>
+<li><p><strong>environment</strong> – An optional environment variable to check.</p></li>
+<li><p><strong>guesses</strong> – An optional list of hardcoded paths to check.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A string with the absolute path to the binary if found, otherwise
+<code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="undertale.utils.write_parquet">
+<span class="sig-prename descclassname"><span class="pre">undertale.utils.</span></span><span class="sig-name descname"><span class="pre">write_parquet</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">frame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#undertale.utils.write_parquet" title="Link to this definition">¶</a></dt>
+<dd><p>Write parquet to the given path.</p>
+<p>This helper method enforces some defaults on a typical
+<code class="docutils literal notranslate"><span class="pre">frame.to_parquet()</span></code> operation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>frame</strong> – A <code class="docutils literal notranslate"><span class="pre">DataFrame</span></code>-like object to write (e.g.,
+<code class="docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code>, <code class="docutils literal notranslate"><span class="pre">polars.DataFrame</span></code>, etc.)</p></li>
+<li><p><strong>path</strong> – The path where the parquet file should be written.</p></li>
+<li><p><strong>**kargs</strong> – Additional kwargs to pass to the underlying <code class="docutils literal notranslate"><span class="pre">to_parquet</span></code>
+method, or override from defaults.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>ValueError</strong> – If the given <code class="docutils literal notranslate"><span class="pre">frame</span></code> object does not support</p></li>
+<li><p><strong>.to_parquet</strong><strong>(</strong><strong>)</strong><strong>`</strong> – </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="undertale.utils.subprocess">
+<span class="sig-prename descclassname"><span class="pre">undertale.utils.</span></span><span class="sig-name descname"><span class="pre">subprocess</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">function</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Callable</span></span></span><a class="headerlink" href="#undertale.utils.subprocess" title="Link to this definition">¶</a></dt>
+<dd><p>A decorator that runs the given function in a subprocess.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>timeout</strong> – A timeout (seconds) after which to raise an exception. If
+<code class="docutils literal notranslate"><span class="pre">None</span></code>, then the subprocess will be allowed to run indefinitely.</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>TimeoutError</strong> – If <code class="docutils literal notranslate"><span class="pre">timeout</span></code> seconds have passed and <code class="docutils literal notranslate"><span class="pre">function</span></code> has
+    not returned.</p></li>
+<li><p><strong>Exception</strong> – If an exception is raised by the decorated function.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py exception">
+<dt class="sig sig-object py" id="undertale.utils.RemoteException">
+<span class="property"><span class="k"><span class="pre">exception</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">undertale.utils.</span></span><span class="sig-name descname"><span class="pre">RemoteException</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">representation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">traceback</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.utils.RemoteException" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p>
+<p>A wrapper around an exception raised by a remote process.</p>
+</dd></dl>
+
+<p class="rubric">Modules</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="undertale.utils.datasets.html#module-undertale.utils.datasets" title="undertale.utils.datasets"><code class="xref py py-obj docutils literal notranslate"><span class="pre">datasets</span></code></a></p></td>
+<td><p>Dataset-relevant utilities.</p></td>
+</tr>
+</tbody>
+</table>
 </section>
 
 
@@ -73,10 +258,10 @@ again.</p>
     <ul>
         <li>
           &larr;
-          <a href="undertale.patch.html" title="Previous document">patch</a>
+          <a href="undertale.schema.html" title="Previous document">schema</a>
         </li>
         <li>
-          <a href="../glossary.html" title="Next document">Glossary</a>
+          <a href="undertale.utils.datasets.html" title="Next document">datasets</a>
           &rarr;
         </li>
     </ul>
@@ -112,14 +297,23 @@ again.</p>
 <li class="toctree-l1"><a class="reference internal" href="../development/index.html">Development</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../reference.html">Reference</a><ul class="current">
 <li class="toctree-l2 current"><a class="reference internal" href="undertale.html">undertale</a><ul class="current">
-<li class="toctree-l3"><a class="reference internal" href="undertale.datasets.html">datasets</a></li>
-<li class="toctree-l3"><a class="reference internal" href="undertale.evaluation.html">evaluation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.exceptions.html">exceptions</a></li>
 <li class="toctree-l3"><a class="reference internal" href="undertale.logging.html">logging</a></li>
 <li class="toctree-l3"><a class="reference internal" href="undertale.models.html">models</a></li>
-<li class="toctree-l3"><a class="reference internal" href="undertale.patch.html">patch</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.parsers.html">parsers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.pipeline.html">pipeline</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.schema.html">schema</a></li>
 <li class="toctree-l3 current"><a class="current reference internal" href="#">utils</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#undertale.utils.suppress_sigint"><code class="docutils literal notranslate"><span class="pre">suppress_sigint()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#undertale.utils.allow_sigint"><code class="docutils literal notranslate"><span class="pre">allow_sigint()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#undertale.utils.timestamp"><code class="docutils literal notranslate"><span class="pre">timestamp()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#undertale.utils.assert_path_exists"><code class="docutils literal notranslate"><span class="pre">assert_path_exists()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#undertale.utils.cache_path"><code class="docutils literal notranslate"><span class="pre">cache_path()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#undertale.utils.get_or_create_file"><code class="docutils literal notranslate"><span class="pre">get_or_create_file()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#undertale.utils.get_or_create_directory"><code class="docutils literal notranslate"><span class="pre">get_or_create_directory()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#undertale.utils.find"><code class="docutils literal notranslate"><span class="pre">find()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#undertale.utils.write_parquet"><code class="docutils literal notranslate"><span class="pre">write_parquet()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#undertale.utils.subprocess"><code class="docutils literal notranslate"><span class="pre">subprocess()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#undertale.utils.RemoteException"><code class="docutils literal notranslate"><span class="pre">RemoteException</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.utils.datasets.html">datasets</a></li>
 </ul>
 </li>
 </ul>
@@ -136,8 +330,8 @@ again.</p>
   <li><a href="../index.html">Documentation overview</a><ul>
   <li><a href="../reference.html">Reference</a><ul>
   <li><a href="undertale.html">undertale</a><ul>
-      <li>Previous: <a href="undertale.patch.html" title="previous chapter">patch</a></li>
-      <li>Next: <a href="../glossary.html" title="next chapter">Glossary</a></li>
+      <li>Previous: <a href="undertale.schema.html" title="previous chapter">schema</a></li>
+      <li>Next: <a href="undertale.utils.datasets.html" title="next chapter">datasets</a></li>
   </ul></li>
   </ul></li>
   </ul></li>

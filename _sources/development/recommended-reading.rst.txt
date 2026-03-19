@@ -1,14 +1,17 @@
 Recommended Reading
 -------------------
 
-We use a lot of external libraries in Undertale - if you're not already pretty
-familiar with the following, it's worth reading through their documentation and
-possibly completing their tutorial(s) before contributing.
+We use a lot of external libraries and tools in Undertale - if you're not
+already pretty familiar with the following, it's worth reading through their
+documentation and possibly completing their tutorial(s) before contributing.
 
-`datatrove <https://github.com/huggingface/datatrove>`_
-    The dataset building pipeline library from the folks at HuggingFace. We use
-    this to codify all of our dataset building pipelines and parallelize them
-    across compute infrastructure.
+`dask <https://www.dask.org/>`_
+    The parallel computing library that supports distributed computing via
+    SLURM (among others). We use dask for all of our data processing pipelines.
+
+`Pandera <https://pandera.readthedocs.io/>`_
+    The DataFrame schema validation library. We use Pandera to validate
+    datasets and enforce common schema across processing stages.
 
 `PyTorch <https://pytorch.org/>`_
     The deep learning library. If you're not already deeply familiar with
@@ -21,6 +24,11 @@ possibly completing their tutorial(s) before contributing.
     We largely let Lightning handle the complexities of multi-node, multi-GPU
     training, validation, and integration with tensorboard for monitoring
     training.
+
+`Binary Ninja <https://binary.ninja/>`_
+    Binary Ninja is our disassembler/decompiler of choice. It's fast and has a
+    robust Python API. Most of our dataset pipelines require an active Binary
+    Ninja license.
 
 `Tensorboard <https://www.tensorflow.org/tensorboard>`_
     The visualization tool we use for tracking training runs.

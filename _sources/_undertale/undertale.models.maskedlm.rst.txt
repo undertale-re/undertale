@@ -1,0 +1,15 @@
+maskedlm
+========
+
+.. automodule:: undertale.models.maskedlm
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      InstructionTraceTransformerEncoderForMaskedLM
+      InstructionTraceTransformerEncoderForMaskedLMConfiguration
+      MaskedLMCollator
+      MaskedLMHead
+   

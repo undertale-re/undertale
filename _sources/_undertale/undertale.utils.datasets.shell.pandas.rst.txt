@@ -1,0 +1,13 @@
+pandas
+======
+
+.. automodule:: undertale.utils.datasets.shell.pandas
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      load
+      main
+   

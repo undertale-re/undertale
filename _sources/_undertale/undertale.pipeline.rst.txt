@@ -1,0 +1,18 @@
+pipeline
+========
+
+.. automodule:: undertale.pipeline
+
+   
+.. rubric:: Modules
+
+.. autosummary::
+   :toctree:
+   :recursive:
+
+   binary
+   cpp
+   dask
+   json
+   parquet
+   tarfile

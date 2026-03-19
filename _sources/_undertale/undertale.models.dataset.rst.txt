@@ -1,0 +1,12 @@
+dataset
+=======
+
+.. automodule:: undertale.models.dataset
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      ParquetDataset
+   

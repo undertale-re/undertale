@@ -1,0 +1,17 @@
+transformer
+===========
+
+.. automodule:: undertale.models.transformer
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      Attention
+      FeedForward
+      MultiHeadAttention
+      PositionEmbedding
+      TransformerEncoder
+      TransformerEncoderLayer
+   

@@ -1,0 +1,12 @@
+rename
+======
+
+.. automodule:: undertale.utils.datasets.rename
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      parse_rename
+   

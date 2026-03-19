@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>maskedlm &#8212; Undertale 0.2.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=938c9ccc"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="author" title="About these documents" href="../about.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="tokenizer" href="undertale.models.tokenizer.html" />
+    <link rel="prev" title="dataset" href="undertale.models.dataset.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="module-undertale.models.maskedlm">
+<span id="maskedlm"></span><h1>maskedlm<a class="headerlink" href="#module-undertale.models.maskedlm" title="Link to this heading">¶</a></h1>
+<p>Masked language modeling implementation.</p>
+<p class="rubric">Classes</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.models.maskedlm.InstructionTraceTransformerEncoderForMaskedLM" title="undertale.models.maskedlm.InstructionTraceTransformerEncoderForMaskedLM"><code class="xref py py-obj docutils literal notranslate"><span class="pre">InstructionTraceTransformerEncoderForMaskedLM</span></code></a>(...)</p></td>
+<td><p>A transformer encoder with a masked language modeling head.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#undertale.models.maskedlm.InstructionTraceTransformerEncoderForMaskedLMConfiguration" title="undertale.models.maskedlm.InstructionTraceTransformerEncoderForMaskedLMConfiguration"><code class="xref py py-obj docutils literal notranslate"><span class="pre">InstructionTraceTransformerEncoderForMaskedLMConfiguration</span></code></a>()</p></td>
+<td><p>Model size configurations with associated parameters.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.models.maskedlm.MaskedLMCollator" title="undertale.models.maskedlm.MaskedLMCollator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">MaskedLMCollator</span></code></a>(mask_token_id, vocab_size)</p></td>
+<td><p>Collation function for masked language modeling.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#undertale.models.maskedlm.MaskedLMHead" title="undertale.models.maskedlm.MaskedLMHead"><code class="xref py py-obj docutils literal notranslate"><span class="pre">MaskedLMHead</span></code></a>(hidden_dimensions, vocab_size, eps)</p></td>
+<td><p>Masked language modeling head.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py class">
+<dt class="sig sig-object py" id="undertale.models.maskedlm.MaskedLMCollator">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">undertale.models.maskedlm.</span></span><span class="sig-name descname"><span class="pre">MaskedLMCollator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mask_token_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vocab_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">probability</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.15</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.models.maskedlm.MaskedLMCollator" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Collation function for masked language modeling.</p>
+<p>Masking follows the BERT convention: of the candidate positions selected
+at the given <code class="docutils literal notranslate"><span class="pre">probability</span></code>, 80% are replaced with <code class="docutils literal notranslate"><span class="pre">[MASK]</span></code>, 10% with
+a random token from the vocabulary, and 10% are left unchanged. Only
+non-padding positions are eligible for masking.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mask_token_id</strong> – The token ID of the <code class="docutils literal notranslate"><span class="pre">[MASK]</span></code> special token.</p></li>
+<li><p><strong>vocab_size</strong> – The vocabulary size, used for random token replacement.</p></li>
+<li><p><strong>probability</strong> – The fraction of non-padding tokens selected as masking
+candidates per sequence.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="undertale.models.maskedlm.MaskedLMHead">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">undertale.models.maskedlm.</span></span><span class="sig-name descname"><span class="pre">MaskedLMHead</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hidden_dimensions</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vocab_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.models.maskedlm.MaskedLMHead" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>Masked language modeling head.</p>
+<p>A simple linear transform and decode - the standard masked language
+modeling head.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>hidden_dimensions</strong> – The size of the hidden state space.</p></li>
+<li><p><strong>vocab_size</strong> – The size of the vocabulary.</p></li>
+<li><p><strong>eps</strong> – Layer normalization stabalization parameter.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="undertale.models.maskedlm.MaskedLMHead.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="headerlink" href="#undertale.models.maskedlm.MaskedLMHead.forward" title="Link to this definition">¶</a></dt>
+<dd><p>Decode to vocabulary tokens.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>state</strong> – The input state tensor from the hidden state of a
+transformer.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A decoded state tensor in vocabulary token space.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="undertale.models.maskedlm.InstructionTraceTransformerEncoderForMaskedLM">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">undertale.models.maskedlm.</span></span><span class="sig-name descname"><span class="pre">InstructionTraceTransformerEncoderForMaskedLM</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">depth</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hidden_dimensions</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vocab_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sequence_length</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">heads</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intermediate_dimensions</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">next_token_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask_token_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dropout</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">warmup</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.025</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.models.maskedlm.InstructionTraceTransformerEncoderForMaskedLM" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">LightningModule</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>A transformer encoder with a masked language modeling head.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>depth</strong> – The number of stacked transformer layers.</p></li>
+<li><p><strong>hidden_dimensions</strong> – The size of the hidden state space.</p></li>
+<li><p><strong>vocab_size</strong> – The size of the vocabulary.</p></li>
+<li><p><strong>sequence_length</strong> – The fixed size of the input vector.</p></li>
+<li><p><strong>heads</strong> – The number of attention heads.</p></li>
+<li><p><strong>intermediate_dimensions</strong> – The size of the intermediate state space.</p></li>
+<li><p><strong>next_token_id</strong> – The ID of the special <code class="docutils literal notranslate"><span class="pre">NEXT</span></code> token.</p></li>
+<li><p><strong>dropout</strong> – Dropout probability.</p></li>
+<li><p><strong>eps</strong> – Layer normalization stabalization parameter.</p></li>
+<li><p><strong>lr</strong> – Peak learning rate reached after warmup.</p></li>
+<li><p><strong>warmup</strong> – Number of linear warmup steps before cosine decay begins.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="undertale.models.maskedlm.InstructionTraceTransformerEncoderForMaskedLM.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="headerlink" href="#undertale.models.maskedlm.InstructionTraceTransformerEncoderForMaskedLM.forward" title="Link to this definition">¶</a></dt>
+<dd><p>Encode and decode with the language modeling head.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>state</strong> – The tokenized input state tensor.</p></li>
+<li><p><strong>mask</strong> – Optional attention mask.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The computed output tensor in output token space.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="undertale.models.maskedlm.InstructionTraceTransformerEncoderForMaskedLM.infer">
+<span class="sig-name descname"><span class="pre">infer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tokens</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="headerlink" href="#undertale.models.maskedlm.InstructionTraceTransformerEncoderForMaskedLM.infer" title="Link to this definition">¶</a></dt>
+<dd><p>Fill masked tokens given pre-tokenized input.</p>
+<p>Runs a forward pass and replaces each masked position with the
+highest-probability predicted token, leaving all other positions
+unchanged.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>tokens</strong> – Pre-tokenized input tensor.</p></li>
+<li><p><strong>mask</strong> – Optional attention mask tensor.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A 1-D tensor of token IDs with masked positions filled.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="undertale.models.maskedlm.InstructionTraceTransformerEncoderForMaskedLMConfiguration">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">undertale.models.maskedlm.</span></span><span class="sig-name descname"><span class="pre">InstructionTraceTransformerEncoderForMaskedLMConfiguration</span></span><a class="headerlink" href="#undertale.models.maskedlm.InstructionTraceTransformerEncoderForMaskedLMConfiguration" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Model size configurations with associated parameters.</p>
+<p>To make use of this class, simply pass the model size dictionary to model
+initialization as kwargs.</p>
+</dd></dl>
+
+</section>
+
+
+          </div>
+              <div class="related bottom">
+                &nbsp;
+  <nav id="rellinks">
+    <ul>
+        <li>
+          &larr;
+          <a href="undertale.models.dataset.html" title="Previous document">dataset</a>
+        </li>
+        <li>
+          <a href="undertale.models.tokenizer.html" title="Next document">tokenizer</a>
+          &rarr;
+        </li>
+    </ul>
+  </nav>
+              </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Undertale</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../usage/index.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../development/index.html">Development</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../reference.html">Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="undertale.html">undertale</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="undertale.exceptions.html">exceptions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.logging.html">logging</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="undertale.models.html">models</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="undertale.models.custom.html">custom</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.models.dataset.html">dataset</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">maskedlm</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.models.maskedlm.MaskedLMCollator"><code class="docutils literal notranslate"><span class="pre">MaskedLMCollator</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.models.maskedlm.MaskedLMHead"><code class="docutils literal notranslate"><span class="pre">MaskedLMHead</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="#undertale.models.maskedlm.MaskedLMHead.forward"><code class="docutils literal notranslate"><span class="pre">MaskedLMHead.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.models.maskedlm.InstructionTraceTransformerEncoderForMaskedLM"><code class="docutils literal notranslate"><span class="pre">InstructionTraceTransformerEncoderForMaskedLM</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="#undertale.models.maskedlm.InstructionTraceTransformerEncoderForMaskedLM.forward"><code class="docutils literal notranslate"><span class="pre">InstructionTraceTransformerEncoderForMaskedLM.forward()</span></code></a></li>
+<li class="toctree-l6"><a class="reference internal" href="#undertale.models.maskedlm.InstructionTraceTransformerEncoderForMaskedLM.infer"><code class="docutils literal notranslate"><span class="pre">InstructionTraceTransformerEncoderForMaskedLM.infer()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.models.maskedlm.InstructionTraceTransformerEncoderForMaskedLMConfiguration"><code class="docutils literal notranslate"><span class="pre">InstructionTraceTransformerEncoderForMaskedLMConfiguration</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.models.tokenizer.html">tokenizer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.models.transformer.html">transformer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.models.tuning.html">tuning</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.parsers.html">parsers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.pipeline.html">pipeline</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.schema.html">schema</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.utils.html">utils</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="../reference.html">Reference</a><ul>
+  <li><a href="undertale.html">undertale</a><ul>
+  <li><a href="undertale.models.html">models</a><ul>
+      <li>Previous: <a href="undertale.models.dataset.html" title="previous chapter">dataset</a></li>
+      <li>Next: <a href="undertale.models.tokenizer.html" title="next chapter">tokenizer</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, MIT Lincoln Laboratory.
+      
+      |
+      <a href="../_sources/_undertale/undertale.models.maskedlm.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

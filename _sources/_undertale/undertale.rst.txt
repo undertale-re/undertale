@@ -10,9 +10,10 @@
    :toctree:
    :recursive:
 
-   datasets
-   evaluation
+   exceptions
    logging
    models
-   patch
+   parsers
+   pipeline
+   schema
    utils

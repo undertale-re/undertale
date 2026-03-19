@@ -5,13 +5,13 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Architecture &#8212; Undertale 0.1.0 documentation</title>
+    <title>Architecture &#8212; Undertale 0.2.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
-    <script src="../_static/documentation_options.js?v=01f34227"></script>
-    <script src="../_static/doctools.js?v=9bcbadda"></script>
-    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/documentation_options.js?v=938c9ccc"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="author" title="About these documents" href="../about.html" />
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -38,17 +38,29 @@
 <span id="development-architecture"></span><h1>Architecture<a class="headerlink" href="#architecture" title="Link to this heading">¶</a></h1>
 <p>Undertale is made up of three primary focus areas:</p>
 <dl class="simple">
-<dt><strong>Datasets</strong></dt><dd><p>Custom-built datasets of binary code for training our models. Our dataset
-build pipelines are based on <a class="reference external" href="https://github.com/huggingface/datatrove">datatrove</a> and we’ve implemented a number
-of custom <code class="docutils literal notranslate"><span class="pre">PipelineSteps</span></code> for things like compilation, disassembly,
-segmentation, etc. All of our dataset build pipelines are fully
-reproducible and open-source.</p>
+<dt><strong>Datasets</strong></dt><dd><p>Custom-built datasets of binary code for training our models. Our build
+pipelines use <a class="reference external" href="https://www.dask.org/">dask</a> for scaling workflows and
+we’ve implemented a number of custom functions for things like compilation,
+disassembly, segmentation, etc. All of our dataset build pipelines are
+fully reproducible and open-source.</p>
 </dd>
 <dt><strong>Modeling</strong></dt><dd><p>Our custom model architectures and training schemes for modeling binary
 code.</p>
 </dd>
 <dt><strong>Evaluation &amp; Integration</strong></dt><dd><p>Comparisons with current state of the art (natural language LLMs) and
 integrations with popular tools like <a class="reference external" href="https://github.com/NationalSecurityAgency/ghidra">Ghidra</a></p>
+</dd>
+</dl>
+<p>Architecturally, these are broken into a few different software components:</p>
+<dl class="simple">
+<dt><strong>The Undertale Package</strong> (<code class="docutils literal notranslate"><span class="pre">undertale/</span></code>)</dt><dd><p>Tested, mature implementations of dataset pipeline steps, model
+implementation code, utilities and helpers.</p>
+</dd>
+<dt><strong>Pipeline Scripts</strong> (<code class="docutils literal notranslate"><span class="pre">pipelines/</span></code>)</dt><dd><p>Pipeline scripts for datasets, model training, and evaluation.</p>
+</dd>
+<dt><strong>Documentation</strong> (<code class="docutils literal notranslate"><span class="pre">docs/</span></code>)</dt><dd><p>User and developer documentation and Undertale package auto-documentation.</p>
+</dd>
+<dt><strong>Tests</strong> (<code class="docutils literal notranslate"><span class="pre">tests/</span></code>)</dt><dd><p>Unit, performance, and integration tests for the Undertale package.</p>
 </dd>
 </dl>
 </section>

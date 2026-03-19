@@ -1,0 +1,13 @@
+polars
+======
+
+.. automodule:: undertale.utils.datasets.shell.polars
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      load
+      main
+   

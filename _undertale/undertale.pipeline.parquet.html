@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>parquet &#8212; Undertale 0.2.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=938c9ccc"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="author" title="About these documents" href="../about.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="tarfile" href="undertale.pipeline.tarfile.html" />
+    <link rel="prev" title="json" href="undertale.pipeline.json.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="module-undertale.pipeline.parquet">
+<span id="parquet"></span><h1>parquet<a class="headerlink" href="#module-undertale.pipeline.parquet" title="Link to this heading">¶</a></h1>
+<p>Parquet parsing.</p>
+<p class="rubric">Functions</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.pipeline.parquet.modify_parquet" title="undertale.pipeline.parquet.modify_parquet"><code class="xref py py-obj docutils literal notranslate"><span class="pre">modify_parquet</span></code></a>(input, output, operations[, ...])</p></td>
+<td><p>Modify a parquet dataset by applying a sequence of operations.</p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Classes</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.pipeline.parquet.Deduplicate" title="undertale.pipeline.parquet.Deduplicate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Deduplicate</span></code></a>(columns)</p></td>
+<td><p>Remove duplicate rows by a set of columns.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#undertale.pipeline.parquet.Drop" title="undertale.pipeline.parquet.Drop"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Drop</span></code></a>(columns)</p></td>
+<td><p>Drop specific columns from the dataset.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.pipeline.parquet.HashColumn" title="undertale.pipeline.parquet.HashColumn"><code class="xref py py-obj docutils literal notranslate"><span class="pre">HashColumn</span></code></a>(column, target)</p></td>
+<td><p>Add a column containing the hash of an existing column.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#undertale.pipeline.parquet.Keep" title="undertale.pipeline.parquet.Keep"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Keep</span></code></a>(columns)</p></td>
+<td><p>Keep only specific columns from the dataset.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.pipeline.parquet.ParquetOperation" title="undertale.pipeline.parquet.ParquetOperation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ParquetOperation</span></code></a>()</p></td>
+<td><p>Abstract base class for parquet DataFrame transformations.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#undertale.pipeline.parquet.Rename" title="undertale.pipeline.parquet.Rename"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Rename</span></code></a>(mapping)</p></td>
+<td><p>Rename columns in the dataset.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.pipeline.parquet.Repartition" title="undertale.pipeline.parquet.Repartition"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Repartition</span></code></a>([chunks, size])</p></td>
+<td><p>Repartition the dataset by number of chunks or target chunk size.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py class">
+<dt class="sig sig-object py" id="undertale.pipeline.parquet.ParquetOperation">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">undertale.pipeline.parquet.</span></span><span class="sig-name descname"><span class="pre">ParquetOperation</span></span><a class="headerlink" href="#undertale.pipeline.parquet.ParquetOperation" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></p>
+<p>Abstract base class for parquet DataFrame transformations.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="undertale.pipeline.parquet.HashColumn">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">undertale.pipeline.parquet.</span></span><span class="sig-name descname"><span class="pre">HashColumn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">column</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.pipeline.parquet.HashColumn" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#undertale.pipeline.parquet.ParquetOperation" title="undertale.pipeline.parquet.ParquetOperation"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParquetOperation</span></code></a></p>
+<p>Add a column containing the hash of an existing column.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>column</strong> – Name of the column to hash.</p></li>
+<li><p><strong>target</strong> – Name of the new hash column to create.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="undertale.pipeline.parquet.Deduplicate">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">undertale.pipeline.parquet.</span></span><span class="sig-name descname"><span class="pre">Deduplicate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">columns</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.pipeline.parquet.Deduplicate" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#undertale.pipeline.parquet.ParquetOperation" title="undertale.pipeline.parquet.ParquetOperation"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParquetOperation</span></code></a></p>
+<p>Remove duplicate rows by a set of columns.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>columns</strong> – Column names to deduplicate by (unique together).</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="undertale.pipeline.parquet.Drop">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">undertale.pipeline.parquet.</span></span><span class="sig-name descname"><span class="pre">Drop</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">columns</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.pipeline.parquet.Drop" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#undertale.pipeline.parquet.ParquetOperation" title="undertale.pipeline.parquet.ParquetOperation"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParquetOperation</span></code></a></p>
+<p>Drop specific columns from the dataset.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>columns</strong> – Column names to drop.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="undertale.pipeline.parquet.Keep">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">undertale.pipeline.parquet.</span></span><span class="sig-name descname"><span class="pre">Keep</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">columns</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.pipeline.parquet.Keep" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#undertale.pipeline.parquet.ParquetOperation" title="undertale.pipeline.parquet.ParquetOperation"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParquetOperation</span></code></a></p>
+<p>Keep only specific columns from the dataset.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>columns</strong> – Column names to keep.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="undertale.pipeline.parquet.Rename">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">undertale.pipeline.parquet.</span></span><span class="sig-name descname"><span class="pre">Rename</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mapping</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.pipeline.parquet.Rename" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#undertale.pipeline.parquet.ParquetOperation" title="undertale.pipeline.parquet.ParquetOperation"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParquetOperation</span></code></a></p>
+<p>Rename columns in the dataset.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>mapping</strong> – A mapping of old column names to new column names.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="undertale.pipeline.parquet.Repartition">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">undertale.pipeline.parquet.</span></span><span class="sig-name descname"><span class="pre">Repartition</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">chunks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.pipeline.parquet.Repartition" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#undertale.pipeline.parquet.ParquetOperation" title="undertale.pipeline.parquet.ParquetOperation"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParquetOperation</span></code></a></p>
+<p>Repartition the dataset by number of chunks or target chunk size.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>chunks</strong> – Number of chunk files to generate.</p></li>
+<li><p><strong>size</strong> – The maximum chunk size in bytes or string representation
+(e.g., “25MB”).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If not exactly one of <code class="docutils literal notranslate"><span class="pre">chunks</span></code> or <code class="docutils literal notranslate"><span class="pre">size</span></code> is specified.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="undertale.pipeline.parquet.modify_parquet">
+<span class="sig-prename descclassname"><span class="pre">undertale.pipeline.parquet.</span></span><span class="sig-name descname"><span class="pre">modify_parquet</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">operations</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#undertale.pipeline.parquet.ParquetOperation" title="undertale.pipeline.parquet.ParquetOperation"><span class="pre">ParquetOperation</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">compression</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#undertale.pipeline.parquet.modify_parquet" title="Link to this definition">¶</a></dt>
+<dd><p>Modify a parquet dataset by applying a sequence of operations.</p>
+<p>This method is memory-efficient and supports larger-than-memory parquet
+datasets using Dask.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>When using <a class="reference internal" href="#undertale.pipeline.parquet.Repartition" title="undertale.pipeline.parquet.Repartition"><code class="xref py py-class docutils literal notranslate"><span class="pre">Repartition</span></code></a> with <code class="docutils literal notranslate"><span class="pre">chunks</span></code>, the number of chunks
+is guaranteed but the number of rows per chunk may not be exactly the
+same. If <code class="docutils literal notranslate"><span class="pre">chunks</span></code> exceeds the number of rows in the dataset,
+<code class="docutils literal notranslate"><span class="pre">chunks</span></code> parquet files will still be created, but some of them will
+be empty.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input</strong> – Path to the parquet dataset directory or a list of paths to
+each chunk of the dataset.</p></li>
+<li><p><strong>output</strong> – Path to the target directory.</p></li>
+<li><p><strong>operations</strong> – A list of <a class="reference internal" href="#undertale.pipeline.parquet.ParquetOperation" title="undertale.pipeline.parquet.ParquetOperation"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParquetOperation</span></code></a> instances to apply
+in order.</p></li>
+<li><p><strong>compression</strong> – If provided, name of the algorithm to use (e.g.,
+‘snappy’). By default no compression will be used. See the
+<code class="docutils literal notranslate"><span class="pre">pyarrow</span></code> documentation for a list of supported compression
+methods.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A list of paths to the generated files.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+          </div>
+              <div class="related bottom">
+                &nbsp;
+  <nav id="rellinks">
+    <ul>
+        <li>
+          &larr;
+          <a href="undertale.pipeline.json.html" title="Previous document">json</a>
+        </li>
+        <li>
+          <a href="undertale.pipeline.tarfile.html" title="Next document">tarfile</a>
+          &rarr;
+        </li>
+    </ul>
+  </nav>
+              </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Undertale</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../usage/index.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../development/index.html">Development</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../reference.html">Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="undertale.html">undertale</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="undertale.exceptions.html">exceptions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.logging.html">logging</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.models.html">models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.parsers.html">parsers</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="undertale.pipeline.html">pipeline</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="undertale.pipeline.html#undertale.pipeline.Cluster"><code class="docutils literal notranslate"><span class="pre">Cluster()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.pipeline.html#undertale.pipeline.Client"><code class="docutils literal notranslate"><span class="pre">Client()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.pipeline.html#undertale.pipeline.merge"><code class="docutils literal notranslate"><span class="pre">merge()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.pipeline.html#undertale.pipeline.fanout"><code class="docutils literal notranslate"><span class="pre">fanout()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.pipeline.html#undertale.pipeline.flush"><code class="docutils literal notranslate"><span class="pre">flush()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.pipeline.binary.html">binary</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.pipeline.cpp.html">cpp</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.pipeline.dask.html">dask</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.pipeline.json.html">json</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">parquet</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.parquet.ParquetOperation"><code class="docutils literal notranslate"><span class="pre">ParquetOperation</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.parquet.HashColumn"><code class="docutils literal notranslate"><span class="pre">HashColumn</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.parquet.Deduplicate"><code class="docutils literal notranslate"><span class="pre">Deduplicate</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.parquet.Drop"><code class="docutils literal notranslate"><span class="pre">Drop</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.parquet.Keep"><code class="docutils literal notranslate"><span class="pre">Keep</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.parquet.Rename"><code class="docutils literal notranslate"><span class="pre">Rename</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.parquet.Repartition"><code class="docutils literal notranslate"><span class="pre">Repartition</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.parquet.modify_parquet"><code class="docutils literal notranslate"><span class="pre">modify_parquet()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.pipeline.tarfile.html">tarfile</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.schema.html">schema</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.utils.html">utils</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="../reference.html">Reference</a><ul>
+  <li><a href="undertale.html">undertale</a><ul>
+  <li><a href="undertale.pipeline.html">pipeline</a><ul>
+      <li>Previous: <a href="undertale.pipeline.json.html" title="previous chapter">json</a></li>
+      <li>Next: <a href="undertale.pipeline.tarfile.html" title="next chapter">tarfile</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, MIT Lincoln Laboratory.
+      
+      |
+      <a href="../_sources/_undertale/undertale.pipeline.parquet.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

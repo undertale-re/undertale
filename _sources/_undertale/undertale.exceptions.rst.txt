@@ -1,0 +1,18 @@
+exceptions
+==========
+
+.. automodule:: undertale.exceptions
+
+   
+   .. rubric:: Exceptions
+
+   .. autosummary::
+   
+      EnvironmentError
+      Error
+      InvalidFileType
+      PathDoesNotExist
+      PathError
+      PathExists
+      SchemaError
+   

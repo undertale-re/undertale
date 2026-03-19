@@ -1,0 +1,13 @@
+split
+=====
+
+.. automodule:: undertale.utils.datasets.split
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      parse_split
+      split
+   

@@ -1,6 +1,0 @@
-infer\_summarization
-====================
-
-.. automodule:: undertale.models.item.infer_summarization
-
-   

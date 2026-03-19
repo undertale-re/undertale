@@ -1,0 +1,6 @@
+repartition
+===========
+
+.. automodule:: undertale.utils.datasets.repartition
+
+   

@@ -1,0 +1,22 @@
+dask
+====
+
+.. automodule:: undertale.pipeline.dask
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      Client
+      Cluster
+      fanout
+      flush
+      merge
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      SetupLoggingPlugin
+   

@@ -1,0 +1,20 @@
+shell
+=====
+
+.. automodule:: undertale.utils.datasets.shell
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      main
+   
+.. rubric:: Modules
+
+.. autosummary::
+   :toctree:
+   :recursive:
+
+   pandas
+   polars

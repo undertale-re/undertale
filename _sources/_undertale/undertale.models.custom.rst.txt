@@ -1,0 +1,13 @@
+custom
+======
+
+.. automodule:: undertale.models.custom
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      InstructionTracePositionEmbedding
+      InstructionTraceTransformerEncoder
+   

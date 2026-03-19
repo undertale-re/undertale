@@ -10,4 +10,9 @@ models
    :toctree:
    :recursive:
 
-   item
+   custom
+   dataset
+   maskedlm
+   tokenizer
+   transformer
+   tuning

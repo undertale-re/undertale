@@ -5,18 +5,18 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>logging &#8212; Undertale 0.1.0 documentation</title>
+    <title>logging &#8212; Undertale 0.2.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
-    <script src="../_static/documentation_options.js?v=01f34227"></script>
-    <script src="../_static/doctools.js?v=9bcbadda"></script>
-    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/documentation_options.js?v=938c9ccc"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="author" title="About these documents" href="../about.html" />
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="models" href="undertale.models.html" />
-    <link rel="prev" title="evaluation" href="undertale.evaluation.html" />
+    <link rel="prev" title="exceptions" href="undertale.exceptions.html" />
    
   <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
   
@@ -36,11 +36,14 @@
             
   <section id="module-undertale.logging">
 <span id="logging"></span><h1>logging<a class="headerlink" href="#module-undertale.logging" title="Link to this heading">¶</a></h1>
-<p>Custom logging utilities.</p>
+<p>Logging utilities.</p>
 <p class="rubric">Functions</p>
 <table class="autosummary longtable docutils align-default">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.logging.setup_logging" title="undertale.logging.setup_logging"><code class="xref py py-obj docutils literal notranslate"><span class="pre">setup_logging</span></code></a>([level, colors, stream, file, ...])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.logging.get_logger" title="undertale.logging.get_logger"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_logger</span></code></a>(*args, **kwargs)</p></td>
+<td><p>Passthrough to <cite>logging.getLogger()</cite>.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#undertale.logging.setup_logging" title="undertale.logging.setup_logging"><code class="xref py py-obj docutils literal notranslate"><span class="pre">setup_logging</span></code></a>([level, colors, stream, file, ...])</p></td>
 <td><p>Setup log handling.</p></td>
 </tr>
 </tbody>
@@ -74,6 +77,12 @@
 </dl>
 </dd></dl>
 
+<dl class="py function">
+<dt class="sig sig-object py" id="undertale.logging.get_logger">
+<span class="sig-prename descclassname"><span class="pre">undertale.logging.</span></span><span class="sig-name descname"><span class="pre">get_logger</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.logging.get_logger" title="Link to this definition">¶</a></dt>
+<dd><p>Passthrough to <cite>logging.getLogger()</cite>.</p>
+</dd></dl>
+
 </section>
 
 
@@ -84,7 +93,7 @@
     <ul>
         <li>
           &larr;
-          <a href="undertale.evaluation.html" title="Previous document">evaluation</a>
+          <a href="undertale.exceptions.html" title="Previous document">exceptions</a>
         </li>
         <li>
           <a href="undertale.models.html" title="Next document">models</a>
@@ -123,14 +132,16 @@
 <li class="toctree-l1"><a class="reference internal" href="../development/index.html">Development</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../reference.html">Reference</a><ul class="current">
 <li class="toctree-l2 current"><a class="reference internal" href="undertale.html">undertale</a><ul class="current">
-<li class="toctree-l3"><a class="reference internal" href="undertale.datasets.html">datasets</a></li>
-<li class="toctree-l3"><a class="reference internal" href="undertale.evaluation.html">evaluation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.exceptions.html">exceptions</a></li>
 <li class="toctree-l3 current"><a class="current reference internal" href="#">logging</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#undertale.logging.setup_logging"><code class="docutils literal notranslate"><span class="pre">setup_logging()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#undertale.logging.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="undertale.models.html">models</a></li>
-<li class="toctree-l3"><a class="reference internal" href="undertale.patch.html">patch</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.parsers.html">parsers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.pipeline.html">pipeline</a></li>
+<li class="toctree-l3"><a class="reference internal" href="undertale.schema.html">schema</a></li>
 <li class="toctree-l3"><a class="reference internal" href="undertale.utils.html">utils</a></li>
 </ul>
 </li>
@@ -146,7 +157,7 @@
   <li><a href="../index.html">Documentation overview</a><ul>
   <li><a href="../reference.html">Reference</a><ul>
   <li><a href="undertale.html">undertale</a><ul>
-      <li>Previous: <a href="undertale.evaluation.html" title="previous chapter">evaluation</a></li>
+      <li>Previous: <a href="undertale.exceptions.html" title="previous chapter">exceptions</a></li>
       <li>Next: <a href="undertale.models.html" title="next chapter">models</a></li>
   </ul></li>
   </ul></li>
