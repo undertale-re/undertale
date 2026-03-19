@@ -395,12 +395,12 @@ class TransformerEncoderForSequenceSummarization(Module):
             )
 
         if llm_checkpoint is not None:
-            self.llm = GPT2LMHeadModel.from_pretrained(llm_checkpoint)
+            self.llm = GPT2LMHeadModel.from_pretrained(llm_checkpoint, local_files_only=True)
         else:
-            config = GPT2Config.from_pretrained("gpt2")
+            config = GPT2Config.from_pretrained("gpt2", local_files_only=True)
             self.llm = GPT2LMHeadModel(config)
 
-        self.tokenizer = GPT2TokenizerFast.from_pretrained("gpt2")
+        self.tokenizer = GPT2TokenizerFast.from_pretrained("gpt2", local_files_only=True)
         self.stop_token = self.tokenizer.eos_token_id
 
         if not self.tune_llm:
