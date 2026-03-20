@@ -70,20 +70,22 @@ now ready to begin pretraining a model.
         --validation humaneval-x-pretraining-validation/ \
         maskedlm
 
-    # Distributed training.
-    python pipelines/models/pretrain-maskedlm.py \
-        --strategy ddp \
-        --nodes 8 \
-        --devices 2 \
-        --tokenizer tokenizer.json \
-        humaneval-x-pretraining-training/ \
-        --validation humaneval-x-pretraining-validation/ \
-        maskedlm
+    # Distributed training on a SLURM Cluster.
+    #
+    # This SLURM script requires certain environment variables
+    # to be configured - see `environments/example-slurm.env` 
+    # for more details or customize the SLURM script to your 
+    # environment.
+    source environments/example-slurm.env
+    sbatch pipelines/models/pretrain-maskedlm.slurm
 
 There are several other configurable parameters for other training scenarios -
 to get a full list, see the ``--help`` output.
 
 Saved model checkpoints are available in the output directory.
+
+See :ref:`environments` for for details on configuring the local environment -
+in particular for distributed SLURM training.
 
 Tensorboard
 """""""""""

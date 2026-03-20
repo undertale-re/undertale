@@ -1,0 +1,42 @@
+:host {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.completion-detail {
+  width: 700px;
+  max-width: 100%;
+}
+
+@media (max-width: 767px) {
+  .completion-detail {
+    width: 100%;
+  }
+}
+
+pre {
+  overflow-x: auto;
+}
+
+.smiley-btn {
+  font-size: 1.5rem;
+  padding: 0.25rem 0.5rem;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  transition: border-color 0.2s;
+}
+
+.smiley-btn.selected {
+  border-color: #0d6efd;
+  background-color: #e8f4fd;
+}
+
+.comments-container {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.comments-container.open {
+  max-height: 300px;
+}
