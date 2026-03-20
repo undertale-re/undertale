@@ -1,37 +1,24 @@
 # import os
 # import time
 import torch
-from transformers import (
-    PreTrainedTokenizerFast,
+from torch import (
+    stack,
+    tensor,
 )
-
-from undertale.models import tokenizer
 
 
 class CustomCollator:
-    def __init__(self, args, device):
-
-        self.tokenizer = tokenizer.load(args.tokenizer)
-        self.max_length = args.tokenizer_size
-        self.tokenizer.pad_token = tokenizer.TOKEN_PAD
-        self.tok_fast = None
-        self.device = device
+    def __init__(
+        self,
+        mask_token_id: int,
+        vocab_size: int,
+    ):
+        self.mask_token_id = mask_token_id
+        self.vocab_size = vocab_size
 
     def __call__(self, batch):
-        if self.tok_fast is None:
-            self.tok_fast = PreTrainedTokenizerFast(tokenizer_object=self.tokenizer)
-        labels = torch.tensor([row["label"] for row in batch]).to(int)
-        disassembly_infos = [row["disassembly"] for row in batch]
-        self.tok_fast.pad_token = tokenizer.TOKEN_PAD
-        disassembly_batch = self.tok_fast(
-            disassembly_infos,
-            truncation=True,
-            padding=True,
-            return_tensors="pt",
-            max_length=self.max_length,
-        )
-        return {
-            "labels": labels.to(self.device),
-            "disassembly_tokens": disassembly_batch["input_ids"].to(self.device),
-            "disassembly_mask": disassembly_batch["attention_mask"].to(self.device),
-        }
+        labels = torch.tensor([item["label"] for item in batch]).to(int)
+        tokens = stack([tensor(item["tokens"]) for item in batch])
+        mask = stack([tensor(item["mask"]) for item in batch])
+
+        return {"tokens": tokens, "mask": mask, "labels": labels}

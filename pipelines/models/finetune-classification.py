@@ -3,18 +3,15 @@ import os
 from types import SimpleNamespace
 
 import torch
-import torch.nn.functional as F
 from datasets import load_dataset
-from lightning import LightningModule, Trainer
+from lightning import Trainer
 from lightning.pytorch.callbacks import Callback, ModelCheckpoint, TQDMProgressBar
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 from lightning.pytorch.loggers import TensorBoardLogger
 from torch.nn import CrossEntropyLoss
 
 # from pytorch_lightning.strategies import DDPStrategy
-from torch.optim import AdamW
 from torch.utils.data import DataLoader
-from transformers import get_linear_schedule_with_warmup
 
 from undertale.logging import setup_logging
 from undertale.models.classification_dataset import CustomCollator
@@ -130,89 +127,6 @@ class ValidationCallback(Callback):
             self._run_validation(trainer, pl_module)
 
 
-class ClassifyModel(LightningModule, torch.nn.Module):
-    def __init__(self, model, lr=2e-5, warmup_steps=5000, end_to_end=True):
-        super().__init__()
-
-        self.model = model
-        self.lr = lr
-        self.warmup_steps = warmup_steps
-        self.end_to_end = end_to_end
-        for param in self.model.encoder.parameters():
-            param.requires_grad = False
-
-    def forward(self, inp, mask=None):
-        encoder_embedding = self.model.encoder(inp)
-        return self.model(encoder_embedding, mask)
-
-    def training_step(self, batch, batch_idx):
-
-        labels, dissassembly_tokens, dissassembly_mask = (
-            batch["labels"],
-            batch["disassembly_tokens"],
-            batch["disassembly_mask"],
-        )
-
-        if self.end_to_end:
-            with torch.no_grad():
-                embeddings = self.model.embed_assembly(
-                    dissassembly_tokens, dissassembly_mask
-                )
-        else:
-            embeddings = dissassembly_tokens
-
-        outputs = self(embeddings)
-
-        loss = F.cross_entropy(outputs, labels, ignore_index=0)
-
-        self.log("train_loss", loss, sync_dist=True)
-        self.log("lr", self.trainer.optimizers[0].param_groups[0]["lr"], sync_dist=True)
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-
-        labels, dissassembly_tokens, dissassembly_mask = (
-            batch["labels"],
-            batch["disassembly_tokens"],
-            batch["disassembly_mask"],
-        )
-
-        if self.end_to_end:
-            with torch.no_grad():
-                embeddings = self.model.embed_assembly(
-                    dissassembly_tokens, dissassembly_mask
-                )
-        else:
-            embeddings = dissassembly_tokens
-
-        outputs = self(embeddings)
-        loss = F.cross_entropy(outputs, labels, ignore_index=0)
-
-        self.log("val_loss", loss, sync_dist=True)
-        return loss
-
-    def configure_optimizers(self):
-
-        total_steps = self.trainer.estimated_stepping_batches
-
-        optimizer = AdamW(self.model.parameters(), lr=self.lr)
-        scheduler = get_linear_schedule_with_warmup(
-            optimizer,
-            num_warmup_steps=self.warmup_steps,
-            num_training_steps=total_steps,
-        )
-
-        config_optim = {
-            "optimizer": optimizer,
-            "lr_scheduler": {
-                "scheduler": scheduler,
-                "interval": "step",
-                "frequency": 1,
-            },
-        }
-        return config_optim
-
-
 if __name__ == "__main__":
 
     parser = ModelArgumentParser()
@@ -234,9 +148,9 @@ if __name__ == "__main__":
     parser.setup(args)
     setup_logging()
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    if torch.cuda.is_available():
-        torch.cuda.set_device(0)
+    # device = "cuda" if torch.cuda.is_available() else "cpu"
+    # if torch.cuda.is_available():
+    #     torch.cuda.set_device(0)
 
     # set up dataloaders
     if os.path.exists(args.dataset):
@@ -262,7 +176,13 @@ if __name__ == "__main__":
 
     val_dataset = split_dataset["test"]
 
-    collator = CustomCollator(args, device)
+    tokenizer = load_tokenizer(args.tokenizer)
+
+    vocab_size = tokenizer.get_vocab_size()
+    mask_token_id = tokenizer.token_to_id(TOKEN_MASK)
+    next_token_id = tokenizer.token_to_id(TOKEN_NEXT)
+
+    collator = CustomCollator(mask_token_id=mask_token_id, vocab_size=vocab_size)
 
     train_dataloader = DataLoader(
         train_dataset,
@@ -287,14 +207,10 @@ if __name__ == "__main__":
 
     connector_config_namespace = SimpleNamespace(**connector_config)
 
-    tokenizer = load_tokenizer(args.tokenizer)
-
-    vocab_size = tokenizer.get_vocab_size()
-    mask_token_id = tokenizer.token_to_id(TOKEN_MASK)
-    next_token_id = tokenizer.token_to_id(TOKEN_NEXT)
-
     model = TransformerEncoderForSequenceClassification(
         vocab_size=vocab_size,
+        mask_token_id=mask_token_id,
+        next_token_id=next_token_id,
         lr=args.learning_rate,
         warmup=args.warmup,
         num_classes=2,
@@ -360,13 +276,6 @@ if __name__ == "__main__":
     # else:
     callbacks = [progress, checkpoint, stop]
 
-    classify_model = ClassifyModel(
-        model,
-        lr=args.lr,
-        warmup_steps=args.warmup_steps,
-        end_to_end=True,
-    )
-
     sample = val_dataloader.dataset[0]
 
     trainer = Trainer(
@@ -379,9 +288,17 @@ if __name__ == "__main__":
         max_epochs=args.epochs,
     )
 
+    checkpoint = torch.load(args.checkpoint, map_location=lambda storage, loc: storage)
+    loaded_state_dict = checkpoint["state_dict"]
+    current_model_dict = model.state_dict()
+    new_state_dict = {
+        k: v for k, v in loaded_state_dict.items() if k in current_model_dict
+    }
+    model.load_state_dict(new_state_dict, strict=False)
+
     trainer.fit(
-        classify_model,
+        model,
         train_dataloaders=train_dataloader,
         val_dataloaders=val_dataloader,
-        ckpt_path=args.classifier_checkpoint,
+        # ckpt_path=args.checkpoint,
     )
