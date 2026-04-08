@@ -31,6 +31,7 @@ class TransformerEncoderForSequenceClassification(
         # specific parameters for sequence classification
         num_classes: int = 2,
         head_hidden_size: int = 64,
+        balance_weights: list[float] = [1.0, 1.0],
     ):
         super().__init__(
             depth,
@@ -54,35 +55,30 @@ class TransformerEncoderForSequenceClassification(
 
         self.head = MLP((output_size, head_hidden_size, num_classes))
         self.end_to_end = True
+        self.balance_weights = torch.tensor(balance_weights)
 
     def embed_assembly(self, assembly_tokens, assembly_mask=None):
-
-        if self.encoder.training:
-
-            self.encoder.eval()
+        # if self.encoder.training:
+        #     self.encoder.eval()
         return self.encoder(assembly_tokens, assembly_mask)
 
     def forward(self, inp, mask=None):
-        encoder_embedding = self.encoder(inp).mean(dim=1)
-        return self.head(encoder_embedding, mask)
+        encoder_embedding = self.encoder(inp, mask).mean(dim=1)
+        return self.head(encoder_embedding)
 
     def training_step(self, batch, batch_idx):
 
         labels, dissassembly_tokens, dissassembly_mask = (
             batch["labels"],
-            batch["disassembly_tokens"],
-            batch["disassembly_mask"],
+            batch["tokens"],
+            batch["mask"],
         )
 
-        if self.end_to_end:
-            with torch.no_grad():
-                embeddings = self.embed_assembly(dissassembly_tokens, dissassembly_mask)
-        else:
-            embeddings = dissassembly_tokens
+        outputs = self.forward(dissassembly_tokens, dissassembly_mask)
 
-        outputs = self(embeddings)
-
-        loss = F.cross_entropy(outputs, labels, ignore_index=0)
+        loss = F.cross_entropy(
+            outputs, labels, weight=self.balance_weights.to(outputs.device)
+        )
 
         self.log("train_loss", loss, sync_dist=True)
         self.log("lr", self.trainer.optimizers[0].param_groups[0]["lr"], sync_dist=True)
@@ -92,18 +88,15 @@ class TransformerEncoderForSequenceClassification(
 
         labels, dissassembly_tokens, dissassembly_mask = (
             batch["labels"],
-            batch["disassembly_tokens"],
-            batch["disassembly_mask"],
+            batch["tokens"],
+            batch["mask"],
         )
 
-        if self.end_to_end:
-            with torch.no_grad():
-                embeddings = self.embed_assembly(dissassembly_tokens, dissassembly_mask)
-        else:
-            embeddings = dissassembly_tokens
+        outputs = self.forward(dissassembly_tokens, dissassembly_mask)
 
-        outputs = self(embeddings)
-        loss = F.cross_entropy(outputs, labels, ignore_index=0)
+        loss = F.cross_entropy(
+            outputs, labels, weight=self.balance_weights.to(outputs.device)
+        )
 
         self.log("val_loss", loss, sync_dist=True)
         return loss

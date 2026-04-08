@@ -1,7 +1,8 @@
 import argparse
 import os
-from types import SimpleNamespace
+from collections import Counter
 
+import numpy as np
 import torch
 from datasets import load_dataset
 from lightning import Trainer
@@ -143,18 +144,24 @@ if __name__ == "__main__":
     parser.add_argument("--generated_output_paths")
     parser.add_argument("--tokenizer_size", default=512)
     parser.add_argument("--tokenizer")
+    parser.add_argument("--val_dataset")
 
     args = parser.parse_args()
     parser.setup(args)
     setup_logging()
 
-    # device = "cuda" if torch.cuda.is_available() else "cpu"
-    # if torch.cuda.is_available():
-    #     torch.cuda.set_device(0)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    if torch.cuda.is_available():
+        torch.cuda.set_device(0)
 
     # set up dataloaders
+
     if os.path.exists(args.dataset):
         dataset = load_dataset(args.dataset)
+    else:
+        raise FileNotFoundError(f"File not found: {args.dataset}")
+    if os.path.exists(args.val_dataset):
+        val_dataset = load_dataset(args.val_dataset)
     else:
         raise FileNotFoundError(f"File not found: {args.dataset}")
 
@@ -166,15 +173,19 @@ if __name__ == "__main__":
     if "vulnerability" in cols and "label" not in cols:
         dataset["train"] = dataset["train"].map(create_label)
 
-    dataset = dataset["train"].select_columns(["disassembly", "label"])
+    dataset = dataset["train"].select_columns(["tokens", "label", "mask"])
+
+    cols = val_dataset["train"].column_names
+    if "vulnerability" in cols and "label" not in cols:
+        val_dataset["train"] = val_dataset["train"].map(create_label)
+
+    val_dataset = val_dataset["train"].select_columns(["tokens", "label", "mask"])
 
     if not args.dataset_size == -1:
         dataset = dataset.select(range(args.dataset_size))
-    split_dataset = dataset.train_test_split(test_size=args.test_size, seed=args.seed)
 
-    train_dataset = split_dataset["train"]
-
-    val_dataset = split_dataset["test"]
+    train_dataset = dataset["train"]
+    val_dataset = val_dataset["train"]
 
     tokenizer = load_tokenizer(args.tokenizer)
 
@@ -199,13 +210,10 @@ if __name__ == "__main__":
         num_workers=8,
     )
 
-    # set up model
-    connector_config = {
-        "model_type": args.model_type,
-        "num_layers": args.num_layers,
-    }
-
-    connector_config_namespace = SimpleNamespace(**connector_config)
+    # computing weights to account for imbalanced data
+    counts = Counter(train_dataset["label"])
+    weights = 1.0 / np.array([counts[False], counts[True]])
+    weights = 2 * weights / weights.sum()
 
     model = TransformerEncoderForSequenceClassification(
         vocab_size=vocab_size,
@@ -215,6 +223,7 @@ if __name__ == "__main__":
         warmup=args.warmup,
         num_classes=2,
         head_hidden_size=64,
+        balance_weights=list(weights),
         **InstructionTraceTransformerEncoderForMaskedLMConfiguration.medium,
     )
 
@@ -232,48 +241,6 @@ if __name__ == "__main__":
         version=args.version,
     )
 
-    # if args.validation:
-
-    #     random_sampler = RandomSampler(val_dataset, num_samples=5)
-    #     random_validation = DataLoader(
-    #         val_dataset,
-    #         sampler=random_sampler,
-    #         batch_size=1,
-    #         collate_fn=collator,
-    #         num_workers=8,
-    #     )
-
-    #     final_validation = DataLoader(
-    #         val_dataset, batch_size=1, collate_fn=collator, num_workers=8
-    #     )
-
-    #     final_validation_check = ValidationCallback(
-    #         final_validation,
-    #         end_to_end=True,
-    #         tag="final_full_val",
-    #         run_on_val_end=False,
-    #         run_on_fit_end=True,
-    #         args=args,
-    #     )
-
-    #     validation_check = ValidationCallback(
-    #         random_validation,
-    #         end_to_end=True,
-    #         tag=None,
-    #         run_on_val_end=True,
-    #         run_on_fit_end=False,
-    #         args=args,
-    #     )
-
-    #     callbacks = [
-    #         progress,
-    #         checkpoint,
-    #         stop,
-    #         validation_check,
-    #         final_validation_check,
-    #     ]
-
-    # else:
     callbacks = [progress, checkpoint, stop]
 
     sample = val_dataloader.dataset[0]
@@ -300,5 +267,4 @@ if __name__ == "__main__":
         model,
         train_dataloaders=train_dataloader,
         val_dataloaders=val_dataloader,
-        # ckpt_path=args.checkpoint,
     )
