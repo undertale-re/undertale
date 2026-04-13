@@ -55,7 +55,13 @@ class SummarizerDataset(torch.utils.data.Dataset):
         else:
             raise ValueError(f"Cannot determine max context length from {gpt2path}")
 
-        self.max_seq_len = max_positions - prefix_length
+        # Reserve room for the learned prefix and the appended stop token.
+        self.max_seq_len = max_positions - prefix_length - 1
+        if self.max_seq_len < 0:
+            raise ValueError(
+                f"prefix_length={prefix_length} leaves no room for summary tokens "
+                f"and the stop token with max_positions={max_positions}."
+            )
         print(self.max_seq_len, "max len")
 
         if self.summary_tokens_column not in self.dataset.column_names:

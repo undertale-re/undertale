@@ -23,7 +23,7 @@ from torch.nn import GELU, Dropout, Embedding, LayerNorm, Linear, Module, Module
 from torch.nn.functional import cross_entropy
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import LambdaLR
-from transformers import GPT2LMHeadModel, AutoTokenizer
+from transformers import GPT2Config, GPT2LMHeadModel
 
 from . import tokenizer
 from .tokenizer import SPECIAL_TOKENS, TOKEN_NEXT
@@ -422,44 +422,31 @@ class TransformerEncoderForSequenceSummarization(Module):
 
     def __init__(
         self,
-        assembly_checkpoint,
+        assembly_encoder_config,
         connector_config,
-        llm_checkpoint,
+        llm_config,
         end2end=True,
         tune_llm=True,
     ):
         super().__init__()
 
         self.tune_llm = tune_llm
-        
-        
-        self.assembly_checkpoint = assembly_checkpoint
         self.assembly_encoder = None
         if end2end:
-            self.assembly_encoder = TransformerEncoderForMaskedLM.load_from_checkpoint(
-                assembly_checkpoint
+            self.assembly_encoder = TransformerEncoder(
+                assembly_encoder_config["depth"],
+                assembly_encoder_config["hidden_dimensions"],
+                assembly_encoder_config["vocab_size"],
+                assembly_encoder_config["input_size"],
+                assembly_encoder_config["heads"],
+                assembly_encoder_config["intermediate_dimensions"],
+                assembly_encoder_config["dropout"],
+                assembly_encoder_config["eps"],
             )
 
-        try:
-            self.llm = GPT2LMHeadModel.from_pretrained(llm_checkpoint)
-            
-        except:
-            print("downloading gpt2 from huggingface...")
-            self.llm = GPT2LMHeadModel.from_pretrained("gpt2")
-            self.llm.save_pretrained(llm_checkpoint)
-            
-            
-            
-        try:
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                llm_checkpoint, local_files_only=True
-            )
-            self.stop_token=self.tokenizer.eos_token_id
-        except Exception as e:
-            raise RuntimeError(
-                f"Failed to load model/tokenizer from {llm_checkpoint}. "
-                f"Make sure you download it first.\n{e}"
-            )
+        self.llm = GPT2LMHeadModel(GPT2Config(**llm_config))
+        self.tokenizer = None
+        self.stop_token = None
 
         if not self.tune_llm:
             for param in self.llm.parameters():
@@ -470,24 +457,28 @@ class TransformerEncoderForSequenceSummarization(Module):
             self.llm.train()
 
         self.llm_embedding_size = self.llm.transformer.wte.weight.shape[1]
-        self.prefix_length_const = connector_config.prefix_length_const
-        prefix_length_assembly = connector_config.prefix_length_assembly
+        self.prefix_length_const = connector_config["prefix_length_const"]
+        prefix_length_assembly = connector_config["prefix_length_assembly"]
 
         output_size = self.llm_embedding_size * self.prefix_length_const
         hidden_size = output_size // 2
 
-        if connector_config.model_type.lower() == "mlp":
+        if connector_config["model_type"].lower() == "mlp":
             self.connector = MLP(
-                (connector_config.prefix_size_const, hidden_size, output_size)
+                (connector_config["prefix_size"], hidden_size, output_size)
             )
         else:
             self.connector = TransformerConnector(
-                connector_config.prefix_size,
+                connector_config["prefix_size"],
                 self.llm_embedding_size,
                 self.prefix_length_const,
                 prefix_length_assembly,
-                connector_config.num_layers,
+                connector_config["num_layers"],
             )
+
+    def set_tokenizer(self, tokenizer):
+        self.tokenizer = tokenizer
+        self.stop_token = tokenizer.eos_token_id
 
     def forward(self, text_tokens, encoder_embedding, mask=None, labels=None):
         embedding_text = self.llm.transformer.wte(text_tokens)
@@ -507,15 +498,11 @@ class TransformerEncoderForSequenceSummarization(Module):
         return out
 
     def embed_assembly(self, assembly_tokens, assembly_mask=None):
-
         if self.assembly_encoder is None:
-            self.assembly_encoder = TransformerEncoderForMaskedLM.load_from_checkpoint(
-                self.assembly_checkpoint
-            )
+            raise RuntimeError("assembly_encoder is not initialized for non-end2end mode.")
         if self.assembly_encoder.training:
-            
             self.assembly_encoder.eval()
-        return self.assembly_encoder.encoder(assembly_tokens, assembly_mask)
+        return self.assembly_encoder(assembly_tokens, assembly_mask)
 
     def get_dummy_token(self, batch_size: int, device: torch.device) -> torch.Tensor:
          return torch.full((batch_size, self.prefix_length_const),
@@ -537,6 +524,9 @@ class TransformerEncoderForSequenceSummarization(Module):
         early_stopping=True,
         min_new_tokens=1,   
     ):
+        if self.tokenizer is None or self.stop_token is None:
+            raise RuntimeError("Tokenizer must be set before calling generate().")
+
         self.llm.eval()
         device = next(self.llm.parameters()).device
 

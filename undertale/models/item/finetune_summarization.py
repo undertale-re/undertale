@@ -2,18 +2,17 @@ import argparse
 import json
 import os
 from pathlib import Path
-from types import SimpleNamespace
 
 import torch
 import torch.nn.functional as F
-from datasets import load_dataset
+from datasets import load_dataset, load_from_disk
 from lightning import LightningModule, Trainer
 from lightning.pytorch.callbacks import Callback, ModelCheckpoint, TQDMProgressBar
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 from lightning.pytorch.loggers import TensorBoardLogger
 from torch.optim import AdamW
 from torch.utils.data import DataLoader, RandomSampler
-from transformers import get_cosine_schedule_with_warmup
+from transformers import AutoConfig, AutoTokenizer, GPT2LMHeadModel, get_cosine_schedule_with_warmup
 
 from rouge_score import rouge_scorer
 from bert_score import score as bert_score
@@ -27,8 +26,10 @@ from .summarization_dataset import CustomCollator, SummarizerDataset
 
 def dataset_size_type(x):
     x = int(x)
-    if x == 0:
-        raise argparse.ArgumentTypeError("dataset_size cannot be 0. Use -1 for full dataset or a positive integer.")
+    if x == 0 or x < -1:
+        raise argparse.ArgumentTypeError(
+            "dataset_size must be -1 for the full dataset or a positive integer."
+        )
     return x
 
 
@@ -70,15 +71,96 @@ def maybe_override_prefix_lengths_from_spec(args, spec):
     return args
 
 
+def load_checkpoint_state_dict(checkpoint_path):
+    """Load a PyTorch/Lightning checkpoint and return its state dict payload."""
+    checkpoint = torch.load(checkpoint_path, map_location="cpu")
+    if isinstance(checkpoint, dict) and "state_dict" in checkpoint:
+        return checkpoint["state_dict"]
+    if isinstance(checkpoint, dict):
+        return checkpoint
+    raise ValueError(f"Unsupported checkpoint format at {checkpoint_path}")
+
+
+def build_assembly_encoder_config_from_checkpoint(checkpoint_path):
+    """Extract plain-Python encoder hyperparameters from a masked-LM checkpoint."""
+    checkpoint = torch.load(checkpoint_path, map_location="cpu")
+    hparams = checkpoint.get("hyper_parameters", {})
+
+    required_keys = (
+        "depth",
+        "hidden_dimensions",
+        "vocab_size",
+        "input_size",
+        "heads",
+        "intermediate_dimensions",
+        "dropout",
+        "eps",
+    )
+    missing = [key for key in required_keys if key not in hparams]
+    if missing:
+        raise KeyError(
+            f"Assembly checkpoint {checkpoint_path} is missing hyperparameters: {missing}"
+        )
+
+    return {key: hparams[key] for key in required_keys}
+
+
+def load_assembly_encoder_weights(encoder, checkpoint_path):
+    """Load only encoder weights from a masked-LM Lightning checkpoint."""
+    state_dict = load_checkpoint_state_dict(checkpoint_path)
+    encoder_state_dict = {}
+    for key, value in state_dict.items():
+        if key.startswith("encoder."):
+            encoder_state_dict[key[len("encoder."):]] = value
+
+    if not encoder_state_dict:
+        raise KeyError(f"No encoder.* weights found in assembly checkpoint {checkpoint_path}")
+
+    missing, unexpected = encoder.load_state_dict(encoder_state_dict, strict=False)
+    return missing, unexpected
+
+
+def build_llm_config_dict(gpt2path):
+    """Load a GPT-2 config and convert it to plain Python data."""
+    config = AutoConfig.from_pretrained(gpt2path, local_files_only=True)
+    return config.to_dict()
+
+
+def load_llm_weights(llm, gpt2path):
+    """Load pretrained GPT-2 weights into an already-instantiated random model."""
+    pretrained_llm = GPT2LMHeadModel.from_pretrained(gpt2path, local_files_only=True)
+    try:
+        missing, unexpected = llm.load_state_dict(pretrained_llm.state_dict(), strict=False)
+    finally:
+        del pretrained_llm
+    return missing, unexpected
+
+
 def load_training_dataset(dataset_path, end2end):
     """Load either the original Undertale dataset or parquet-based preprocessed data."""
-    if end2end:
-        return Dataset.load(dataset_path)
+    del end2end  # Dataset format is independent from whether the model is trained end-to-end.
 
-    if os.path.exists(dataset_path):
-        return load_dataset("parquet", data_files=dataset_path, split="train")
+    path = Path(dataset_path).expanduser()
+    if not path.exists():
+        raise FileNotFoundError(f"File not found: {dataset_path}")
 
-    raise FileNotFoundError(f"File not found: {dataset_path}")
+    if path.is_file():
+        if path.suffix == ".parquet":
+            return load_dataset("parquet", data_files=str(path), split="train")
+        return Dataset.load(str(path))
+
+    if (path / "dataset_info.json").exists() and (path / "state.json").exists():
+        return load_from_disk(str(path))
+
+    parquet_files = sorted(path.rglob("*.parquet"))
+    if parquet_files:
+        return load_dataset(
+            "parquet",
+            data_files=[str(parquet_file) for parquet_file in parquet_files],
+            split="train",
+        )
+
+    return Dataset.load(str(path))
 
 
 
@@ -725,14 +807,39 @@ if __name__ == "__main__":
         "prefix_length_assembly": args.prefix_length_assembly,
         "num_layers": args.num_layers,
     }
-    connector_config = SimpleNamespace(**connector_config)
+    assembly_encoder_config = (
+        build_assembly_encoder_config_from_checkpoint(args.assembly_checkpoint)
+        if args.end2end
+        else None
+    )
+    llm_config = build_llm_config_dict(args.gpt2path)
 
     model = TransformerEncoderForSequenceSummarization(
-        args.assembly_checkpoint,
+        assembly_encoder_config,
         connector_config,
-        args.gpt2path,
+        llm_config,
         args.end2end,
         args.tune_llm,
+    )
+
+    if args.end2end:
+        missing, unexpected = load_assembly_encoder_weights(
+            model.assembly_encoder,
+            args.assembly_checkpoint,
+        )
+        if missing:
+            print(f"Assembly encoder missing keys after load: {missing}")
+        if unexpected:
+            print(f"Assembly encoder unexpected keys after load: {unexpected}")
+
+    missing, unexpected = load_llm_weights(model.llm, args.gpt2path)
+    if missing:
+        print(f"LLM missing keys after load: {missing}")
+    if unexpected:
+        print(f"LLM unexpected keys after load: {unexpected}")
+
+    model.set_tokenizer(
+        AutoTokenizer.from_pretrained(args.gpt2path, local_files_only=True)
     )
 
     output = os.path.abspath(os.path.expanduser(args.output))
