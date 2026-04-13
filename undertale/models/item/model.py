@@ -26,7 +26,6 @@ from torch.optim.lr_scheduler import LambdaLR
 from transformers import GPT2LMHeadModel, AutoTokenizer
 
 from . import tokenizer
-from .model_connector import MLP, TransformerConnector
 from .tokenizer import SPECIAL_TOKENS, TOKEN_NEXT
 
 
@@ -319,6 +318,63 @@ class TransformerEncoderForMaskedLM(LightningModule, Module):
         self.log("valid_f1", f1, prog_bar=True, sync_dist=True)
 
 
+class MLP(Module):
+    def __init__(self, sizes, bias: bool = True, act=GELU):
+        super().__init__()
+        layers = []
+        for i in range(len(sizes) - 1):
+            layers.append(Linear(sizes[i], sizes[i + 1], bias=bias))
+            if i < len(sizes) - 2:
+                layers.append(act())
+        self.model = torch.nn.Sequential(*layers)
+
+    def forward(self, x: Tensor) -> Tensor:
+        return self.model(x)
+
+
+class TransformerConnector(Module):
+    def __init__(
+        self,
+        prefix_size: int,
+        dim_embedding: int,
+        prefix_length: int,
+        assembly_length: int,
+        num_layers: int = 8,
+        heads: int = 8,
+        dropout: float = 0.0,
+    ):
+        super().__init__()
+
+        self.assembly_length = assembly_length
+        self.linear = Linear(prefix_size, assembly_length * dim_embedding)
+        self.prefix_const = torch.nn.Parameter(
+            torch.randn(prefix_length, dim_embedding), requires_grad=True
+        )
+        self.layers = ModuleList(
+            [
+                TransformerEncoderLayer(
+                    dim_embedding,
+                    heads,
+                    dim_embedding * 2,
+                    dropout,
+                )
+                for _ in range(num_layers)
+            ]
+        )
+
+    def forward(self, x: Tensor) -> Tensor:
+        x = self.linear(x).view(x.shape[0], self.assembly_length, -1)
+        prefix = self.prefix_const.unsqueeze(0).expand(
+            x.shape[0], *self.prefix_const.shape
+        )
+        output = cat((x, prefix), dim=1)
+
+        for layer in self.layers:
+            output = layer(output)
+
+        return output[:, self.assembly_length :]
+
+
 class TransformerEncoderForSequenceSimilarity(Module):
     pass
 
@@ -542,89 +598,6 @@ class TransformerEncoderForSequenceSummarization(Module):
             output_text = self.tokenizer.decode(out_ids, skip_special_tokens=True)
             return output_text    
     
-#     def generate2(
-#         self,
-#         tokens=None,
-#         prefix=None,        
-#         embed=None,         # optional: prompt token embeddings [1, T, n_embd]  
-#         entry_length=67,    # max new tokens
-#         top_p=0.8,
-#         temperature=1.0,
-#         do_sample=True,
-#     ):
-#         """
-#         Adaptation of your old generate2 to use HF `model.generate(inputs_embeds=...)`
-#         with Option A multimodal soft-prefix prepended at the embedding layer.
-
-#         Backward-compatible call pattern:
-#           generate2(tokens=..., prefix="text prompt", embed=...)
-
-#         New multimodal prefix:
-#           generate2(prefix="text prompt", mm_prefix=z)
-
-#         Requirements:
-#           - self.modality_to_prefix(mm_prefix) -> [1, P, n_embd]
-#           - self.stop_token is an int token id (or None)
-#         """
-#         self.llm.eval()
-#         device = next(self.llm.parameters()).device
-#         stop_token_index = self.stop_token
-#         if temperature is None or temperature <= 0:
-#             temperature = 1.0
-
-#         with torch.no_grad():
-#             # -------------------------
-#             # 1) Build prompt tokens + embeds (same as old, but "prefix" stays the text prompt)
-#             # -------------------------
-#             if embed is not None:
-#                 prompt_embeds = embed.to(device)  # [1, T, n_embd]
-#                 # For decoding: if tokens not provided, we'll decode from generated ids returned by generate.
-#                 prompt_tokens = tokens.to(device) if tokens is not None else None
-#             else:
-#                 if tokens is None:
-#                     tokens = torch.tensor(self.tokenizer.encode(prefix or ""), dtype=torch.long)
-#                     tokens = tokens.unsqueeze(0).to(device)  # [1, T]
-#                 else:
-#                     tokens = tokens.to(device)
-
-#                 prompt_tokens = tokens
-#                 prompt_embeds = self.llm.transformer.wte(prompt_tokens)  # [1, T, n_embd]
-
-#             # -------------------------
-#             # 2) Build multimodal soft-prefix embeds (Option A) and prepend
-#             # -------------------------
-#             prefix_len = 0
-            
-#             inputs_embeds = prompt_embeds  # [1, T, n_embd]
-
-#             # attention_mask: all ones (no padding)
-#             attention_mask = torch.ones(inputs_embeds.size()[:2], dtype=torch.long, device=device)
-
-#             # -------------------------
-#             # 3) Generate with HF
-#             # -------------------------
-#             out_ids = self.llm.generate(
-#                 inputs_embeds=inputs_embeds,
-#                 attention_mask=attention_mask,
-#                 max_new_tokens=entry_length,
-#                 do_sample=do_sample,
-#                 top_p=top_p,
-#                 temperature=temperature,
-#                 eos_token_id=stop_token_index if stop_token_index is not None else self.tokenizer.eos_token_id,
-#                 pad_token_id=stop_token_index,
-#             )  # [1, (P+T)+new] in "dummy token space"
-
-#             #print(out_ids)
-#             # Drop the dummy prefix positions before decoding
-#             #out_ids = out_ids[:, prefix_len:]  # [1, T+new] aligned to real tokens
-        
-#             # Match your old behavior: decode the full returned sequence (prompt + continuation)
-#             output_text = self.tokenizer.decode(out_ids[0], skip_special_tokens=False)
-#             return output_text
-
-
-
-
 __all__ = [
     "Defaults",
     "TransformerEncoder",
