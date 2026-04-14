@@ -16,8 +16,8 @@ from lightning.pytorch.callbacks import BasePredictionWriter
 from transformers import AutoTokenizer
 
 from ... import logging as undertale_logging
+from . import tokenizer as undertale_tokenizer
 from .model import TransformerEncoder
-from undertale.models import tokenizer as undertale_tokenizer
 
 
 # Module-level logger used to report progress while processing files.
