@@ -266,7 +266,7 @@ if __name__ == "__main__":
 
     with (
         Cluster(
-            type=arguments.cluster, partition="gaia", parallelism=arguments.parallelism
+            type=arguments.cluster, parallelism=arguments.parallelism, memory="32GB"
         ) as cluster,
         Client(cluster) as client,
     ):

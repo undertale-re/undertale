@@ -127,7 +127,7 @@ def fanout(
 
     results = []
 
-    output, created = get_or_create_directory(output)
+    output, _ = get_or_create_directory(output)
     for input in inputs:
         results.append(
             client.submit(
