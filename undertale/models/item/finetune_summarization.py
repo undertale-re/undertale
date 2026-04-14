@@ -86,23 +86,16 @@ def build_assembly_encoder_config_from_checkpoint(checkpoint_path):
     checkpoint = torch.load(checkpoint_path, map_location="cpu")
     hparams = checkpoint.get("hyper_parameters", {})
 
-    required_keys = (
-        "depth",
-        "hidden_dimensions",
-        "vocab_size",
-        "input_size",
-        "heads",
-        "intermediate_dimensions",
-        "dropout",
-        "eps",
-    )
-    missing = [key for key in required_keys if key not in hparams]
-    if missing:
-        raise KeyError(
-            f"Assembly checkpoint {checkpoint_path} is missing hyperparameters: {missing}"
-        )
-
-    return {key: hparams[key] for key in required_keys}
+    return {
+        "depth": hparams["depth"],
+        "hidden_dimensions": hparams["hidden_dimensions"],
+        "vocab_size": hparams["vocab_size"],
+        "input_size": hparams["input_size"],
+        "heads": hparams["heads"],
+        "intermediate_dimensions": hparams["intermediate_dimensions"],
+        "dropout": hparams["dropout"],
+        "eps": hparams["eps"],
+    }
 
 
 def load_assembly_encoder_weights(encoder, checkpoint_path):
@@ -112,9 +105,6 @@ def load_assembly_encoder_weights(encoder, checkpoint_path):
     for key, value in state_dict.items():
         if key.startswith("encoder."):
             encoder_state_dict[key[len("encoder."):]] = value
-
-    if not encoder_state_dict:
-        raise KeyError(f"No encoder.* weights found in assembly checkpoint {checkpoint_path}")
 
     missing, unexpected = encoder.load_state_dict(encoder_state_dict, strict=False)
     return missing, unexpected

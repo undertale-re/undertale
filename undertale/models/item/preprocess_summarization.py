@@ -1,6 +1,8 @@
 import argparse
 import json
 import logging
+import os
+import shutil
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -9,9 +11,12 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import torch
 from datasets import load_dataset
+from lightning import LightningModule, Trainer
+from lightning.pytorch.callbacks import BasePredictionWriter
 from transformers import AutoTokenizer
 
-from model import TransformerEncoderForMaskedLM
+from ... import logging as undertale_logging
+from .model import TransformerEncoder
 from undertale.models import tokenizer as undertale_tokenizer
 
 
@@ -54,6 +59,7 @@ class ArrowArrayDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx: int):
         # Convert one tokenized example into torch tensors that can be fed to the model.
         return {
+            "row_idx": torch.tensor(idx, dtype=torch.long),
             "input_ids": torch.tensor(self.input_ids[idx], dtype=torch.long),
             "attention_mask": torch.tensor(self.attention_masks[idx], dtype=torch.long),
         }
@@ -69,6 +75,7 @@ class SimpleCollator:
         # Sequences may have different lengths, so pad them to the length of the
         # longest example in the batch before stacking them.
         return {
+            "row_idx": torch.stack([item["row_idx"] for item in batch]),
             "input_ids": torch.nn.utils.rnn.pad_sequence(
                 [item["input_ids"] for item in batch],
                 batch_first=True,
@@ -82,27 +89,56 @@ class SimpleCollator:
         }
 
 
-class EmbeddingWriter:
-    """Runs the bare assembly encoder and returns pooled embeddings."""
+class DistributedPredictionWriter(BasePredictionWriter):
+    """Persist prediction shards per rank so they can be merged on global rank 0."""
 
-    def __init__(self, model: TransformerEncoderForMaskedLM, device: torch.device):
-        # Keep a reference to the model and the device it should run on.
-        self.model = model
-        self.device = device
+    def __init__(self, output_dir: Optional[Path] = None):
+        super().__init__(write_interval="batch")
+        self.output_dir = output_dir
 
-    @torch.no_grad()
-    def encode_batch(self, input_ids: torch.Tensor, attention_mask: torch.Tensor):
-        # Run the encoder only; this skips gradient tracking because we are doing
-        # inference, not training.
-        hidden = self.model.encoder(
-            input_ids.to(self.device),
-            attention_mask.to(self.device),
+    def write_on_batch_end(
+        self,
+        trainer,
+        pl_module,
+        prediction,
+        batch_indices,
+        batch,
+        batch_idx,
+        dataloader_idx,
+    ) -> None:
+        del pl_module, batch_indices, batch, dataloader_idx
+
+        if self.output_dir is None:
+            raise RuntimeError("Prediction writer output_dir was not set before prediction started.")
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        destination = self.output_dir / f"rank{trainer.global_rank:04d}_batch{batch_idx:08d}.pt"
+        torch.save(prediction, destination)
+
+
+class AssemblyEmbeddingPredictor(LightningModule):
+    """Lightning wrapper that runs the plain assembly encoder for prediction."""
+
+    def __init__(self, encoder_config: Dict[str, Any]):
+        super().__init__()
+        self.assembly_encoder = TransformerEncoder(
+            encoder_config["depth"],
+            encoder_config["hidden_dimensions"],
+            encoder_config["vocab_size"],
+            encoder_config["input_size"],
+            encoder_config["heads"],
+            encoder_config["intermediate_dimensions"],
+            encoder_config["dropout"],
+            encoder_config["eps"],
         )
-        # Collapse the token dimension into a single vector per row by averaging.
+
+    def predict_step(self, batch, batch_idx, dataloader_idx=0):
+        del batch_idx, dataloader_idx
+        hidden = self.assembly_encoder(batch["input_ids"], batch["attention_mask"])
         pooled = hidden.mean(dim=1)
-        # Move results back to CPU and convert to plain Python lists so they can
-        # be inserted into a pandas DataFrame / parquet file.
-        return pooled.detach().cpu().tolist()
+        return {
+            "row_idx": batch["row_idx"].detach().cpu(),
+            "embeddings": pooled.detach().cpu(),
+        }
 
 
 def parse_args() -> argparse.Namespace:
@@ -112,8 +148,11 @@ def parse_args() -> argparse.Namespace:
         description="Preprocess summarization parquet files with optional assembly tokenization, assembly embeddings, and GPT-2 summary tokenization."
     )
 
-    # Positional argument: folder containing the input parquet files.
-    parser.add_argument("folder", type=str, help="Input folder containing parquet files.")
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        help="Dataset folder containing parquet files to preprocess.",
+    )
 
     # Output directory. Outputs are written directly here; run settings are saved in a JSON manifest.
     parser.add_argument(
@@ -172,7 +211,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--prefix_length",
         type=int,
-        default=0,
+        default=40,
         help="Number of prefix tokens reserved for summary decoding. Used to limit summary token length before appending the stop token.",
     )
 
@@ -180,7 +219,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--batch_size",
         type=int,
-        default=64,
+        default=8,
         help="Batch size for assembly embedding.",
     )
     parser.add_argument(
@@ -190,10 +229,21 @@ def parse_args() -> argparse.Namespace:
         help="Dataloader workers for assembly embedding.",
     )
     parser.add_argument(
-        "--device",
+        "-a", "--accelerator", default="auto", help="accelerator to use"
+    )
+    parser.add_argument(
+        "-d",
+        "--devices",
+        default=1,
+        type=int,
+        help="number of accelerator devices to use (per node)",
+    )
+    parser.add_argument("-n", "--nodes", default=1, type=int, help="number of nodes to use")
+    parser.add_argument(
+        "--strategy",
         type=str,
-        default="cuda" if torch.cuda.is_available() else "cpu",
-        help="Device for assembly embedding. Default picks cuda when available, else cpu.",
+        default="ddp_find_unused_parameters_true",
+        help="Lightning distributed strategy for embedding prediction.",
     )
 
     # Feature-selection flags that control which derived columns are produced.
@@ -249,6 +299,9 @@ def parse_args() -> argparse.Namespace:
 
 def validate_args(args: argparse.Namespace) -> None:
     """Validate flag combinations and required supporting paths."""
+
+    if not args.dataset:
+        raise ValueError("--dataset is required.")
 
     # Require the user to ask for at least one preprocessing action.
     if not (args.tokenize_assembly or args.embed_assembly or args.tokenize_summaries):
@@ -387,25 +440,75 @@ def tokenize_summary_texts(
     return token_ids, masks
 
 
-def build_embedding_model(checkpoint_path: str, device: torch.device) -> TransformerEncoderForMaskedLM:
-    """Load the bare assembly encoder checkpoint used for embeddings."""
+def load_checkpoint_state_dict(checkpoint_path):
+    """Load a PyTorch/Lightning checkpoint and return its state dict payload."""
 
-    # Restore the trained model from disk, switch it to eval mode, and move it to
-    # the requested device.
-    model = TransformerEncoderForMaskedLM.load_from_checkpoint(checkpoint_path)
-    model.eval()
-    model.to(device)
-    return model
+    checkpoint = torch.load(checkpoint_path, map_location="cpu")
+    if isinstance(checkpoint, dict) and "state_dict" in checkpoint:
+        return checkpoint["state_dict"]
+    if isinstance(checkpoint, dict):
+        return checkpoint
+    raise ValueError(f"Unsupported checkpoint format at {checkpoint_path}")
+
+
+def build_assembly_encoder_config_from_checkpoint(checkpoint_path):
+    """Extract plain-Python encoder hyperparameters from a masked-LM checkpoint."""
+
+    checkpoint = torch.load(checkpoint_path, map_location="cpu")
+    hparams = checkpoint.get("hyper_parameters", {})
+
+    return {
+        "depth": hparams["depth"],
+        "hidden_dimensions": hparams["hidden_dimensions"],
+        "vocab_size": hparams["vocab_size"],
+        "input_size": hparams["input_size"],
+        "heads": hparams["heads"],
+        "intermediate_dimensions": hparams["intermediate_dimensions"],
+        "dropout": hparams["dropout"],
+        "eps": hparams["eps"],
+    }
+
+
+def load_assembly_encoder_weights(encoder, checkpoint_path):
+    """Load only encoder weights from a masked-LM Lightning checkpoint."""
+    state_dict = load_checkpoint_state_dict(checkpoint_path)
+    encoder_state_dict = {}
+    for key, value in state_dict.items():
+        if key.startswith("encoder."):
+            encoder_state_dict[key[len("encoder."):]] = value
+
+    missing, unexpected = encoder.load_state_dict(encoder_state_dict, strict=False)
+    return missing, unexpected
+
+
+def build_prediction_trainer(
+    args: argparse.Namespace,
+    output_root: Path,
+    prediction_writer: DistributedPredictionWriter,
+) -> Trainer:
+    """Build the Lightning trainer used for distributed embedding prediction."""
+
+    return Trainer(
+        strategy=args.strategy,
+        callbacks=[prediction_writer],
+        accelerator=args.accelerator,
+        devices=args.devices,
+        num_nodes=args.nodes,
+        logger=False,
+        enable_checkpointing=False,
+        default_root_dir=os.path.abspath(str(output_root)),
+    )
 
 
 def generate_embeddings(
     token_ids: Sequence[Sequence[int]],
     masks: Sequence[Sequence[int]],
-    model: TransformerEncoderForMaskedLM,
-    device: torch.device,
+    trainer: Trainer,
+    predictor: AssemblyEmbeddingPredictor,
+    prediction_writer: DistributedPredictionWriter,
     batch_size: int,
     num_workers: int,
-) -> List[List[float]]:
+) -> Optional[List[List[float]]]:
     """Generate one mean-pooled embedding vector per row."""
 
     # Wrap tokenized rows in a Dataset, then use a DataLoader to efficiently batch
@@ -419,12 +522,39 @@ def generate_embeddings(
         collate_fn=SimpleCollator(),
     )
 
-    encoder = EmbeddingWriter(model, device)
-    all_embeddings: List[List[float]] = []
-    for batch in loader:
-        # Encode one batch at a time and append the resulting vectors.
-        all_embeddings.extend(encoder.encode_batch(batch["input_ids"], batch["attention_mask"]))
-    return all_embeddings
+    temp_root = Path(trainer.default_root_dir) / "predict_shards"
+    if trainer.is_global_zero and temp_root.exists():
+        shutil.rmtree(temp_root)
+    trainer.strategy.barrier("cleanup_predict_shards")
+
+    prediction_writer.output_dir = temp_root
+    trainer.predict(predictor, dataloaders=loader, return_predictions=False)
+
+    trainer.strategy.barrier("predict_embeddings_done")
+
+    if not trainer.is_global_zero:
+        return None
+
+    shard_paths = sorted(temp_root.glob("rank*_batch*.pt"))
+    if not shard_paths:
+        raise RuntimeError(f"No prediction shards were written to {temp_root}")
+
+    merged: List[Optional[List[float]]] = [None] * len(token_ids)
+    for shard_path in shard_paths:
+        shard = torch.load(shard_path, map_location="cpu")
+        row_indices = shard["row_idx"].tolist()
+        embeddings = shard["embeddings"].tolist()
+        for row_idx, embedding in zip(row_indices, embeddings):
+            merged[row_idx] = embedding
+
+    missing_rows = [idx for idx, embedding in enumerate(merged) if embedding is None]
+    if missing_rows:
+        raise RuntimeError(
+            f"Missing embeddings for {len(missing_rows)} rows; first missing row index: {missing_rows[0]}"
+        )
+
+    shutil.rmtree(temp_root)
+    return merged
 
 
 def sanitize_text_column(series: pd.Series) -> List[str]:
@@ -453,8 +583,9 @@ def process_file(
     args: argparse.Namespace,
     assembly_tok,
     summary_tok,
-    embed_model,
-    device: torch.device,
+    trainer: Optional[Trainer],
+    predictor: Optional[AssemblyEmbeddingPredictor],
+    prediction_writer: Optional[DistributedPredictionWriter],
 ) -> Path:
     """Load one parquet file, add requested derived columns, and write it back out."""
 
@@ -494,12 +625,14 @@ def process_file(
         embeddings = generate_embeddings(
             assembly_ids,
             assembly_masks,
-            embed_model,
-            device,
+            trainer,
+            predictor,
+            prediction_writer,
             args.batch_size,
             args.num_workers,
         )
-        df[output_names["assembly_embedding"]] = embeddings
+        if embeddings is not None:
+            df[output_names["assembly_embedding"]] = embeddings
 
     if args.tokenize_summaries:
         # Independently tokenize summaries using GPT-2's tokenizer, reserving prefix
@@ -520,6 +653,9 @@ def process_file(
         df[output_names["summary_mask"]] = summary_masks
 
     # Write the augmented dataframe back to parquet in the output directory.
+    if args.embed_assembly and (trainer is None or not trainer.is_global_zero):
+        return output_root / parquet_path.name
+
     destination = write_parquet_preserving_name(df, parquet_path, output_root)
     LOGGER.info("Wrote %s", destination)
     return destination
@@ -538,7 +674,6 @@ def build_preprocessing_manifest(
     input_root: Path,
     output_root: Path,
     parquet_files: Sequence[Path],
-    device: torch.device,
     summary_tok=None,
 ) -> Dict[str, Any]:
     """Build a JSON-serializable manifest describing preprocessing settings."""
@@ -557,7 +692,12 @@ def build_preprocessing_manifest(
         "prefix_length": args.prefix_length,
         "batch_size": args.batch_size,
         "num_workers": args.num_workers,
-        "device": str(device),
+        "runtime": {
+            "accelerator": args.accelerator,
+            "devices": args.devices,
+            "nodes": args.nodes,
+            "strategy": args.strategy,
+        },
         "tokenize_assembly": args.tokenize_assembly,
         "embed_assembly": args.embed_assembly,
         "tokenize_summaries": args.tokenize_summaries,
@@ -598,15 +738,13 @@ def write_preprocessing_manifest(output_root: Path, manifest: Dict[str, Any]) ->
 def main() -> None:
     """Run preprocessing over every parquet file in the input folder."""
 
-    # Configure basic logging so progress messages are visible on the command line.
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-
     # Parse and validate command-line inputs before doing any work.
     args = parse_args()
+    undertale_logging.setup_logging()
     validate_args(args)
 
     # Resolve and validate the input folder path.
-    input_root = Path(args.folder).expanduser().resolve()
+    input_root = Path(args.dataset).expanduser().resolve()
     if not input_root.exists() or not input_root.is_dir():
         raise NotADirectoryError(f"Input folder does not exist or is not a directory: {input_root}")
 
@@ -618,9 +756,6 @@ def main() -> None:
     parquet_files = find_parquet_files(input_root, args.glob)
     LOGGER.info("Found %d parquet files under %s", len(parquet_files), input_root)
 
-    # Turn the device string into a torch.device object.
-    device = torch.device(args.device)
-
     assembly_tok = None
     if args.tokenize_assembly or args.embed_assembly:
         # Load the custom assembly tokenizer only if it is actually needed.
@@ -629,26 +764,41 @@ def main() -> None:
     summary_tok = None
     if args.tokenize_summaries:
         # Load the GPT-2 tokenizer only if summary tokenization is requested.
-        summary_tok = AutoTokenizer.from_pretrained(args.gpt2path)
+        summary_tok = AutoTokenizer.from_pretrained(args.gpt2path, local_files_only=True)
         if summary_tok.pad_token is None:
             # GPT-2 commonly has no pad token configured, so reuse EOS when needed.
             summary_tok.pad_token = summary_tok.eos_token
 
-    embed_model = None
+    trainer = None
+    predictor = None
+    prediction_writer = None
     if args.embed_assembly:
-        # Load the encoder only if embeddings are requested.
-        embed_model = build_embedding_model(args.assembly_checkpoint, device)
+        encoder_config = build_assembly_encoder_config_from_checkpoint(args.assembly_checkpoint)
+        predictor = AssemblyEmbeddingPredictor(encoder_config)
+        missing, unexpected = load_assembly_encoder_weights(
+            predictor.assembly_encoder,
+            args.assembly_checkpoint,
+        )
+        if missing:
+            print(f"Assembly encoder missing keys after load: {missing}")
+        if unexpected:
+            print(f"Assembly encoder unexpected keys after load: {unexpected}")
+        predictor.assembly_encoder.eval()
+        prediction_writer = DistributedPredictionWriter()
+        trainer = build_prediction_trainer(args, output_root, prediction_writer)
 
     manifest = build_preprocessing_manifest(
         args=args,
         input_root=input_root,
         output_root=output_root,
         parquet_files=parquet_files,
-        device=device,
         summary_tok=summary_tok,
     )
-    manifest_path = write_preprocessing_manifest(output_root, manifest)
-    LOGGER.info("Wrote preprocessing manifest to %s", manifest_path)
+    if trainer is None or trainer.is_global_zero:
+        manifest_path = write_preprocessing_manifest(output_root, manifest)
+        LOGGER.info("Wrote preprocessing manifest to %s", manifest_path)
+    if trainer is not None:
+        trainer.strategy.barrier("manifest_written")
 
     # Process each parquet file independently and write a corresponding output file.
     for parquet_path in parquet_files:
@@ -658,9 +808,12 @@ def main() -> None:
             args=args,
             assembly_tok=assembly_tok,
             summary_tok=summary_tok,
-            embed_model=embed_model,
-            device=device,
+            trainer=trainer,
+            predictor=predictor,
+            prediction_writer=prediction_writer,
         )
+        if trainer is not None:
+            trainer.strategy.barrier("file_processed")
 
 
 if __name__ == "__main__":
