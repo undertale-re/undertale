@@ -4,6 +4,7 @@ import argparse
 import json
 import logging
 import os
+import shutil
 from pathlib import Path
 from typing import Any, Dict, Optional, Sequence, Tuple
 
@@ -12,6 +13,7 @@ from datatrove.data import DocumentsPipeline
 from datatrove.pipeline.base import PipelineStep
 from datatrove.pipeline.readers import ParquetReader
 from datatrove.pipeline.writers import ParquetWriter
+import pyarrow.parquet as pq
 from transformers import AutoTokenizer
 
 from ... import logging as undertale_logging
@@ -99,29 +101,54 @@ def sanitize_text(value: Any) -> str:
     return str(value)
 
 
-class LimitDocuments(PipelineStep):
-    """Stop the pipeline after a fixed number of input rows."""
+def find_parquet_files(folder: Path) -> list[Path]:
+    files = sorted(path for path in folder.rglob("*.parquet") if path.is_file())
+    if not files:
+        raise FileNotFoundError(f"No parquet files found under {folder}")
+    return files
 
-    type = "✂️ - FILTER"
-    name = "🔢 Dataset Size Limit"
 
-    def __init__(self, limit: int):
-        super().__init__()
-        self.limit = limit
-        self._seen = 0
+def stage_exact_subset_input(input_root: Path, output_root: Path, dataset_size: int) -> Optional[Path]:
+    """Materialize the first N rows into a temporary parquet directory."""
 
-    def run(
-        self, data: DocumentsPipeline, rank: int = 0, world_size: int = 1
-    ) -> DocumentsPipeline:
-        del rank, world_size
-        if not data:
-            return
+    if dataset_size == -1:
+        return None
 
-        for document in data:
-            if self._seen >= self.limit:
-                break
-            self._seen += 1
-            yield document
+    subset_root = output_root.parent / f".{output_root.name}_subset_input"
+    if subset_root.exists():
+        shutil.rmtree(subset_root)
+    subset_root.mkdir(parents=True, exist_ok=True)
+
+    parquet_files = find_parquet_files(input_root)
+    remaining_rows = dataset_size
+
+    for parquet_path in parquet_files:
+        if remaining_rows <= 0:
+            break
+
+        parquet_file = pq.ParquetFile(parquet_path)
+        file_rows = parquet_file.metadata.num_rows
+        if file_rows <= 0:
+            continue
+
+        take_rows = min(remaining_rows, file_rows)
+        destination = subset_root / parquet_path.relative_to(input_root)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+
+        if take_rows == file_rows:
+            shutil.copy2(parquet_path, destination)
+        else:
+            table = pq.read_table(parquet_path).slice(0, take_rows)
+            pq.write_table(table, destination)
+
+        remaining_rows -= take_rows
+
+    LOGGER.info(
+        "Staged exact subset input at %s using %d requested rows",
+        subset_root,
+        dataset_size,
+    )
+    return subset_root
 
 
 def resolve_summary_tokenization_settings(tokenizer, gpt2path: str, prefix_length: int) -> Tuple[int, int]:
@@ -420,9 +447,6 @@ class SummarizationPreprocessor(Dataset):
             ),
         ]
 
-        if self.cli_args.dataset_size != -1:
-            steps.append(LimitDocuments(self.cli_args.dataset_size))
-
         if self.cli_args.tokenize_assembly or self.cli_args.embed_assembly:
             steps.append(PrepareAssemblyForTokenizer(self.cli_args.assembly_column))
             steps.append(ITEMTokenizer(self.cli_args.assembly_tokenizer))
@@ -537,7 +561,7 @@ def parse_args() -> argparse.Namespace:
         "--dataset_size",
         type=int,
         default=-1,
-        help="Number of datapoints to preprocess across the dataset. Use -1 to process all rows. Exact row limiting is intended for the common --parallelism 1 case.",
+        help="Number of datapoints to preprocess across the dataset. Use -1 to process all rows.",
     )
     parser.add_argument(
         "--assembly_column",
@@ -655,21 +679,28 @@ def main() -> None:
     if not input_root.exists() or not input_root.is_dir():
         raise NotADirectoryError(f"Input folder does not exist or is not a directory: {input_root}")
 
+    staged_input_root = stage_exact_subset_input(input_root, output_root, args.dataset_size)
+    effective_input_root = staged_input_root or input_root
+
     manifest = build_preprocessing_manifest(args, input_root, output_root)
     manifest_path = write_preprocessing_manifest(output_root, manifest)
     LOGGER.info("Wrote preprocessing manifest to %s", manifest_path)
 
-    dataset = SummarizationPreprocessor(
-        writer="parquet",
-        executor=args.executor,
-        logging_directory=args.logging_directory,
-        cli_args=args,
-    )
-    dataset.build(
-        input=str(input_root),
-        output=str(output_root),
-        parallelism=args.parallelism,
-    )
+    try:
+        dataset = SummarizationPreprocessor(
+            writer="parquet",
+            executor=args.executor,
+            logging_directory=args.logging_directory,
+            cli_args=args,
+        )
+        dataset.build(
+            input=str(effective_input_root),
+            output=str(output_root),
+            parallelism=args.parallelism,
+        )
+    finally:
+        if staged_input_root is not None and staged_input_root.exists():
+            shutil.rmtree(staged_input_root)
 
 
 if __name__ == "__main__":
