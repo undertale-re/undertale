@@ -311,13 +311,6 @@ def select_dataset_columns(dataset, resolved_columns, summary_mode, assembly_mod
     keep_columns = [col for col in dataset.column_names if col in keep_columns]
     return dataset.select_columns(keep_columns)
 
-
-def masked_mean_pool(hidden_states, attention_mask):
-    """Pool token representations while excluding padded positions."""
-    mask = attention_mask.unsqueeze(-1).float()
-    return (hidden_states * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1.0)
-
-
 class ProgressBar(TQDMProgressBar):
     def get_metrics(self, trainer, model):
         items = super().get_metrics(trainer, model)
@@ -378,11 +371,11 @@ class ValidationCallback(Callback):
 
                 if self.end2end:
                     encoder_embedding = pl_module.model.embed_assembly(dis_tokens, dis_mask)
-                    encoder_embedding = masked_mean_pool(encoder_embedding, dis_mask)
+                    encoder_embedding = pl_module.model.masked_mean_pool(encoder_embedding, dis_mask)
                 else:
                     encoder_embedding = dis_tokens
                     if encoder_embedding.dim() == 3:
-                        encoder_embedding = masked_mean_pool(encoder_embedding, dis_mask)
+                        encoder_embedding = pl_module.model.masked_mean_pool(encoder_embedding, dis_mask)
 
                 prefixes = pl_module.model.connector(encoder_embedding).view(
                     -1,
@@ -473,8 +466,14 @@ class SummarizeModel(LightningModule, torch.nn.Module):
         self.warmup_steps = warmup_steps
         self.end2end = end2end
 
-    def forward(self, text, encoder_embedding, mask=None, labels=None):
-        return self.model(text, encoder_embedding, mask, labels)
+    def forward(self, text, encoder_embedding, mask=None, labels=None, encoder_attention_mask=None):
+        return self.model(
+            text,
+            encoder_embedding,
+            mask,
+            labels,
+            encoder_attention_mask=encoder_attention_mask,
+        )
 
     def training_step(self, batch, batch_idx):
         tokens, mask, disassembly_tokens, disassembly_mask = (
@@ -487,11 +486,10 @@ class SummarizeModel(LightningModule, torch.nn.Module):
         if self.end2end:
             with torch.no_grad():
                 prefix = self.model.embed_assembly(disassembly_tokens, disassembly_mask)
-                prefix = masked_mean_pool(prefix, disassembly_mask)
         else:
             prefix = disassembly_tokens
 
-        outputs = self(tokens, prefix, mask)
+        outputs = self(tokens, prefix, mask, encoder_attention_mask=disassembly_mask)
         logits = outputs.logits[:, self.prefix_length - 1: -1]
         loss = F.cross_entropy(
             logits.reshape(-1, logits.shape[-1]), tokens.flatten(), ignore_index=0
@@ -512,11 +510,10 @@ class SummarizeModel(LightningModule, torch.nn.Module):
         if self.end2end:
             with torch.no_grad():
                 prefix = self.model.embed_assembly(disassembly_tokens, disassembly_mask)
-                prefix = masked_mean_pool(prefix, disassembly_mask)
         else:
             prefix = disassembly_tokens
 
-        outputs = self(tokens, prefix, mask)
+        outputs = self(tokens, prefix, mask, encoder_attention_mask=disassembly_mask)
         logits = outputs.logits[:, self.prefix_length - 1: -1]
         loss = F.cross_entropy(
             logits.reshape(-1, logits.shape[-1]), tokens.flatten(), ignore_index=0

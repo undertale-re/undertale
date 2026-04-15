@@ -480,9 +480,23 @@ class TransformerEncoderForSequenceSummarization(Module):
         self.tokenizer = tokenizer
         self.stop_token = tokenizer.eos_token_id
 
-    def forward(self, text_tokens, encoder_embedding, mask=None, labels=None):
+    def masked_mean_pool(self, hidden_states: Tensor, attention_mask: Tensor) -> Tensor:
+        mask = attention_mask.unsqueeze(-1).float()
+        return (hidden_states * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1.0)
+
+    def forward(
+        self,
+        text_tokens,
+        encoder_embedding,
+        mask=None,
+        labels=None,
+        encoder_attention_mask: Optional[Tensor] = None,
+    ):
         embedding_text = self.llm.transformer.wte(text_tokens)
-        encoder_embedding = encoder_embedding.mean(dim=1)
+        if encoder_embedding.dim() == 3:
+            if encoder_attention_mask is None:
+                raise ValueError("encoder_attention_mask is required when encoder_embedding is 3D.")
+            encoder_embedding = self.masked_mean_pool(encoder_embedding, encoder_attention_mask)
         prefixes = self.connector(encoder_embedding).view(
             -1, self.prefix_length_const, self.llm_embedding_size
         )
