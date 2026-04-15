@@ -742,8 +742,15 @@ if __name__ == "__main__":
     dataset = select_dataset_columns(dataset, resolved_columns, summary_mode, assembly_mode)
 
     if args.dataset_size != -1:
-        print(f"Get Subset with size {args.dataset_size}")
-        dataset = dataset.select(range(args.dataset_size))
+        actual_size = min(args.dataset_size, len(dataset))
+        if actual_size < args.dataset_size:
+            print(
+                f"Requested dataset_size={args.dataset_size}, "
+                f"but dataset only has {len(dataset)} rows. Using {actual_size} rows instead."
+            )
+        else:
+            print(f"Get Subset with size {actual_size}")
+        dataset = dataset.select(range(actual_size))
     else:
         print("Full dataset")
 
