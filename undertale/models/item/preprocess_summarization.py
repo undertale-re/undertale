@@ -134,7 +134,8 @@ class AssemblyEmbeddingPredictor(LightningModule):
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
         del batch_idx, dataloader_idx
         hidden = self.assembly_encoder(batch["input_ids"], batch["attention_mask"])
-        pooled = hidden.mean(dim=1)
+        mask = batch["attention_mask"].unsqueeze(-1).float()
+        pooled = (hidden * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1.0)
         return {
             "row_idx": batch["row_idx"].detach().cpu(),
             "embeddings": pooled.detach().cpu(),
@@ -500,6 +501,12 @@ def build_prediction_trainer(
     )
 
 
+def resolve_prediction_shard_root(output_root: Path) -> Path:
+    """Store temporary prediction shards outside the user-visible output folder."""
+
+    return output_root.parent / f".{output_root.name}_predict_shards"
+
+
 def generate_embeddings(
     token_ids: Sequence[Sequence[int]],
     masks: Sequence[Sequence[int]],
@@ -522,7 +529,7 @@ def generate_embeddings(
         collate_fn=SimpleCollator(),
     )
 
-    temp_root = Path(trainer.default_root_dir) / "predict_shards"
+    temp_root = resolve_prediction_shard_root(Path(trainer.default_root_dir))
     if trainer.is_global_zero and temp_root.exists():
         shutil.rmtree(temp_root)
     trainer.strategy.barrier("cleanup_predict_shards")
@@ -735,6 +742,33 @@ def write_preprocessing_manifest(output_root: Path, manifest: Dict[str, Any]) ->
     return manifest_path
 
 
+def teardown_prediction_runtime(trainer: Optional[Trainer]) -> None:
+    """Best-effort cleanup for Lightning and torch distributed state."""
+
+    if trainer is None:
+        return
+
+    strategy = getattr(trainer, "strategy", None)
+    if strategy is not None:
+        try:
+            strategy.barrier("preprocess_shutdown")
+        except Exception:
+            LOGGER.exception("Failed during final distributed barrier.")
+
+        teardown = getattr(strategy, "teardown", None)
+        if callable(teardown):
+            try:
+                teardown()
+            except Exception:
+                LOGGER.exception("Failed to tear down Lightning strategy.")
+
+    if torch.distributed.is_available() and torch.distributed.is_initialized():
+        try:
+            torch.distributed.destroy_process_group()
+        except Exception:
+            LOGGER.exception("Failed to destroy torch distributed process group.")
+
+
 def main() -> None:
     """Run preprocessing over every parquet file in the input folder."""
 
@@ -787,33 +821,36 @@ def main() -> None:
         prediction_writer = DistributedPredictionWriter()
         trainer = build_prediction_trainer(args, output_root, prediction_writer)
 
-    manifest = build_preprocessing_manifest(
-        args=args,
-        input_root=input_root,
-        output_root=output_root,
-        parquet_files=parquet_files,
-        summary_tok=summary_tok,
-    )
-    if trainer is None or trainer.is_global_zero:
-        manifest_path = write_preprocessing_manifest(output_root, manifest)
-        LOGGER.info("Wrote preprocessing manifest to %s", manifest_path)
-    if trainer is not None:
-        trainer.strategy.barrier("manifest_written")
-
-    # Process each parquet file independently and write a corresponding output file.
-    for parquet_path in parquet_files:
-        process_file(
-            parquet_path=parquet_path,
-            output_root=output_root,
+    try:
+        manifest = build_preprocessing_manifest(
             args=args,
-            assembly_tok=assembly_tok,
+            input_root=input_root,
+            output_root=output_root,
+            parquet_files=parquet_files,
             summary_tok=summary_tok,
-            trainer=trainer,
-            predictor=predictor,
-            prediction_writer=prediction_writer,
         )
+        if trainer is None or trainer.is_global_zero:
+            manifest_path = write_preprocessing_manifest(output_root, manifest)
+            LOGGER.info("Wrote preprocessing manifest to %s", manifest_path)
         if trainer is not None:
-            trainer.strategy.barrier("file_processed")
+            trainer.strategy.barrier("manifest_written")
+
+        # Process each parquet file independently and write a corresponding output file.
+        for parquet_path in parquet_files:
+            process_file(
+                parquet_path=parquet_path,
+                output_root=output_root,
+                args=args,
+                assembly_tok=assembly_tok,
+                summary_tok=summary_tok,
+                trainer=trainer,
+                predictor=predictor,
+                prediction_writer=prediction_writer,
+            )
+            if trainer is not None:
+                trainer.strategy.barrier("file_processed")
+    finally:
+        teardown_prediction_runtime(trainer)
 
 
 if __name__ == "__main__":
