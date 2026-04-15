@@ -119,7 +119,7 @@ class CustomCollator:
     """Collates batches for either raw assembly, tokenized assembly, or prefixes."""
 
     def __init__(self, args, max_seq_len, pad_id):
-        self.tokenizer = tokenizer.load(args.tokenizer)
+        self.tokenizer = tokenizer.load(args.tokenizer) if args.tokenizer else None
         self.max_length = args.tokenizer_size
         self.tok_fast = None
         self.pad_id = pad_id
@@ -141,7 +141,7 @@ class CustomCollator:
         return padded, masks
 
     def __call__(self, batch):
-        if self.tok_fast is None:
+        if self.tokenizer is not None and self.tok_fast is None:
             self.tok_fast = PreTrainedTokenizerFast(tokenizer_object=self.tokenizer)
 
         tokens, disassembly_infos = zip(*batch)
@@ -150,6 +150,8 @@ class CustomCollator:
         mode = disassembly_infos[0]["mode"]
 
         if mode == "raw_assembly":
+            if self.tok_fast is None:
+                raise ValueError("--tokenizer is required when assembly data is provided as raw text.")
             disassembly_batch = self.tok_fast(
                 [item["text"] for item in disassembly_infos],
                 truncation=True,

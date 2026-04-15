@@ -605,7 +605,7 @@ if __name__ == "__main__":
         "--num_layers", type=int, default=8, help="number layers for transformer"
     )
     parser.add_argument(
-        "-t", "--tokenizer", required=True, help="trained assembly tokenizer file"
+        "-t", "--tokenizer", help="trained assembly tokenizer file"
     )
     parser.add_argument("--tokenizer_size", type=int, default=512)
     parser.add_argument(
@@ -735,6 +735,9 @@ if __name__ == "__main__":
     summary_mode, assembly_mode = resolve_dataset_modes(args, resolved_columns)
     print(f"Using summary_input_mode={summary_mode}")
     print(f"Using assembly_input_mode={assembly_mode}")
+
+    if assembly_mode == "raw" and not args.tokenizer:
+        raise ValueError("--tokenizer is required when assembly_input_mode=raw.")
 
     dataset = select_dataset_columns(dataset, resolved_columns, summary_mode, assembly_mode)
 
