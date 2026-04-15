@@ -173,6 +173,12 @@ def parse_args() -> argparse.Namespace:
         default="*.parquet",
         help="Glob pattern for parquet discovery inside folder. Default: *.parquet",
     )
+    parser.add_argument(
+        "--dataset_size",
+        type=int,
+        default=-1,
+        help="Number of datapoints to preprocess across the dataset. Use -1 to process all rows.",
+    )
 
     # Optional explicit column names to avoid relying on fallback inference.
     parser.add_argument(
@@ -323,6 +329,9 @@ def validate_args(args: argparse.Namespace) -> None:
 
     if args.prefix_length < 0:
         raise ValueError("--prefix_length must be >= 0.")
+
+    if args.dataset_size == 0 or args.dataset_size < -1:
+        raise ValueError("--dataset_size must be -1 for the full dataset or a positive integer.")
 
 
 def find_parquet_files(folder: Path, pattern: str) -> List[Path]:
@@ -593,6 +602,7 @@ def process_file(
     trainer: Optional[Trainer],
     predictor: Optional[AssemblyEmbeddingPredictor],
     prediction_writer: Optional[DistributedPredictionWriter],
+    row_limit: Optional[int] = None,
 ) -> Path:
     """Load one parquet file, add requested derived columns, and write it back out."""
 
@@ -602,6 +612,8 @@ def process_file(
     # it to a pandas DataFrame for easier column manipulation.
     dataset = load_dataset("parquet", data_files=str(parquet_path), split="train")
     df = dataset.to_pandas()
+    if row_limit is not None:
+        df = df.iloc[:row_limit].copy()
 
     # Figure out which source columns contain assembly text and summaries.
     assembly_col = infer_column(df.columns, args.assembly_column, DEFAULT_ASSEMBLY_CANDIDATES, "assembly")
@@ -689,6 +701,7 @@ def build_preprocessing_manifest(
         "input_folder": str(input_root),
         "output_folder": str(output_root),
         "glob": args.glob,
+        "dataset_size": args.dataset_size,
         "num_input_files": len(parquet_files),
         "input_files": [p.name for p in parquet_files],
         "assembly_column": args.assembly_column,
@@ -836,7 +849,20 @@ def main() -> None:
             trainer.strategy.barrier("manifest_written")
 
         # Process each parquet file independently and write a corresponding output file.
+        remaining_rows = None if args.dataset_size == -1 else args.dataset_size
         for parquet_path in parquet_files:
+            if remaining_rows == 0:
+                break
+
+            row_limit = None
+            if remaining_rows is not None:
+                dataset = load_dataset("parquet", data_files=str(parquet_path), split="train")
+                file_rows = len(dataset)
+                if file_rows == 0:
+                    continue
+                row_limit = min(remaining_rows, file_rows)
+                remaining_rows -= row_limit
+
             process_file(
                 parquet_path=parquet_path,
                 output_root=output_root,
@@ -846,6 +872,7 @@ def main() -> None:
                 trainer=trainer,
                 predictor=predictor,
                 prediction_writer=prediction_writer,
+                row_limit=row_limit,
             )
             if trainer is not None:
                 trainer.strategy.barrier("file_processed")
