@@ -46,7 +46,7 @@ def compile(row: Series) -> bytes:
         message += "-" * 36 + " stdout " + "-" * 36 + "\n"
         message += process.stdout.decode().strip() + "\n"
         message += "-" * 36 + " stderr " + "-" * 36 + "\n"
-        message += process.stderr.decode(errors="ignore").strip() + "\n"
+        message += process.stderr.decode(errors="replace").strip() + "\n"
         message += "=" * 80
 
         logger.warning(message)
