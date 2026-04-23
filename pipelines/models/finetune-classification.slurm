@@ -1,29 +1,29 @@
 #!/bin/bash
-#SBATCH --job-name=pretrain-classification
-#SBATCH --nodes=16
+#SBATCH --job-name=finetune-classification
+#SBATCH --nodes=4
 #SBATCH --ntasks-per-node=2
 #SBATCH --cpus-per-task=12
 #SBATCH --mem=0
 #SBATCH --distribution=nopack
-#SBATCH --output=pretrain-classification-%j
+#SBATCH --output=finetune-classification-%j
 
-DATASET=cvebinarysheet
-TOKENIZER=$SHARE/models/tokenizer/nixpkgs-legacy/latest
-TRAINING=$SHARE/datasets/cvebinarysheet/20260326-tokenized/tokenized-nixpkgs-training
-VALIDATION=$SHARE/datasets/cvebinarysheet/20260326-tokenized/tokenized-nixpkgs-validation
-BATCH=184
-CHECKPOINT=$SHARE/models/maskedlm/nixpkgs-legacy/latest
+DATASET=humaneval-x
+TOKENIZER=$SHARE/models/tokenizer/$DATASET/latest
+TRAINING=$SHARE/datasets/$DATASET-finetune-classification/training/latest
+VALIDATION=$SHARE/datasets/$DATASET-finetune-classification/validation/latest
+PRETRAINED=$SHARE/models/maskedlm/$DATASET/latest/checkpoint.ckpt
+CLASSES=10
+BATCH=64
 
 srun python finetune-classification.py \
     --tokenizer $TOKENIZER \
     $TRAINING \
-    ~/$SLURM_JOB_NAME \
+    --validation $VALIDATION \
+    $SLURM_JOB_NAME \
+    --classes $CLASSES \
+    --pretrained $PRETRAINED \
     --accelerator gpu \
-    --nodes 16 \
-    --devices 2 \
+    --nodes $SLURM_JOB_NUM_NODES \
+    --devices $SLURM_NTASKS_PER_NODE \
     --version $SLURM_JOB_ID \
-    --batch-size $BATCH \
-    --checkpoint $CHECKPOINT \
-    --epochs 100 \
-    --generated_output_paths ~/model_outputs \
-    --val_dataset $VALIDATION
+    --batch-size $BATCH

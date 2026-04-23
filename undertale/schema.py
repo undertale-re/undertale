@@ -27,6 +27,13 @@ class TokenizedDataset(Dataset):
     """The attention mask for the tokenized row."""
 
 
+class TokenizedClassificationDataset(TokenizedDataset):
+    """A tokenized dataset with integer classification labels."""
+
+    label: Series[int]
+    """Integer class label for the sequence."""
+
+
 class SourceDataset(Dataset):
     """Source code."""
 
@@ -114,6 +121,8 @@ def validate_dataset(frame: DataFrame, schema: Type[Dataset]) -> None:
 
 __all__ = [
     "Dataset",
+    "TokenizedDataset",
+    "TokenizedClassificationDataset",
     "SummarizedMixin",
     "SourceDataset",
     "SummarizedSourceDataset",

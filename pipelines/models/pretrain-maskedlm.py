@@ -8,10 +8,12 @@ from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 from lightning.pytorch.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
 
+from undertale.models.configuration import (
+    InstructionTraceTransformerEncoderConfiguration,
+)
 from undertale.models.dataset import ParquetDataset
 from undertale.models.maskedlm import (
     InstructionTraceTransformerEncoderForMaskedLM,
-    InstructionTraceTransformerEncoderForMaskedLMConfiguration,
     MaskedLMCollator,
 )
 from undertale.models.tokenizer import TOKEN_MASK, TOKEN_NEXT, TOKEN_PAD
@@ -141,7 +143,7 @@ if __name__ == "__main__":
         next_token_id=next_token_id,
         lr=arguments.learning_rate,
         warmup=arguments.warmup,
-        **InstructionTraceTransformerEncoderForMaskedLMConfiguration.medium,
+        **InstructionTraceTransformerEncoderConfiguration.medium,
     )
 
     collator = MaskedLMCollator(
