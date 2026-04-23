@@ -38,7 +38,7 @@ def extract_tarfile(input: str, output: str) -> str:
 
 
 def compress_tarfile(input: str, output: str) -> str:
-    """Decompress a given directory into a tarfile.
+    """Compress a given directory into a tarfile.
 
     Arguments:
         input: Path to the input directory.
