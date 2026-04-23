@@ -910,7 +910,14 @@ if __name__ == "__main__":
     )
 
     num_train_batches = len(train_dataloader)
-    val_check_interval = 2000 if num_train_batches > 2000 else num_train_batches
+
+    if num_train_batches > 2000:
+        val_check_interval = 2000
+        check_val_every_n_epoch = None
+    else:
+        val_check_interval = num_train_batches
+        check_val_every_n_epoch = 1
+
 
     if args.num_epochs is not None:
         trainer_max_steps = args.num_epochs * num_train_batches
@@ -931,6 +938,7 @@ if __name__ == "__main__":
         num_nodes=args.nodes,
         max_steps=trainer_max_steps,
         val_check_interval=val_check_interval,
+        check_val_every_n_epoch=check_val_every_n_epoch,
         log_every_n_steps=args.log_every_n_steps,
         gradient_clip_val=args.gradient_clip_val,
         gradient_clip_algorithm="norm",
