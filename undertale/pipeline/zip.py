@@ -24,7 +24,6 @@ def unzip_file(input: str, output: str) -> str:
     output, created = get_or_create_directory(os.path.splitext(output)[0])
 
     if not created:
-        logger.debug(f"{input} already unzipped to {output}")
         return output
 
     logger.info(f"extracting {input!r} to {output!r}")
