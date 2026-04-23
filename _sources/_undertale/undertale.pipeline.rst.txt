@@ -16,3 +16,4 @@ pipeline
    json
    parquet
    tarfile
+   zip
