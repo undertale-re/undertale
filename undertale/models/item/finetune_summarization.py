@@ -496,8 +496,8 @@ class SummarizeModel(LightningModule, torch.nn.Module):
             logits.reshape(-1, logits.shape[-1]), tokens.flatten(), ignore_index=0
         )
 
-        self.log("train_loss", loss)
-        self.log("lr", self.trainer.optimizers[0].param_groups[0]["lr"])
+        self.log("train_loss", loss, sync_dist=True)
+        self.log("lr", self.trainer.optimizers[0].param_groups[0]["lr"], sync_dist=False)
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -520,7 +520,7 @@ class SummarizeModel(LightningModule, torch.nn.Module):
             logits.reshape(-1, logits.shape[-1]), tokens.flatten(), ignore_index=0
         )
 
-        self.log("val_loss", loss)
+        self.log("val_loss", loss, sync_dist=True)
         return loss
 
     def configure_optimizers(self):
