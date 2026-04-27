@@ -7,11 +7,11 @@
 #SBATCH --distribution=nopack
 #SBATCH --output=finetune-classification-%j
 
-DATASET=humaneval-x
+DATASET=cvebinarysheet
 TOKENIZER=$SHARE/models/tokenizer/$DATASET/latest
 TRAINING=$SHARE/datasets/$DATASET-finetune-classification/training/latest
 VALIDATION=$SHARE/datasets/$DATASET-finetune-classification/validation/latest
-PRETRAINED=$SHARE/models/maskedlm/$DATASET/latest/checkpoint.ckpt
+PRETRAINED=$SHARE/models/maskedlm/nixpkgs-legacy/20260318-102326.ckpt
 CLASSES=10
 BATCH=64
 
@@ -26,4 +26,5 @@ srun python finetune-classification.py \
     --nodes $SLURM_JOB_NUM_NODES \
     --devices $SLURM_NTASKS_PER_NODE \
     --version $SLURM_JOB_ID \
-    --batch-size $BATCH
+    --batch-size $BATCH \
+    --epochs 2
