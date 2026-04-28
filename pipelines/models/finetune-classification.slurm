@@ -7,11 +7,12 @@
 #SBATCH --distribution=nopack
 #SBATCH --output=finetune-classification-%j
 
-DATASET=cvebinarysheet
-TOKENIZER=$SHARE/models/tokenizer/$DATASET/latest
-TRAINING=$SHARE/datasets/$DATASET-finetune-classification/training/latest
-VALIDATION=$SHARE/datasets/$DATASET-finetune-classification/validation/latest
-PRETRAINED=$SHARE/models/maskedlm/nixpkgs-legacy/20260318-102326.ckpt
+PRETRAIN_DATASET=nixpkgs-legacy
+FINETUNE_DATASET=cvebinarysheet
+TOKENIZER=$SHARE/models/tokenizer/$PRETRAIN_DATASET/latest
+TRAINING=$SHARE/datasets/$FINETUNE_DATASET-finetune-classification/training/latest
+VALIDATION=$SHARE/datasets/$FINETUNE_DATASET-finetune-classification/validation/latest
+PRETRAINED=$SHARE/models/maskedlm/$PRETRAIN_DATASET/latest
 CLASSES=10
 BATCH=64
 
