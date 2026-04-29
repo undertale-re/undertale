@@ -27,10 +27,10 @@ cd "$(dirname "$0")/.."
 OUTPUT="$(pwd)/vendor"
 
 # Download wheels.
-echo "[ ] building wheelhouse at $OUTPUT"
+echo "[ ] downloading dependencies to $OUTPUT"
 
 download "Linux" "manylinux_2_17_x86_64 --platform manylinux_2_28_x86_64" $OUTPUT
 download "MacOS" "macosx_12_0_arm64" $OUTPUT
 download "Windows" "win_amd64" $OUTPUT
 
-echo "[+] wheelhouse complete at $OUTPUT"
+echo "[+] dependency download complete at $OUTPUT"
