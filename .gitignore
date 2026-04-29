@@ -9,6 +9,7 @@ CLAUDE.md
 *.err
 *.tfevents.*
 *.ckpt
+*.whl
 hparams.yaml
 
 *.DS_Store
