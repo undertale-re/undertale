@@ -25,6 +25,7 @@ schema
       SummarizedDisassembledFunctionDatasetWithSource
       SummarizedMixin
       SummarizedSourceDataset
+      TokenizedClassificationDataset
       TokenizedDataset
       VulnerabilityDisassembledFunctionDatasetWithSource
       VulnerabilityMixin

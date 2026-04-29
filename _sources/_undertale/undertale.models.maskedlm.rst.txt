@@ -9,7 +9,6 @@ maskedlm
    .. autosummary::
    
       InstructionTraceTransformerEncoderForMaskedLM
-      InstructionTraceTransformerEncoderForMaskedLMConfiguration
       MaskedLMCollator
       MaskedLMHead
    

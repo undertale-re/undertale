@@ -1,0 +1,12 @@
+configuration
+=============
+
+.. automodule:: undertale.models.configuration
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      InstructionTraceTransformerEncoderConfiguration
+   

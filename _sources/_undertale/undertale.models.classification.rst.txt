@@ -1,0 +1,14 @@
+classification
+==============
+
+.. automodule:: undertale.models.classification
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      ClassificationCollator
+      ClassificationHead
+      InstructionTraceTransformerEncoderForSequenceClassification
+   
