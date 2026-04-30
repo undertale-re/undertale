@@ -16,10 +16,7 @@ export class Sidebar {
 
   protected search = signal('');
 
-  protected readonly isAdmin = computed(() => {
-    const username = this.auth.username();
-    return this.completionService.completions().some((c) => c.username !== username);
-  });
+  protected readonly isAdmin = computed(() => this.auth.isAdmin());
 
   protected readonly filtered = computed(() => {
     const query = this.search().toLowerCase().trim();
