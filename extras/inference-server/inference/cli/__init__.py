@@ -2,6 +2,7 @@ from .admin import Admin
 from .authenticate import Authenticate
 from .base import Command, build_parser
 from .completions import Completions
+from .delete import Delete
 from .destroy import Destroy
 from .export import Export
 from .initialize import Initialize
@@ -18,6 +19,7 @@ __commands__ = [
     Admin,
     Authenticate,
     Purge,
+    Delete,
     Users,
     Completions,
     Submit,
