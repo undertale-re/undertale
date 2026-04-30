@@ -19,6 +19,7 @@ class Purge(Command):
 
     def add_arguments(self, parser):
         parser.add_argument(
+            "-c",
             "--confirm",
             action="store_true",
             help="skip the interactive confirmation prompt",
