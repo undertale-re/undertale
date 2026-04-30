@@ -3,7 +3,7 @@
 from typing import Callable
 
 import torch
-from lightning import LightningModule, Trainer
+from pytorch_lightning import LightningModule, Trainer
 from torch.utils.data import DataLoader
 
 

@@ -2,10 +2,14 @@ from os.path import basename, dirname
 from typing import Callable, Optional
 
 import torch
-from lightning import Trainer
-from lightning.pytorch.callbacks import Callback, ModelCheckpoint, TQDMProgressBar
-from lightning.pytorch.callbacks.early_stopping import EarlyStopping
-from lightning.pytorch.loggers import TensorBoardLogger
+from pytorch_lightning import Trainer
+from pytorch_lightning.pytorch.callbacks import (
+    Callback,
+    ModelCheckpoint,
+    TQDMProgressBar,
+)
+from pytorch_lightning.pytorch.callbacks.early_stopping import EarlyStopping
+from pytorch_lightning.pytorch.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
 
 from undertale.models.configuration import (

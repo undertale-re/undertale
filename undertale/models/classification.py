@@ -2,7 +2,7 @@
 
 from typing import List, Optional
 
-from lightning import LightningModule
+from pytorch_lightning import LightningModule
 from sklearn.metrics import f1_score
 from torch import Tensor, argmax, stack, tensor
 from torch.nn import Linear, Module
