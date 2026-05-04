@@ -9,21 +9,22 @@ from pathlib import Path
 
 import torch
 import torch.nn.functional as F
+from bert_score import score as bert_score
 from datasets import load_dataset, load_from_disk
 from lightning import LightningModule, Trainer
 from lightning.pytorch.callbacks import Callback, ModelCheckpoint, TQDMProgressBar
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 from lightning.pytorch.loggers import TensorBoardLogger
+from rouge_score import rouge_scorer
 from torch.optim import AdamW
 from torch.utils.data import DataLoader, RandomSampler
 from transformers import AutoConfig, AutoTokenizer, GPT2LMHeadModel, get_cosine_schedule_with_warmup
 
 from undertale import logging as undertale_logging
+from undertale.models import tokenizer as undertale_tokenizer
 from undertale.models.summarization_dataset import CustomCollator, SummarizerDataset
 from undertale.models.summarizer import TransformerEncoderForSequenceSummarization
 from undertale.models.tokenizer import TOKEN_NEXT
-from undertale.models import tokenizer as undertale_tokenizer
-
 
 def dataset_size_type(x):
     x = int(x)
@@ -367,9 +368,6 @@ class ValidationCallback(Callback):
         )
 
     def _run_validation(self, trainer, pl_module):
-        from bert_score import score as bert_score
-        from rouge_score import rouge_scorer
-
         os.makedirs(self.save_dir, exist_ok=True)
         rouge = rouge_scorer.RougeScorer(["rougeL"], use_stemmer=True)
 
@@ -410,7 +408,6 @@ class ValidationCallback(Callback):
                     temperature=self.temperature,
                 )
 
-                prefix_len = pl_module.model.prefix_length_const
                 target_ids = tokens[0].tolist()
                 if 0 in target_ids:
                     target_ids = target_ids[: target_ids.index(0)]

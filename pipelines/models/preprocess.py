@@ -5,7 +5,7 @@ import json
 import logging
 import shutil
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple, cast
 
 import pandas as pd
 import pyarrow as pa
@@ -452,7 +452,7 @@ def generate_embeddings(
         )
 
     shutil.rmtree(temp_root)
-    return merged
+    return cast(List[List[float]], merged)
 
 
 def sanitize_text_column(series: pd.Series) -> List[str]:
@@ -501,6 +501,18 @@ def process_file(
         df[output_names["assembly_mask"]] = assembly_masks
 
     if args.embed_assembly:
+        if assembly_ids is None or assembly_masks is None:
+            raise RuntimeError(
+                "Assembly tokenization must run before generating embeddings."
+            )
+        if trainer is None or predictor is None:
+            raise RuntimeError(
+                "Embedding generation requires an initialized trainer and predictor."
+            )
+        if prediction_writer is None or embedding_progress is None:
+            raise RuntimeError(
+                "Embedding generation requires prediction writer and progress callback."
+            )
         embeddings = generate_embeddings(
             assembly_ids,
             assembly_masks,
