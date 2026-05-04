@@ -17,9 +17,9 @@ from lightning.pytorch.callbacks import BasePredictionWriter, Callback
 from transformers import AutoTokenizer
 
 from undertale import logging as undertale_logging
+from undertale.models import tokenizer as undertale_tokenizer
 from undertale.models.custom import InstructionTraceTransformerEncoder
 from undertale.models.tokenizer import TOKEN_NEXT
-from undertale.models import tokenizer as undertale_tokenizer
 
 LOGGER = logging.getLogger(__name__)
 

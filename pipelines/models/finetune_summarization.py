@@ -18,13 +18,19 @@ from lightning.pytorch.loggers import TensorBoardLogger
 from rouge_score import rouge_scorer
 from torch.optim import AdamW
 from torch.utils.data import DataLoader, RandomSampler
-from transformers import AutoConfig, AutoTokenizer, GPT2LMHeadModel, get_cosine_schedule_with_warmup
+from transformers import (
+    AutoConfig,
+    AutoTokenizer,
+    GPT2LMHeadModel,
+    get_cosine_schedule_with_warmup,
+)
 
 from undertale import logging as undertale_logging
 from undertale.models import tokenizer as undertale_tokenizer
 from undertale.models.summarization_dataset import CustomCollator, SummarizerDataset
 from undertale.models.summarizer import TransformerEncoderForSequenceSummarization
 from undertale.models.tokenizer import TOKEN_NEXT
+
 
 def dataset_size_type(x):
     x = int(x)
