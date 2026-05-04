@@ -647,10 +647,9 @@ def main() -> None:
 
     assembly_tok = None
     if args.tokenize_assembly or args.embed_assembly:
-        assembly_tok = undertale_tokenizer.load(
-            args.assembly_tokenizer,
-            sequence_length=args.tokenizer_size,
-        )
+        assembly_tok = undertale_tokenizer.load(args.assembly_tokenizer)
+        assembly_tok.enable_padding(length=args.tokenizer_size)
+        assembly_tok.enable_truncation(max_length=args.tokenizer_size)
 
     summary_tok = None
     if args.tokenize_summaries:
