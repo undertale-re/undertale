@@ -108,7 +108,7 @@ def load_assembly_encoder_weights(encoder, checkpoint_path):
     encoder_state_dict = {}
     for key, value in state_dict.items():
         if key.startswith("encoder."):
-            encoder_state_dict[key[len("encoder."):]] = value
+            encoder_state_dict[key[len("encoder.") :]] = value
     return encoder.load_state_dict(encoder_state_dict, strict=False)
 
 
@@ -135,7 +135,9 @@ def resolve_bertscore_num_layers(model_path):
 def load_llm_weights(llm, gpt2path):
     pretrained_llm = GPT2LMHeadModel.from_pretrained(gpt2path, local_files_only=True)
     try:
-        missing, unexpected = llm.load_state_dict(pretrained_llm.state_dict(), strict=False)
+        missing, unexpected = llm.load_state_dict(
+            pretrained_llm.state_dict(), strict=False
+        )
     finally:
         del pretrained_llm
     return missing, unexpected
@@ -297,21 +299,33 @@ def resolve_dataset_modes(args, resolved_columns):
 
     if args.end2end:
         if assembly_mode == "prefix":
-            raise ValueError("assembly_input_mode=prefix is only valid when --end2end is disabled.")
-        if assembly_mode == "tokens" and not (columns["assembly_tokens"] and columns["assembly_mask"]):
-            raise ValueError("assembly_input_mode=tokens requires assembly token and mask columns.")
+            raise ValueError(
+                "assembly_input_mode=prefix is only valid when --end2end is disabled."
+            )
+        if assembly_mode == "tokens" and not (
+            columns["assembly_tokens"] and columns["assembly_mask"]
+        ):
+            raise ValueError(
+                "assembly_input_mode=tokens requires assembly token and mask columns."
+            )
         if assembly_mode == "raw" and not columns["assembly_text"]:
-            raise ValueError("assembly_input_mode=raw requires an assembly text column.")
+            raise ValueError(
+                "assembly_input_mode=raw requires an assembly text column."
+            )
     else:
         if assembly_mode == "prefix":
             if not columns["assembly_prefix"]:
                 raise ValueError("assembly_input_mode=prefix requires a prefix column.")
         elif assembly_mode == "tokens":
             if not (columns["assembly_tokens"] and columns["assembly_mask"]):
-                raise ValueError("assembly_input_mode=tokens requires assembly token and mask columns.")
+                raise ValueError(
+                    "assembly_input_mode=tokens requires assembly token and mask columns."
+                )
         elif assembly_mode == "raw":
             if not columns["assembly_text"]:
-                raise ValueError("assembly_input_mode=raw requires an assembly text column.")
+                raise ValueError(
+                    "assembly_input_mode=raw requires an assembly text column."
+                )
         else:
             raise ValueError(f"Unsupported assembly_input_mode: {assembly_mode}")
 
@@ -391,7 +405,9 @@ class ValidationCallback(Callback):
                 disassembly_mask = batch["disassembly_mask"].to(pl_module.device)
 
                 if self.end2end:
-                    prefix = pl_module.model.embed_assembly(disassembly_tokens, disassembly_mask)
+                    prefix = pl_module.model.embed_assembly(
+                        disassembly_tokens, disassembly_mask
+                    )
                     prefix = pl_module.model.connector(
                         pl_module.model.masked_mean_pool(prefix, disassembly_mask)
                     ).view(
@@ -417,7 +433,9 @@ class ValidationCallback(Callback):
                 target_ids = tokens[0].tolist()
                 if 0 in target_ids:
                     target_ids = target_ids[: target_ids.index(0)]
-                caption = pl_module.model.tokenizer.decode(target_ids, skip_special_tokens=True)
+                caption = pl_module.model.tokenizer.decode(
+                    target_ids, skip_special_tokens=True
+                )
 
                 outputs.append((caption, text))
                 references.append(caption)
@@ -427,7 +445,10 @@ class ValidationCallback(Callback):
         if model_was_training:
             pl_module.model.train()
 
-        rouge_scores = [rouge.score(ref, pred)["rougeL"].fmeasure for ref, pred in zip(references, predictions)]
+        rouge_scores = [
+            rouge.score(ref, pred)["rougeL"].fmeasure
+            for ref, pred in zip(references, predictions)
+        ]
         rouge_l_f1 = sum(rouge_scores) / max(1, len(rouge_scores))
 
         _, _, bert_f1 = bert_score(
@@ -442,7 +463,9 @@ class ValidationCallback(Callback):
         if self.tag is None:
             path = os.path.join(self.save_dir, f"epoch_{trainer.current_epoch}.txt")
         else:
-            path = os.path.join(self.save_dir, f"{self.tag}_epoch_{trainer.current_epoch}.txt")
+            path = os.path.join(
+                self.save_dir, f"{self.tag}_epoch_{trainer.current_epoch}.txt"
+            )
 
         with open(path, "w", encoding="utf-8") as handle:
             handle.write(
@@ -476,7 +499,14 @@ class SummarizeModel(LightningModule, torch.nn.Module):
         self.warmup_steps = warmup_steps
         self.end2end = end2end
 
-    def forward(self, text, encoder_embedding, mask=None, labels=None, encoder_attention_mask=None):
+    def forward(
+        self,
+        text,
+        encoder_embedding,
+        mask=None,
+        labels=None,
+        encoder_attention_mask=None,
+    ):
         return self.model(
             text,
             encoder_embedding,
@@ -501,13 +531,15 @@ class SummarizeModel(LightningModule, torch.nn.Module):
             prefix = disassembly_tokens
 
         outputs = self(tokens, prefix, mask, encoder_attention_mask=disassembly_mask)
-        logits = outputs.logits[:, self.prefix_length - 1: -1]
+        logits = outputs.logits[:, self.prefix_length - 1 : -1]
         loss = F.cross_entropy(
             logits.reshape(-1, logits.shape[-1]), tokens.flatten(), ignore_index=0
         )
 
         self.log("train_loss", loss, sync_dist=True)
-        self.log("lr", self.trainer.optimizers[0].param_groups[0]["lr"], sync_dist=False)
+        self.log(
+            "lr", self.trainer.optimizers[0].param_groups[0]["lr"], sync_dist=False
+        )
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -526,7 +558,7 @@ class SummarizeModel(LightningModule, torch.nn.Module):
             prefix = disassembly_tokens
 
         outputs = self(tokens, prefix, mask, encoder_attention_mask=disassembly_mask)
-        logits = outputs.logits[:, self.prefix_length - 1: -1]
+        logits = outputs.logits[:, self.prefix_length - 1 : -1]
         loss = F.cross_entropy(
             logits.reshape(-1, logits.shape[-1]), tokens.flatten(), ignore_index=0
         )
@@ -575,9 +607,13 @@ def main():
     parser.add_argument("--tokenizer_size", type=int, default=512)
     parser.add_argument("-e", "--end2end", dest="end2end", action="store_true")
     parser.add_argument("--tune_llm", dest="tune_llm", action="store_true")
-    parser.add_argument("--normalize_prefix", dest="normalize_prefix", action="store_true")
+    parser.add_argument(
+        "--normalize_prefix", dest="normalize_prefix", action="store_true"
+    )
     parser.add_argument("--token_batchsize", type=int, default=1024)
-    parser.add_argument("--dataset", type=str, help="dataset on which to train the model")
+    parser.add_argument(
+        "--dataset", type=str, help="dataset on which to train the model"
+    )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--test_size", type=float, default=0.1)
     parser.add_argument("--dataset_size", type=dataset_size_type, default=-1)
@@ -612,7 +648,9 @@ def main():
     parser.add_argument("--log_every_n_steps", type=int, default=50)
     parser.add_argument("--gradient_clip_val", type=float, default=1.0)
     parser.add_argument("--validation", action="store_true")
-    parser.add_argument("--generated_output_paths", default="./validation_outputs", type=str)
+    parser.add_argument(
+        "--generated_output_paths", default="./validation_outputs", type=str
+    )
     parser.add_argument("--bertscore_model_path", type=str)
 
     args = parser.parse_args()
@@ -629,7 +667,9 @@ def main():
         )
 
     dataset = load_training_dataset(args.dataset, args.end2end)
-    resolved_columns = infer_columns_from_spec_and_data(dataset, preprocessing_spec, args)
+    resolved_columns = infer_columns_from_spec_and_data(
+        dataset, preprocessing_spec, args
+    )
 
     summary_mode, assembly_mode = resolve_dataset_modes(args, resolved_columns)
     print(f"Using summary_input_mode={summary_mode}")
@@ -638,7 +678,9 @@ def main():
     if assembly_mode == "raw" and not args.tokenizer:
         raise ValueError("--tokenizer is required when assembly_input_mode=raw.")
 
-    dataset = select_dataset_columns(dataset, resolved_columns, summary_mode, assembly_mode)
+    dataset = select_dataset_columns(
+        dataset, resolved_columns, summary_mode, assembly_mode
+    )
 
     if args.dataset_size != -1:
         actual_size = min(args.dataset_size, len(dataset))
@@ -653,12 +695,34 @@ def main():
         normalize_prefix=args.normalize_prefix,
         end2end=args.end2end,
         token_batchsize=args.token_batchsize,
-        summary_tokens_column=resolved_columns["summary_tokens"] if summary_mode == "tokens" else "summary_tokens",
-        summary_text_column=resolved_columns["summary_text"] if summary_mode == "raw" else "summary",
-        assembly_text_column=resolved_columns["assembly_text"] if assembly_mode == "raw" else "disassembly",
-        assembly_tokens_column=resolved_columns["assembly_tokens"] if assembly_mode == "tokens" else "disassembly_tokens",
-        assembly_mask_column=resolved_columns["assembly_mask"] if assembly_mode == "tokens" else "disassembly_mask",
-        assembly_prefix_column=resolved_columns["assembly_prefix"] if assembly_mode == "prefix" else "disassembly_prefixes",
+        summary_tokens_column=(
+            resolved_columns["summary_tokens"]
+            if summary_mode == "tokens"
+            else "summary_tokens"
+        ),
+        summary_text_column=(
+            resolved_columns["summary_text"] if summary_mode == "raw" else "summary"
+        ),
+        assembly_text_column=(
+            resolved_columns["assembly_text"]
+            if assembly_mode == "raw"
+            else "disassembly"
+        ),
+        assembly_tokens_column=(
+            resolved_columns["assembly_tokens"]
+            if assembly_mode == "tokens"
+            else "disassembly_tokens"
+        ),
+        assembly_mask_column=(
+            resolved_columns["assembly_mask"]
+            if assembly_mode == "tokens"
+            else "disassembly_mask"
+        ),
+        assembly_prefix_column=(
+            resolved_columns["assembly_prefix"]
+            if assembly_mode == "prefix"
+            else "disassembly_prefixes"
+        ),
     )
     val_dataset = SummarizerDataset(
         dataset=split_dataset["test"],
@@ -667,12 +731,34 @@ def main():
         normalize_prefix=args.normalize_prefix,
         end2end=args.end2end,
         token_batchsize=args.token_batchsize,
-        summary_tokens_column=resolved_columns["summary_tokens"] if summary_mode == "tokens" else "summary_tokens",
-        summary_text_column=resolved_columns["summary_text"] if summary_mode == "raw" else "summary",
-        assembly_text_column=resolved_columns["assembly_text"] if assembly_mode == "raw" else "disassembly",
-        assembly_tokens_column=resolved_columns["assembly_tokens"] if assembly_mode == "tokens" else "disassembly_tokens",
-        assembly_mask_column=resolved_columns["assembly_mask"] if assembly_mode == "tokens" else "disassembly_mask",
-        assembly_prefix_column=resolved_columns["assembly_prefix"] if assembly_mode == "prefix" else "disassembly_prefixes",
+        summary_tokens_column=(
+            resolved_columns["summary_tokens"]
+            if summary_mode == "tokens"
+            else "summary_tokens"
+        ),
+        summary_text_column=(
+            resolved_columns["summary_text"] if summary_mode == "raw" else "summary"
+        ),
+        assembly_text_column=(
+            resolved_columns["assembly_text"]
+            if assembly_mode == "raw"
+            else "disassembly"
+        ),
+        assembly_tokens_column=(
+            resolved_columns["assembly_tokens"]
+            if assembly_mode == "tokens"
+            else "disassembly_tokens"
+        ),
+        assembly_mask_column=(
+            resolved_columns["assembly_mask"]
+            if assembly_mode == "tokens"
+            else "disassembly_mask"
+        ),
+        assembly_prefix_column=(
+            resolved_columns["assembly_prefix"]
+            if assembly_mode == "prefix"
+            else "disassembly_prefixes"
+        ),
     )
 
     collator = CustomCollator(args, train_dataset.max_seq_len, train_dataset.pad_id)
@@ -702,11 +788,16 @@ def main():
         "num_layers": args.num_layers,
     }
     assembly_encoder_config = (
-        build_assembly_encoder_config_from_checkpoint(args.assembly_checkpoint, args.tokenizer)
+        build_assembly_encoder_config_from_checkpoint(
+            args.assembly_checkpoint, args.tokenizer
+        )
         if args.end2end
         else None
     )
-    if args.end2end and assembly_encoder_config["sequence_length"] != args.tokenizer_size:
+    if (
+        args.end2end
+        and assembly_encoder_config["sequence_length"] != args.tokenizer_size
+    ):
         raise ValueError(
             "tokenizer_size must match the assembly encoder sequence length "
             f"for end2end summarization: tokenizer_size={args.tokenizer_size}, "
@@ -738,11 +829,15 @@ def main():
     if unexpected:
         print(f"LLM unexpected keys after load: {unexpected}")
 
-    model.set_tokenizer(AutoTokenizer.from_pretrained(args.gpt2path, local_files_only=True))
+    model.set_tokenizer(
+        AutoTokenizer.from_pretrained(args.gpt2path, local_files_only=True)
+    )
 
     output = os.path.abspath(os.path.expanduser(args.output))
     progress = ProgressBar(leave=True)
-    checkpoint = ModelCheckpoint(filename="{epoch}-{train_loss:.2f}-{val_loss:.2f}", save_top_k=-1)
+    checkpoint = ModelCheckpoint(
+        filename="{epoch}-{train_loss:.2f}-{val_loss:.2f}", save_top_k=-1
+    )
     stop = EarlyStopping(monitor="val_loss", mode="min", patience=5, min_delta=0.001)
     logger = TensorBoardLogger(
         save_dir=os.path.dirname(output),
@@ -781,7 +876,13 @@ def main():
             run_on_fit_end=False,
             args=args,
         )
-        callbacks = [progress, checkpoint, stop, validation_check, final_validation_check]
+        callbacks = [
+            progress,
+            checkpoint,
+            stop,
+            validation_check,
+            final_validation_check,
+        ]
     else:
         callbacks = [progress, checkpoint, stop]
 

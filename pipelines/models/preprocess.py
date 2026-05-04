@@ -117,7 +117,9 @@ class DistributedPredictionWriter(BasePredictionWriter):
         if self.output_dir is None:
             raise RuntimeError("Prediction writer output_dir was not configured.")
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        destination = self.output_dir / f"rank{trainer.global_rank:04d}_batch{batch_idx:08d}.pt"
+        destination = (
+            self.output_dir / f"rank{trainer.global_rank:04d}_batch{batch_idx:08d}.pt"
+        )
         torch.save(prediction, destination)
 
 
@@ -163,7 +165,9 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Preprocess summarization parquet files with optional assembly tokenization, embeddings, and GPT tokenization."
     )
-    parser.add_argument("--dataset", required=True, help="Input parquet dataset directory.")
+    parser.add_argument(
+        "--dataset", required=True, help="Input parquet dataset directory."
+    )
     parser.add_argument(
         "--output_folder",
         default=None,
@@ -225,17 +229,23 @@ def validate_args(args: argparse.Namespace) -> None:
             "--assembly_tokenizer is required when --tokenize_assembly or --embed_assembly is used."
         )
     if args.embed_assembly and not args.assembly_checkpoint:
-        raise ValueError("--assembly_checkpoint is required when --embed_assembly is used.")
+        raise ValueError(
+            "--assembly_checkpoint is required when --embed_assembly is used."
+        )
     if args.prefix_length < 0:
         raise ValueError("--prefix_length must be >= 0.")
     if args.dataset_size == 0 or args.dataset_size < -1:
-        raise ValueError("--dataset_size must be -1 for the full dataset or a positive integer.")
+        raise ValueError(
+            "--dataset_size must be -1 for the full dataset or a positive integer."
+        )
 
 
 def find_parquet_files(folder: Path, pattern: str) -> List[Path]:
     files = sorted(p for p in folder.glob(pattern) if p.is_file())
     if not files:
-        raise FileNotFoundError(f"No parquet files found in {folder} with pattern {pattern!r}")
+        raise FileNotFoundError(
+            f"No parquet files found in {folder} with pattern {pattern!r}"
+        )
     return files
 
 
@@ -247,7 +257,9 @@ def infer_column(
 ) -> str:
     if requested:
         if requested not in columns:
-            raise KeyError(f"Requested {kind} column {requested!r} not present. Found columns: {list(columns)}")
+            raise KeyError(
+                f"Requested {kind} column {requested!r} not present. Found columns: {list(columns)}"
+            )
         return requested
 
     lowered = {col.lower(): col for col in columns}
@@ -261,17 +273,22 @@ def infer_column(
     )
 
 
-def resolve_output_names(args: argparse.Namespace, assembly_col: str, summary_col: str) -> dict:
+def resolve_output_names(
+    args: argparse.Namespace, assembly_col: str, summary_col: str
+) -> dict:
     return {
         "assembly_tokens": args.assembly_tokens_column or f"{assembly_col}_tokens",
         "assembly_mask": args.assembly_mask_column or f"{assembly_col}_mask",
-        "assembly_embedding": args.assembly_embedding_column or f"{assembly_col}_embedding",
+        "assembly_embedding": args.assembly_embedding_column
+        or f"{assembly_col}_embedding",
         "summary_tokens": args.summary_tokens_column or f"{summary_col}_tokens",
         "summary_mask": args.summary_mask_column or f"{summary_col}_mask",
     }
 
 
-def tokenize_assembly_texts(texts: Sequence[str], tokenizer) -> Tuple[List[List[int]], List[List[int]]]:
+def tokenize_assembly_texts(
+    texts: Sequence[str], tokenizer
+) -> Tuple[List[List[int]], List[List[int]]]:
     token_ids = []
     masks = []
     for text in texts:
@@ -281,10 +298,14 @@ def tokenize_assembly_texts(texts: Sequence[str], tokenizer) -> Tuple[List[List[
     return token_ids, masks
 
 
-def resolve_summary_tokenization_settings(tokenizer, gpt2path: str, prefix_length: int) -> Tuple[int, int]:
+def resolve_summary_tokenization_settings(
+    tokenizer, gpt2path: str, prefix_length: int
+) -> Tuple[int, int]:
     stop_token = tokenizer.eos_token_id
     if stop_token is None:
-        raise ValueError(f"Tokenizer {gpt2path!r} has no eos_token_id; cannot append stop token.")
+        raise ValueError(
+            f"Tokenizer {gpt2path!r} has no eos_token_id; cannot append stop token."
+        )
 
     max_positions = None
     for attr in ("n_positions", "max_position_embeddings"):
@@ -373,7 +394,7 @@ def load_assembly_encoder_weights(encoder, checkpoint_path):
     encoder_state_dict = {}
     for key, value in state_dict.items():
         if key.startswith("encoder."):
-            encoder_state_dict[key[len("encoder."):]] = value
+            encoder_state_dict[key[len("encoder.") :]] = value
 
     return encoder.load_state_dict(encoder_state_dict, strict=False)
 
@@ -459,7 +480,9 @@ def sanitize_text_column(series: pd.Series) -> List[str]:
     return series.fillna("").astype(str).tolist()
 
 
-def write_parquet_preserving_name(df: pd.DataFrame, source_path: Path, output_root: Path) -> Path:
+def write_parquet_preserving_name(
+    df: pd.DataFrame, source_path: Path, output_root: Path
+) -> Path:
     destination = output_root / source_path.name
     destination.parent.mkdir(parents=True, exist_ok=True)
     table = pa.Table.from_pandas(df, preserve_index=False)
@@ -484,8 +507,12 @@ def process_file(
     if row_limit is not None:
         df = df.iloc[:row_limit].copy()
 
-    assembly_col = infer_column(df.columns, args.assembly_column, DEFAULT_ASSEMBLY_CANDIDATES, "assembly")
-    summary_col = infer_column(df.columns, args.summary_column, DEFAULT_SUMMARY_CANDIDATES, "summary")
+    assembly_col = infer_column(
+        df.columns, args.assembly_column, DEFAULT_ASSEMBLY_CANDIDATES, "assembly"
+    )
+    summary_col = infer_column(
+        df.columns, args.summary_column, DEFAULT_SUMMARY_CANDIDATES, "summary"
+    )
     output_names = resolve_output_names(args, assembly_col, summary_col)
 
     assembly_texts = sanitize_text_column(df[assembly_col])
@@ -494,7 +521,9 @@ def process_file(
     assembly_ids = None
     assembly_masks = None
     if args.tokenize_assembly or args.embed_assembly:
-        assembly_ids, assembly_masks = tokenize_assembly_texts(assembly_texts, assembly_tok)
+        assembly_ids, assembly_masks = tokenize_assembly_texts(
+            assembly_texts, assembly_tok
+        )
 
     if args.tokenize_assembly:
         df[output_names["assembly_tokens"]] = assembly_ids
@@ -649,7 +678,9 @@ def main() -> None:
 
     input_root = Path(args.dataset).expanduser().resolve()
     if not input_root.exists() or not input_root.is_dir():
-        raise NotADirectoryError(f"Input folder does not exist or is not a directory: {input_root}")
+        raise NotADirectoryError(
+            f"Input folder does not exist or is not a directory: {input_root}"
+        )
 
     output_root = resolve_output_root(input_root, args)
     output_root.mkdir(parents=True, exist_ok=True)
@@ -665,7 +696,9 @@ def main() -> None:
 
     summary_tok = None
     if args.tokenize_summaries:
-        summary_tok = AutoTokenizer.from_pretrained(args.gpt2path, local_files_only=True)
+        summary_tok = AutoTokenizer.from_pretrained(
+            args.gpt2path, local_files_only=True
+        )
         if summary_tok.pad_token is None:
             summary_tok.pad_token = summary_tok.eos_token
 
@@ -692,11 +725,15 @@ def main() -> None:
         if missing:
             LOGGER.warning("Assembly encoder missing keys after load: %s", missing)
         if unexpected:
-            LOGGER.warning("Assembly encoder unexpected keys after load: %s", unexpected)
+            LOGGER.warning(
+                "Assembly encoder unexpected keys after load: %s", unexpected
+            )
         predictor.assembly_encoder.eval()
         prediction_writer = DistributedPredictionWriter()
         embedding_progress = EmbeddingProgressCallback()
-        trainer = build_prediction_trainer(args, output_root, prediction_writer, embedding_progress)
+        trainer = build_prediction_trainer(
+            args, output_root, prediction_writer, embedding_progress
+        )
 
     try:
         manifest = build_preprocessing_manifest(
@@ -719,7 +756,9 @@ def main() -> None:
 
             row_limit = None
             if remaining_rows is not None:
-                dataset = load_dataset("parquet", data_files=str(parquet_path), split="train")
+                dataset = load_dataset(
+                    "parquet", data_files=str(parquet_path), split="train"
+                )
                 file_rows = len(dataset)
                 if file_rows == 0:
                     continue
