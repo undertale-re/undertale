@@ -15,6 +15,7 @@ from lightning import LightningModule, Trainer
 from lightning.pytorch.callbacks import Callback, ModelCheckpoint, TQDMProgressBar
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 from lightning.pytorch.loggers import TensorBoardLogger
+from lightning.pytorch.utilities.rank_zero import rank_zero_only
 from rouge_score import rouge_scorer
 from torch.optim import AdamW
 from torch.utils.data import DataLoader, RandomSampler
@@ -180,6 +181,12 @@ def load_training_dataset(dataset_path, end2end):
         )
 
     raise ValueError(f"Could not load dataset from {dataset_path}")
+
+
+@rank_zero_only
+def print_dataset_modes(summary_mode, assembly_mode):
+    print(f"Using summary_input_mode={summary_mode}")
+    print(f"Using assembly_input_mode={assembly_mode}")
 
 
 def resolve_column_name(column_names, override, candidates):
@@ -678,9 +685,7 @@ def main():
     )
 
     summary_mode, assembly_mode = resolve_dataset_modes(args, resolved_columns)
-    if int(os.environ.get("RANK", "0")) == 0:
-        print(f"Using summary_input_mode={summary_mode}")
-        print(f"Using assembly_input_mode={assembly_mode}")
+    print_dataset_modes(summary_mode, assembly_mode)
 
     if assembly_mode == "raw" and not args.tokenizer:
         raise ValueError("--tokenizer is required when assembly_input_mode=raw.")
