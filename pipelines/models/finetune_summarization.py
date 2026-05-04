@@ -386,6 +386,7 @@ class ValidationCallback(Callback):
         self.bertscore_num_layers = resolve_bertscore_num_layers(
             args.bertscore_model_path
         )
+        self._last_reported_path = None
 
     def _run_validation(self, trainer, pl_module):
         if not trainer.is_global_zero:
@@ -482,7 +483,9 @@ class ValidationCallback(Callback):
                 handle.write(f"PREDICTED CAPTION:\n{pred}\n\n")
                 handle.write("_________________\n")
 
-        trainer.print(f"Saved validation outputs to {path}")
+        if path != self._last_reported_path:
+            trainer.print(f"Saved validation outputs to {path}")
+            self._last_reported_path = path
 
     def on_validation_epoch_end(self, trainer, pl_module):
         if self.run_on_val_end:
@@ -675,8 +678,9 @@ def main():
     )
 
     summary_mode, assembly_mode = resolve_dataset_modes(args, resolved_columns)
-    print(f"Using summary_input_mode={summary_mode}")
-    print(f"Using assembly_input_mode={assembly_mode}")
+    if int(os.environ.get("RANK", "0")) == 0:
+        print(f"Using summary_input_mode={summary_mode}")
+        print(f"Using assembly_input_mode={assembly_mode}")
 
     if assembly_mode == "raw" and not args.tokenizer:
         raise ValueError("--tokenizer is required when assembly_input_mode=raw.")
