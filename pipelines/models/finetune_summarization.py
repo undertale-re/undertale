@@ -110,6 +110,21 @@ def build_llm_config_dict(gpt2path):
     return config.to_dict()
 
 
+def resolve_bertscore_num_layers(model_path):
+    if not model_path:
+        return None
+
+    config = AutoConfig.from_pretrained(model_path, local_files_only=True)
+    num_layers = getattr(config, "num_hidden_layers", None)
+    if num_layers is None:
+        num_layers = getattr(config, "n_layer", None)
+    if num_layers is None:
+        raise ValueError(
+            f"Cannot determine BERTScore layer count from model config at {model_path!r}"
+        )
+    return int(num_layers)
+
+
 def load_llm_weights(llm, gpt2path):
     pretrained_llm = GPT2LMHeadModel.from_pretrained(gpt2path, local_files_only=True)
     try:
@@ -347,6 +362,9 @@ class ValidationCallback(Callback):
         self.num_beams = args.num_beams
         self.temperature = args.temperature
         self.bertscore_model_path = args.bertscore_model_path
+        self.bertscore_num_layers = resolve_bertscore_num_layers(
+            args.bertscore_model_path
+        )
 
     def _run_validation(self, trainer, pl_module):
         from bert_score import score as bert_score
@@ -413,6 +431,7 @@ class ValidationCallback(Callback):
             predictions,
             references,
             model_type=self.bertscore_model_path,
+            num_layers=self.bertscore_num_layers,
             verbose=False,
         )
         bert_f1 = bert_f1.mean().item()
