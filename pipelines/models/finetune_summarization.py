@@ -360,6 +360,7 @@ class ProgressBar(TQDMProgressBar):
         items.pop("v_num", None)
         return items
 
+
 class ValidationCallback(Callback):
     def __init__(
         self,

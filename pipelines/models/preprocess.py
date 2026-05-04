@@ -38,6 +38,7 @@ DEFAULT_SUMMARY_CANDIDATES = [
     "function_name",
 ]
 
+
 class ArrowArrayDataset(torch.utils.data.Dataset):
     """Simple dataset wrapper for pre-tokenized ids and attention masks."""
 

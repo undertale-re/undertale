@@ -155,9 +155,7 @@ class InstructionTraceTransformerEncoderForSequenceSummarization(Module):
         self.tokenizer = tokenizer
         self.stop_token = tokenizer.eos_token_id
 
-    def masked_mean_pool(
-        self, hidden_states: Tensor, attention_mask: Tensor
-    ) -> Tensor:
+    def masked_mean_pool(self, hidden_states: Tensor, attention_mask: Tensor) -> Tensor:
         """Pool sequence features while ignoring padding."""
 
         mask = attention_mask.unsqueeze(-1).float()

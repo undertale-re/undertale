@@ -55,9 +55,7 @@ class SummarizerDataset(torch.utils.data.Dataset):
         elif hasattr(config, "max_position_embeddings"):
             max_positions = config.max_position_embeddings
         else:
-            raise ValueError(
-                f"Cannot determine max context length from {gpt2path}"
-            )
+            raise ValueError(f"Cannot determine max context length from {gpt2path}")
 
         self.max_seq_len = max_positions - prefix_length - 1
         if self.max_seq_len < 0:
@@ -123,11 +121,7 @@ class CustomCollator:
     """Collate summary tokens with raw assembly, tokenized assembly, or prefixes."""
 
     def __init__(self, args, max_seq_len, pad_id):
-        self.tokenizer = (
-            tokenizer.load(args.tokenizer)
-            if args.tokenizer
-            else None
-        )
+        self.tokenizer = tokenizer.load(args.tokenizer) if args.tokenizer else None
         if self.tokenizer is not None:
             self.tokenizer.enable_padding(length=args.tokenizer_size)
             self.tokenizer.enable_truncation(max_length=args.tokenizer_size)
