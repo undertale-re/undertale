@@ -388,6 +388,9 @@ class ValidationCallback(Callback):
         )
 
     def _run_validation(self, trainer, pl_module):
+        if not trainer.is_global_zero:
+            return
+
         os.makedirs(self.save_dir, exist_ok=True)
         rouge = rouge_scorer.RougeScorer(["rougeL"], use_stemmer=True)
 
