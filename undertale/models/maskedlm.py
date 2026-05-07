@@ -2,7 +2,7 @@
 
 from typing import List, Optional
 
-from pytorch_lightning import LightningModule
+from lightning import LightningModule
 from sklearn.metrics import f1_score
 from torch import (
     Tensor,
