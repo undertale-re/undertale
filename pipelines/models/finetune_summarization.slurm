@@ -5,8 +5,12 @@
 #SBATCH --cpus-per-task=12
 #SBATCH --mem=0
 #SBATCH --distribution=nopack
-#SBATCH --output=finetune-summarization-%j
+#SBATCH --output=summarizer_train_logs/finetune-summarization-%j
 #SBATCH --time=UNLIMITED
+
+
+LOG_DIR=summarizer_train_logs
+mkdir -p "$LOG_DIR"
 
 DATASET=nixpkgs
 TOKENIZER=$SHARE/models/tokenizer/nixpkgs-legacy/latest
