@@ -5,20 +5,20 @@
 #SBATCH --cpus-per-task=12
 #SBATCH --mem=0
 #SBATCH --distribution=nopack
-#SBATCH --output=summarizer_train_logs/finetune-summarization-%j
+#SBATCH --output=summarizer_train-logs/finetune-summarization-%j
 #SBATCH --time=UNLIMITED
 
 
-LOG_DIR=summarizer_train_logs
+LOG_DIR=summarizer_train-logs
 mkdir -p "$LOG_DIR"
 
 DATASET=nixpkgs
-TOKENIZER=$SHARE/models/tokenizer/nixpkgs-legacy/latest
-TRAINING=$SHARE/datasets/nixpkgs/pretokenized/20260212-132053
-ASSEMBLY_CHECKPOINT=$SHARE/models/maskedlm/nixpkgs-legacy/latest
+TOKENIZER=$SHARE/models/tokenizer/$DATASET-legacy/latest
+TRAINING=$SHARE/datasets/$DATASET/pretokenized/20260212-132053
+ASSEMBLY_CHECKPOINT=$SHARE/models/maskedlm/$DATASET-legacy/latest
 GPT2=$LOCAL/models/gpt2
 BERTSCORE_MODEL=$LOCAL/models/roberta-large
-OUTPUT=$LOCAL/output/function_summarization
+OUTPUT=$LOCAL/undertale/output/function_summarization
 GENERATED_OUTPUTS=$LOCAL/undertale/validation_outputs/no_beam
 BATCH=46
 EPOCHS=50
@@ -28,7 +28,7 @@ export PYTHONUNBUFFERED=TRUE
 export TOKENIZERS_PARALLELISM=false
 
 srun python -m pipelines.models.finetune_summarization \
-    --tokenizer $TOKENIZER 
+    --tokenizer $TOKENIZER \
     --output $OUTPUT \
     --gpt2path $GPT2 \
     --assembly_checkpoint $ASSEMBLY_CHECKPOINT \
