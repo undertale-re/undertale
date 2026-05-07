@@ -92,7 +92,9 @@ httpcore==1.0.9
 httpx==0.28.1
     # via huggingface-hub
 huggingface-hub==1.13.0
-    # via tokenizers
+    # via
+    #   tokenizers
+    #   transformers
 identify==2.6.19
     # via pre-commit
 idna==3.13
@@ -112,7 +114,7 @@ jinja2==3.1.6
     #   torch
 joblib==1.5.3
     # via scikit-learn
-librt==0.9.0
+librt==0.10.0
     # via mypy
 lightning-utilities==0.15.3
     # via
@@ -160,6 +162,7 @@ numpy==2.4.4
     #   scipy
     #   tensorboard
     #   torchmetrics
+    #   transformers
 packaging==26.2
     # via
     #   black
@@ -173,6 +176,7 @@ packaging==26.2
     #   sphinx
     #   tensorboard
     #   torchmetrics
+    #   transformers
     #   wheel
 pandas==3.0.2
     # via undertale (pyproject.toml)
@@ -229,7 +233,7 @@ pyproject-hooks==1.2.0
     #   pip-tools
 python-dateutil==2.9.0.post0
     # via pandas
-python-discovery==1.2.2
+python-discovery==1.3.0
     # via virtualenv
 pytokens==0.4.1
     # via black
@@ -242,12 +246,17 @@ pyyaml==6.0.3
     #   huggingface-hub
     #   pre-commit
     #   pytorch-lightning
+    #   transformers
+regex==2026.4.4
+    # via transformers
 requests==2.33.1
     # via sphinx
 rich==15.0.0
     # via typer
 roman-numerals==4.1.0
     # via sphinx
+safetensors==0.7.0
+    # via transformers
 scikit-learn==1.8.0
     # via undertale (pyproject.toml)
 scipy==1.17.1
@@ -284,8 +293,10 @@ tensorboard-data-server==0.7.2
     # via tensorboard
 threadpoolctl==3.6.0
     # via scikit-learn
-tokenizers==0.23.1
-    # via undertale (pyproject.toml)
+tokenizers==0.22.2
+    # via
+    #   transformers
+    #   undertale (pyproject.toml)
 toml-sort==0.24.4
     # via undertale (pyproject.toml)
 tomlkit==0.14.0
@@ -308,10 +319,15 @@ tqdm==4.67.3
     # via
     #   huggingface-hub
     #   pytorch-lightning
+    #   transformers
+transformers==5.8.0
+    # via undertale (pyproject.toml)
 typeguard==4.5.1
     # via pandera
-typer==0.25.0
-    # via huggingface-hub
+typer==0.25.1
+    # via
+    #   huggingface-hub
+    #   transformers
 typing-extensions==4.15.0
     # via
     #   aiosignal
@@ -336,7 +352,7 @@ urllib3==2.6.3
     # via
     #   distributed
     #   requests
-virtualenv==21.3.0
+virtualenv==21.3.1
     # via pre-commit
 werkzeug==3.1.8
     # via tensorboard

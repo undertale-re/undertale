@@ -23,7 +23,8 @@ dependencies = [
     "scikit-learn",
     "tensorboard",
     "tokenizers",
-    "torch"
+    "torch",
+    "transformers"
 ]
 dynamic = ["version"]
 
