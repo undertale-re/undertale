@@ -2,14 +2,66 @@
 
 from typing import Dict, List, Optional, Tuple
 
+from pandas import Series
+from pandas import read_parquet as pandas_read_parquet
 from pytorch_lightning import LightningModule
 from torch import Tensor, cat, exp, full, long, stack, tensor
 from torch.nn import GELU, Linear, Module
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
-from transformers import GPT2Config, GPT2LMHeadModel
+from transformers import GPT2Config, GPT2LMHeadModel, GPT2Tokenizer
 
+from ..logging import get_logger
+from ..schema import SummarizedDataset, validate_dataset
+from ..utils import assert_path_exists, get_or_create_file, write_parquet
 from .custom import InstructionTraceTransformerEncoder
+
+logger = get_logger(__name__)
+
+
+def tokenize_summaries_gpt2(input: str, output: str, tokenizer: str) -> str:
+    """Tokenize a summarized dataset for GPT2.
+
+    Arguments:
+        input: Path to the summarized dataset.
+        output: Path where the tokenized summarized dataset should be written.
+        tokenizer: Path to the trained GPT2 tokenizer that should be used.
+
+    Returns:
+        The path to the tokenized dataset.
+    """
+
+    input = assert_path_exists(input)
+    output, created = get_or_create_file(output)
+
+    if not created:
+        return output
+
+    tok = GPT2Tokenizer.from_pretrained(tokenizer)
+
+    frame = pandas_read_parquet(input)
+
+    validate_dataset(frame, SummarizedDataset)
+
+    logger.info(f"tokenizing summaries {input!r} to {output!r}")
+
+    def process(summary: str) -> Series:
+        # FIXME parameterize/relocate max length.
+        encoding = tok.encode_plus(summary, max_length=512, pad_to_max_length=True)
+
+        return Series(
+            {
+                "summary_tokens": encoding["input_ids"],
+                "summary_mask": encoding["attention_mask"],
+            }
+        )
+
+    frame[["summary_tokens", "summary_mask"]] = frame["summary"].apply(process)
+    write_parquet(frame, output)
+
+    logger.info(f"successfully tokenized {len(frame)} rows")
+
+    return output
 
 
 class SummarizationCollator:

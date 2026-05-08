@@ -56,6 +56,13 @@ class DisassembledFunctionDatasetWithSource(DisassembledFunctionDataset, SourceD
     """Disassembled functions with source code."""
 
 
+class SummarizedDataset(Dataset):
+    """A dataset including text summaries."""
+
+    summary: Series[str]
+    """Human-readable summary."""
+
+
 class TokenizedDataset(Dataset):
     """A tokenized dataset."""
 
@@ -109,6 +116,7 @@ __all__ = [
     "FunctionDatasetWithSource",
     "DisassembledFunctionDataset",
     "DisassembledFunctionDatasetWithSource",
+    "SummarizedDataset",
     "TokenizedDataset",
     "TokenizedClassificationDataset",
     "TokenizedSummarizationDataset",
