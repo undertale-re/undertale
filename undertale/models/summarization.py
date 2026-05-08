@@ -1,9 +1,9 @@
 """Sequence summarization implementation."""
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from pytorch_lightning import LightningModule
-from torch import Tensor, stack, tensor
+from torch import Tensor, cat, exp, full, long, stack, tensor
 from torch.nn import GELU, Linear, Module
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
@@ -131,6 +131,8 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
 
         self.save_hyperparameters()
 
+        self.language_tokens = language_tokens
+
         gpt2_config = GPT2Config.from_dict(language_config)
         language_dimensions = gpt2_config.n_embd
 
@@ -156,15 +158,15 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
         self.lr = lr or self.LR
         self.warmup = warmup or self.WARMUP
 
-    def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
-        """Encode and summarize the input sequence.
+    def encode(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
+        """Encode, pool, and compute language tokens.
 
         Arguments:
             state: The tokenized input state tensor.
             mask: Optional attention mask.
 
         Returns:
-            Language model summary logits.
+            A tensor in language token space encoding the given input.
         """
 
         hidden = self.encoder(state, mask)
@@ -175,11 +177,70 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
         else:
             pooled = hidden.mean(dim=1)
 
-        language_embedded = self.connector(pooled)
+        return self.connector(pooled)
 
-        output = self.language(inputs_embeds=language_embedded).logits
+    def forward(
+        self,
+        state: Tensor,
+        mask: Optional[Tensor] = None,
+        labels: Optional[Tensor] = None,
+    ) -> Tensor | Tuple[Tensor, Tensor]:
+        """Encode and summarize the input sequence.
 
-        return output
+        Arguments:
+            state: The tokenized input state tensor.
+            mask: Optional attention mask.
+            labels: Optional summary ground truth tokens.
+
+        Returns:
+            Language model summary logits. If ``labels`` are provided a tuple
+            of summary logits and computed loss are returned.
+        """
+
+        language_embedded = self.encode(state, mask)
+
+        # Teacher forcing optimization, if labels are provided.
+        #
+        # Append target labels to input vector during training - allows single
+        # step loss computation instead of iterative loss during generation.
+        if labels is not None:
+            labels_embedded = self.language.transformer.wte(labels)
+            language_embedded = cat([language_embedded, labels_embedded], dim=1)
+
+            # Ignore prefix tokens in loss computation (-100).
+            prefix_labels = full(
+                (state.size(0), self.language_tokens),
+                -100,
+                device=state.device,
+                dtype=long,
+            )
+            labels = cat([prefix_labels, labels], dim=1)
+
+        output = self.language(inputs_embeds=language_embedded, labels=labels)
+
+        if labels is not None:
+            return output.logits, output.loss
+        else:
+            return output.logits
+
+    def generate(
+        self, state: Tensor, mask: Optional[Tensor] = None, **kwargs
+    ) -> Tensor:
+        """Generate a summary from a given input.
+
+        Arguments:
+            state: The tokenized input state tensor.
+            mask: Optional attention mask.
+            **kwargs: Forwarded to ``GPT2LMHeadModel.generate`` (e.g.
+                ``max_new_tokens``, ``do_sample``, ``temperature``).
+
+        Returns:
+            A tensor of generated token IDs.
+        """
+
+        language_embedded = self.encode(state, mask)
+
+        return self.language.generate(inputs_embeds=language_embedded, **kwargs)
 
     def configure_optimizers(self):
         """"""
@@ -213,10 +274,21 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
 
     def training_step(self, batch, index):
         """"""
+        labels = batch["summary_tokens"].masked_fill(
+            ~batch["summary_mask"].bool(), -100
+        )
+        _, loss = self(batch["tokens"], batch["mask"], labels=labels)
 
-        raise NotImplementedError()
+        self.log("train_loss", loss, prog_bar=True, sync_dist=True)
+        self.log("lr", self.trainer.optimizers[0].param_groups[0]["lr"], sync_dist=True)
+
+        return loss
 
     def validation_step(self, batch, index):
         """"""
+        labels = batch["summary_tokens"].masked_fill(
+            ~batch["summary_mask"].bool(), -100
+        )
+        _, loss = self(batch["tokens"], batch["mask"], labels=labels)
 
-        raise NotImplementedError()
+        self.log("valid_perplexity", exp(loss), prog_bar=True, sync_dist=True)
