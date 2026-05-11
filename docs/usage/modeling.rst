@@ -28,7 +28,7 @@ for pre-training.
     # Tokenize the HumanEval-X dataset.
     #
     # Only retain the minimal fields necessary for pre-training.
-    python pipelines/models/tokenize-dataset.py \
+    python pipelines/models/tokenize-disassembly.py \
         humaneval-x/ \
         humaneval-x-pretraining \
         --tokenizer tokenizer.json \

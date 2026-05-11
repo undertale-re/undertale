@@ -46,7 +46,6 @@ def tokenize_summaries_gpt2(input: str, output: str, tokenizer: str) -> str:
     logger.info(f"tokenizing summaries {input!r} to {output!r}")
 
     def process(summary: str) -> Series:
-        # FIXME parameterize/relocate max length.
         encoding = tok.encode_plus(summary, max_length=512, pad_to_max_length=True)
 
         return Series(
