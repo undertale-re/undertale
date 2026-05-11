@@ -112,8 +112,18 @@ disassembly input.
         --checkpoint maskedlm/checkpoint.ckpt \
         "xor rax [MASK]"
 
-Fine-Tuning (Multi-Modal Summarization)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Fine-Tuning (Sequence Classification)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Coming soon...
+
+Inference
+"""""""""
+
+Coming soon...
+
+Fine-Tuning (Multi-Modal Sequence Summarization)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Coming soon...
 
