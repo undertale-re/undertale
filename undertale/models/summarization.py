@@ -170,13 +170,13 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
         heads: int,
         intermediate_dimensions: int,
         next_token_id: int,
-        connector_dimensions: int,
-        language_tokens: int,
         language_config: Dict,
         dropout: float,
         eps: float,
         lr: float = LR,
         warmup: float = WARMUP,
+        connector_dimensions: int = 768,
+        language_tokens: int = 40,
     ):
         super().__init__()
 
