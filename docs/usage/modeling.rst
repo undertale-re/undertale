@@ -125,7 +125,86 @@ Coming soon...
 Fine-Tuning (Multi-Modal Sequence Summarization)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Coming soon...
+Dataset Preparation
+"""""""""""""""""""
+
+With an existing dataset, you can tokenize the natural language summaries to
+prepare for fine-tuning. This step uses a GPT-2 tokenizer rather than your
+trained disassembly tokenizer.
+
+.. code-block:: bash
+
+    # Tokenize summaries in the HumanEval-X dataset.
+    python pipelines/models/tokenize-summaries.py \
+        humaneval-x/ \
+        humaneval-x-summaries \
+        --tokenizer gpt2/
+
+Consider :ref:`splitting <dataset-splitting>` off some (10%) of your dataset
+for validation.
+
+See :ref:`parallelism` for controlling parallel workers and cluster backends.
+
+Training
+""""""""
+
+With your tokenized summary dataset (and optional validation split) you are
+now ready to fine-tune for summarization.
+
+.. code-block:: bash
+
+    # Start a fine-tuning run locally (as an example).
+    #
+    # Results will be written to summarization/.
+    python pipelines/models/finetune-summarization.py \
+        --tokenizer tokenizer.json \
+        --language-config gpt2/ \
+        humaneval-x-summaries/ \
+        summarization
+
+    # Initialize from a pre-trained masked LM checkpoint.
+    python pipelines/models/finetune-summarization.py \
+        --tokenizer tokenizer.json \
+        --language-config gpt2/ \
+        --pretrained maskedlm/checkpoint.ckpt \
+        humaneval-x-summaries/ \
+        summarization
+
+    # Include validation data (pre-split).
+    python pipelines/models/finetune-summarization.py \
+        --tokenizer tokenizer.json \
+        --language-config gpt2/ \
+        --pretrained maskedlm/checkpoint.ckpt \
+        humaneval-x-summaries-training/ \
+        --validation humaneval-x-summaries-validation/ \
+        summarization
+
+    # Use multiple accelerators on the same host.
+    python pipelines/models/finetune-summarization.py \
+        --devices 4 \
+        --tokenizer tokenizer.json \
+        --language-config gpt2/ \
+        --pretrained maskedlm/checkpoint.ckpt \
+        humaneval-x-summaries-training/ \
+        --validation humaneval-x-summaries-validation/ \
+        summarization
+
+    # Distributed training on a SLURM Cluster.
+    #
+    # This SLURM script requires certain environment variables
+    # to be configured - see `environments/example-slurm.env`
+    # for more details or customize the SLURM script to your
+    # environment.
+    source environments/example-slurm.env
+    sbatch pipelines/models/finetune-summarization.slurm
+
+There are several other configurable parameters for other training scenarios -
+to get a full list, see the ``--help`` output.
+
+Saved model checkpoints are available in the output directory.
+
+See :ref:`environments` for details on configuring the local environment -
+in particular for distributed SLURM training.
 
 Inference
 """""""""
