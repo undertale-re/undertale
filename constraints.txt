@@ -5,7 +5,9 @@
 #    pip-compile --extra=development --output-file=constraints.txt --strip-extras pyproject.toml
 #
 absl-py==2.4.0
-    # via tensorboard
+    # via
+    #   rouge-score
+    #   tensorboard
 aiohappyeyeballs==2.6.1
     # via aiohttp
 aiohttp==3.13.5
@@ -46,6 +48,7 @@ click==8.3.3
     #   black
     #   dask
     #   distributed
+    #   nltk
     #   pip-tools
     #   typer
 cloudpickle==3.1.2
@@ -142,7 +145,9 @@ jinja2==3.1.6
     #   sphinx
     #   torch
 joblib==1.5.3
-    # via scikit-learn
+    # via
+    #   nltk
+    #   scikit-learn
 kiwisolver==1.5.0
     # via matplotlib
 librt==0.11.0
@@ -193,6 +198,8 @@ mypy-extensions==1.1.0
     #   typing-inspect
 networkx==3.6.1
     # via torch
+nltk==3.9.4
+    # via rouge-score
 nodeenv==1.10.0
     # via pre-commit
 numpy==2.4.4
@@ -203,6 +210,7 @@ numpy==2.4.4
     #   evaluate
     #   matplotlib
     #   pandas
+    #   rouge-score
     #   scikit-learn
     #   scipy
     #   tensorboard
@@ -312,7 +320,9 @@ pyyaml==6.0.3
     #   pytorch-lightning
     #   transformers
 regex==2026.5.9
-    # via transformers
+    # via
+    #   nltk
+    #   transformers
 requests==2.34.0
     # via
     #   bert-score
@@ -323,6 +333,8 @@ rich==15.0.0
     # via typer
 roman-numerals==4.1.0
     # via sphinx
+rouge-score==0.1.2
+    # via undertale (pyproject.toml)
 safetensors==0.7.0
     # via transformers
 scikit-learn==1.8.0
@@ -332,7 +344,9 @@ scipy==1.17.1
 shellingham==1.5.4
     # via typer
 six==1.17.0
-    # via python-dateutil
+    # via
+    #   python-dateutil
+    #   rouge-score
 snowballstemmer==3.0.1
     # via sphinx
 sortedcontainers==2.4.0
@@ -394,6 +408,7 @@ tqdm==4.67.3
     #   evaluate
     #   huggingface-hub
     #   lightning
+    #   nltk
     #   pytorch-lightning
     #   transformers
 transformers==5.8.0

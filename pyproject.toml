@@ -23,6 +23,7 @@ dependencies = [
     "pandera",
     "polars",
     "pyarrow",
+    "rouge_score",
     "scikit-learn",
     "tensorboard",
     "tokenizers",
