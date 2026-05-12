@@ -1,6 +1,6 @@
 """Sequence summarization implementation."""
 
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import evaluate
 from pandas import Series
@@ -20,13 +20,12 @@ from .custom import InstructionTraceTransformerEncoder
 logger = get_logger(__name__)
 
 
-def tokenize_summaries_gpt2(input: str, output: str, tokenizer: str) -> str:
+def tokenize_summaries_gpt2(input: str, output: str) -> str:
     """Tokenize a summarized dataset for GPT2.
 
     Arguments:
         input: Path to the summarized dataset.
         output: Path where the tokenized summarized dataset should be written.
-        tokenizer: Path to the trained GPT2 tokenizer that should be used.
 
     Returns:
         The path to the tokenized dataset.
@@ -38,7 +37,9 @@ def tokenize_summaries_gpt2(input: str, output: str, tokenizer: str) -> str:
     if not created:
         return output
 
-    tok = GPT2Tokenizer.from_pretrained(tokenizer)
+    tok = GPT2Tokenizer.from_pretrained(
+        InstructionTraceTransformerEncoderForSequenceSummarizationGPT2.LANGUAGE
+    )
 
     frame = pandas_read_parquet(input)
 
@@ -152,13 +153,13 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
         connector_dimensions: The size of the intermediate state space.
         language_dimensions: The size of the language state space.
         language_tokens: The number of language tokens to produce.
-        language_config: The GPT2 language model configuration as a dict.
         dropout: Dropout probability.
         eps: Layer normalization stabalization parameter.
         lr: Peak learning rate reached after warmup.
         warmup: Fraction of total steps used for linear warmup.
     """
 
+    LANGUAGE = "gpt2"
     LR = 1e-4
     WARMUP = 0.025
 
@@ -171,7 +172,6 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
         heads: int,
         intermediate_dimensions: int,
         next_token_id: int,
-        language_config: Dict,
         dropout: float,
         eps: float,
         lr: float = LR,
@@ -183,11 +183,9 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
 
         self.save_hyperparameters()
 
-        self.rouge = evaluate.load("rouge")
-
         self.language_tokens = language_tokens
 
-        gpt2_config = GPT2Config.from_dict(language_config)
+        gpt2_config = GPT2Config.from_pretrained(self.LANGUAGE)
         language_dimensions = gpt2_config.n_embd
 
         self.encoder = InstructionTraceTransformerEncoder(
@@ -211,6 +209,9 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
 
         self.lr = lr or self.LR
         self.warmup = warmup or self.WARMUP
+
+        self.language_tokenizer = None
+        self.rouge = None
 
     def encode(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
         """Encode, pool, and compute language tokens.
@@ -340,6 +341,12 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
 
     def validation_step(self, batch, index):
         """"""
+        if self.language_tokenizer is None:
+            self.language_tokenizer = GPT2Tokenizer.from_pretrained(self.LANGUAGE)
+
+        if self.rouge is None:
+            self.rouge = evaluate.load("rouge")
+
         # Compute perplexity as the square of loss.
         labels = batch["summary_tokens"].masked_fill(
             ~batch["summary_mask"].bool(), -100
@@ -352,17 +359,17 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
         ].argmax(dim=-1)
 
         # Compute Rouge-L.
-        #
-        # To avoid needing the tokenizer, we generate strings of
-        # space-separated token IDs - Rouge shouldn't care if these are real
-        # tokens or not.
         predictions = []
         references = []
         for i in range(batch["summary_tokens"].size(0)):
             mask = batch["summary_mask"][i].bool()
-            predictions.append(" ".join(str(t) for t in pred_ids[i][mask].tolist()))
+            predictions.append(
+                self.language_tokenizer.decode(pred_ids[i][mask].tolist())
+            )
             references.append(
-                " ".join(str(t) for t in batch["summary_tokens"][i][mask].tolist())
+                self.language_tokenizer.decode(
+                    batch["summary_tokens"][i][mask].tolist()
+                )
             )
 
         rouge_l = self.rouge.compute(predictions=predictions, references=references)[

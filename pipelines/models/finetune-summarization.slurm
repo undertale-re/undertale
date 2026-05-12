@@ -13,15 +13,11 @@ TOKENIZER=$SHARE/models/tokenizer/$PRETRAIN_DATASET/latest
 TRAINING=$SHARE/datasets/$FINETUNE_DATASET-finetune-summarization/training/latest
 VALIDATION=$SHARE/datasets/$FINETUNE_DATASET-finetune-summarization/validation/latest
 PRETRAINED=$SHARE/models/maskedlm/$PRETRAIN_DATASET/latest
-LANGUAGE_CONFIG=$SHARE/models/gpt2/config/latest
-LANGUAGE_PRETRAINED=$SHARE/models/gpt2/latest
 BATCH=32
 
 srun python finetune-summarization.py \
     --tokenizer $TOKENIZER \
     --pretrained $PRETRAINED \
-    --language-config $LANGUAGE_CONFIG \
-    --language-pretrained $LANGUAGE_PRETRAINED \
     $TRAINING \
     --validation $VALIDATION \
     $SLURM_JOB_NAME \

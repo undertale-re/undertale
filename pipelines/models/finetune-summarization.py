@@ -7,7 +7,7 @@ from lightning.pytorch.callbacks import ModelCheckpoint, TQDMProgressBar
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 from lightning.pytorch.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
-from transformers import GPT2Config, GPT2LMHeadModel
+from transformers import GPT2LMHeadModel
 
 from undertale.models.configuration import (
     InstructionTraceTransformerEncoderConfiguration,
@@ -55,15 +55,6 @@ if __name__ == "__main__":
         "--pretrained",
         help="path to a pretrained masked LM checkpoint",
     )
-    parser.add_argument(
-        "--language-config",
-        required=True,
-        help="path to a GPT-2 model directory (provides config)",
-    )
-    parser.add_argument(
-        "--language-pretrained",
-        help="path to a pretrained GPT-2 checkpoint to initialize the language model head",
-    )
 
     arguments = parser.parse_args()
     parser.setup(arguments)
@@ -73,14 +64,9 @@ if __name__ == "__main__":
     vocab_size = tokenizer.get_vocab_size()
     next_token_id = tokenizer.token_to_id(TOKEN_NEXT)
 
-    language_config = GPT2Config.from_pretrained(
-        cache_path(arguments.language_config)
-    ).to_dict()
-
     model = InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
         vocab_size=vocab_size,
         next_token_id=next_token_id,
-        language_config=language_config,
         lr=arguments.learning_rate,
         warmup=arguments.warmup,
         **InstructionTraceTransformerEncoderConfiguration.medium,
@@ -90,11 +76,8 @@ if __name__ == "__main__":
         pretrained = torch.load(cache_path(arguments.pretrained), map_location="cpu")
         model.load_state_dict(pretrained["state_dict"], strict=False)
 
-    if arguments.language_pretrained is not None:
-        language_pretrained = GPT2LMHeadModel.from_pretrained(
-            cache_path(arguments.language_pretrained)
-        )
-        model.language.load_state_dict(language_pretrained.state_dict())
+    language_pretrained = GPT2LMHeadModel.from_pretrained(model.LANGUAGE)
+    model.language.load_state_dict(language_pretrained.state_dict())
 
     collator = SummarizationCollator()
 

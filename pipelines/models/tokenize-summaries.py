@@ -10,14 +10,6 @@ logger = get_logger(__name__)
 if __name__ == "__main__":
     parser = DatasetArgumentParser(description="summary tokenization")
 
-    parser.add_argument(
-        "-t",
-        "--tokenizer",
-        type=str,
-        required=True,
-        help="path to a trained GPT-2 tokenizer",
-    )
-
     arguments = parser.parse_args()
     parser.setup(arguments)
 
@@ -38,7 +30,6 @@ if __name__ == "__main__":
             tokenize_summaries_gpt2,
             chunks,
             f"{arguments.output}-processed",
-            tokenizer=arguments.tokenizer,
         )
 
         merged = client.submit(

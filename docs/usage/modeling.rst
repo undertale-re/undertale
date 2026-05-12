@@ -125,6 +125,34 @@ Coming soon...
 Fine-Tuning (Multi-Modal Sequence Summarization)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Prerequisites
+"""""""""""""
+
+The multimodal dataset and model pipelines in this section use trained models
+and tokenizers from the `HuggingFace Hub
+<https://huggingface.co/docs/hub/index>`_. These will be downloaded and cached
+automatically as necessary.
+
+If your pipelines do not have access to the internet, you can download a cache
+of all required models for offline use with the following utility:
+
+.. code-block:: bash
+
+    python -m undertale.utils.models.cache.build path/to/output
+
+Then, on your offline system, you can load the cache with the following:
+
+.. code-block:: bash
+
+    python -m undertale.utils.models.cache.load path/to/cache
+
+For offline systems, you should also consider setting the following environment
+variable(s):
+
+.. code-block:: bash
+
+    export TRANSFORMERS_OFFLINE=1
+
 Dataset Preparation
 """""""""""""""""""
 
