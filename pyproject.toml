@@ -12,6 +12,7 @@ readme = "README.md"
 license-files = ["LICENSE.txt"]
 requires-python = ">=3.12"
 dependencies = [
+    "bert_score",
     "dask",
     "dask-jobqueue",
     "datasets",

@@ -29,19 +29,34 @@ def build(path: str) -> None:
         #
         # The libraries read it at import time.
         import evaluate
-        from transformers import GPT2Config, GPT2LMHeadModel, GPT2Tokenizer
+        from transformers import (
+            AutoModel,
+            AutoTokenizer,
+            GPT2Config,
+            GPT2LMHeadModel,
+            GPT2Tokenizer,
+        )
 
-        logger.info("downloading GPT2 configuration")
-        GPT2Config.from_pretrained("gpt2")
+        from ....models.summarization import (
+            InstructionTraceTransformerEncoderForSequenceSummarizationGPT2,
+        )
 
-        logger.info("downloading GPT2 model")
-        GPT2LMHeadModel.from_pretrained("gpt2")
-
-        logger.info("downloading GPT2 tokenizer")
-        GPT2Tokenizer.from_pretrained("gpt2")
+        model = InstructionTraceTransformerEncoderForSequenceSummarizationGPT2.LANGUAGE
+        logger.info(f"downloading GPT2 model ({model!r})")
+        GPT2Config.from_pretrained(model)
+        GPT2LMHeadModel.from_pretrained(model)
+        GPT2Tokenizer.from_pretrained(model)
 
         logger.info("downloading Rouge metric")
         evaluate.load("rouge")
+
+        logger.info("downloading BERTScore metric")
+        evaluate.load("bertscore")
+
+        model = InstructionTraceTransformerEncoderForSequenceSummarizationGPT2.BERTSCORE
+        logger.info(f"downloading BERTScore model ({model})")
+        AutoTokenizer.from_pretrained(model)
+        AutoModel.from_pretrained(model)
 
         copytree(working, path, dirs_exist_ok=True)
 

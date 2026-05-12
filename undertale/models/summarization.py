@@ -163,6 +163,8 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
     LR = 1e-4
     WARMUP = 0.025
 
+    BERTSCORE = "distilbert-base-uncased"
+
     def __init__(
         self,
         depth: int,
@@ -212,6 +214,7 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
 
         self.language_tokenizer = None
         self.rouge = None
+        self.bertscore = None
 
     def encode(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
         """Encode, pool, and compute language tokens.
@@ -347,18 +350,22 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
         if self.rouge is None:
             self.rouge = evaluate.load("rouge")
 
-        # Compute perplexity as the square of loss.
+        if self.bertscore is None:
+            self.bertscore = evaluate.load("bertscore")
+
+        # Compute Perplexity.
         labels = batch["summary_tokens"].masked_fill(
             ~batch["summary_mask"].bool(), -100
         )
         logits, loss = self(batch["tokens"], batch["mask"], labels=labels)
+        perplexity = exp(loss)
 
+        # Decode summary tokens for metrics.
         N = batch["summary_tokens"].size(1)
         pred_ids = logits[
             :, self.language_tokens - 1 : self.language_tokens + N - 1, :
         ].argmax(dim=-1)
 
-        # Compute Rouge-L.
         predictions = []
         references = []
         for i in range(batch["summary_tokens"].size(0)):
@@ -372,9 +379,19 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
                 )
             )
 
+        # Compute Rouge-L.
         rouge_l = self.rouge.compute(predictions=predictions, references=references)[
             "rougeL"
         ]
 
-        self.log("valid_perplexity", exp(loss), prog_bar=True, sync_dist=True)
+        # Compute BERTScore.
+        result = self.bertscore.compute(
+            predictions=predictions,
+            references=references,
+            model_type=self.BERTSCORE,
+        )
+        bert_score = sum(result["f1"]) / len(result["f1"])
+
+        self.log("valid_perplexity", perplexity, prog_bar=True, sync_dist=True)
         self.log("valid_rougeL", rouge_l, prog_bar=True, sync_dist=True)
+        self.log("valid_bertscore", bert_score, prog_bar=True, sync_dist=True)
