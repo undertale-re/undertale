@@ -57,6 +57,15 @@ dask==2026.3.0
     #   undertale (pyproject.toml)
 dask-jobqueue==0.9.0
     # via undertale (pyproject.toml)
+datasets==4.8.5
+    # via
+    #   evaluate
+    #   undertale (pyproject.toml)
+dill==0.4.1
+    # via
+    #   datasets
+    #   evaluate
+    #   multiprocess
 distlib==0.4.0
     # via virtualenv
 distributed==2026.3.0
@@ -65,8 +74,11 @@ distributed==2026.3.0
     #   undertale (pyproject.toml)
 docutils==0.22.4
     # via sphinx
+evaluate==0.4.6
+    # via undertale (pyproject.toml)
 filelock==3.29.0
     # via
+    #   datasets
     #   huggingface-hub
     #   python-discovery
     #   torch
@@ -77,9 +89,11 @@ frozenlist==1.8.0
     # via
     #   aiohttp
     #   aiosignal
-fsspec==2026.4.0
+fsspec==2026.2.0
     # via
     #   dask
+    #   datasets
+    #   evaluate
     #   huggingface-hub
     #   lightning
     #   pytorch-lightning
@@ -93,14 +107,18 @@ hf-xet==1.5.0
 httpcore==1.0.9
     # via httpx
 httpx==0.28.1
-    # via huggingface-hub
+    # via
+    #   datasets
+    #   huggingface-hub
 huggingface-hub==1.14.0
     # via
+    #   datasets
+    #   evaluate
     #   tokenizers
     #   transformers
 identify==2.6.19
     # via pre-commit
-idna==3.13
+idna==3.14
     # via
     #   anyio
     #   httpx
@@ -117,7 +135,7 @@ jinja2==3.1.6
     #   torch
 joblib==1.5.3
     # via scikit-learn
-librt==0.10.0
+librt==0.11.0
     # via mypy
 lightning==2.6.1
     # via undertale (pyproject.toml)
@@ -150,7 +168,11 @@ multidict==6.7.1
     # via
     #   aiohttp
     #   yarl
-mypy==2.0.0
+multiprocess==0.70.19
+    # via
+    #   datasets
+    #   evaluate
+mypy==2.1.0
     # via undertale (pyproject.toml)
 mypy-extensions==1.1.0
     # via
@@ -163,6 +185,8 @@ nodeenv==1.10.0
     # via pre-commit
 numpy==2.4.4
     # via
+    #   datasets
+    #   evaluate
     #   pandas
     #   scikit-learn
     #   scipy
@@ -174,7 +198,9 @@ packaging==26.2
     #   black
     #   build
     #   dask
+    #   datasets
     #   distributed
+    #   evaluate
     #   huggingface-hub
     #   lightning
     #   lightning-utilities
@@ -185,8 +211,11 @@ packaging==26.2
     #   torchmetrics
     #   transformers
     #   wheel
-pandas==3.0.2
-    # via undertale (pyproject.toml)
+pandas==3.0.3
+    # via
+    #   datasets
+    #   evaluate
+    #   undertale (pyproject.toml)
 pandera==0.31.1
     # via undertale (pyproject.toml)
 partd==1.4.2
@@ -210,7 +239,7 @@ polars-runtime-32==1.40.1
     # via polars
 pre-commit==4.6.0
     # via undertale (pyproject.toml)
-propcache==0.4.1
+propcache==0.5.2
     # via
     #   aiohttp
     #   yarl
@@ -219,7 +248,9 @@ protobuf==7.34.1
 psutil==7.2.2
     # via distributed
 pyarrow==24.0.0
-    # via undertale (pyproject.toml)
+    # via
+    #   datasets
+    #   undertale (pyproject.toml)
 pycodestyle==2.14.0
     # via flake8
 pydantic==2.13.4
@@ -249,16 +280,20 @@ pytorch-lightning==2.6.1
 pyyaml==6.0.3
     # via
     #   dask
+    #   datasets
     #   distributed
     #   huggingface-hub
     #   lightning
     #   pre-commit
     #   pytorch-lightning
     #   transformers
-regex==2026.4.4
+regex==2026.5.9
     # via transformers
-requests==2.33.1
-    # via sphinx
+requests==2.34.0
+    # via
+    #   datasets
+    #   evaluate
+    #   sphinx
 rich==15.0.0
     # via typer
 roman-numerals==4.1.0
@@ -307,7 +342,7 @@ tokenizers==0.22.2
     #   undertale (pyproject.toml)
 toml-sort==0.24.4
     # via undertale (pyproject.toml)
-tomlkit==0.14.0
+tomlkit==0.15.0
     # via toml-sort
 toolz==1.1.0
     # via
@@ -328,6 +363,8 @@ tornado==6.5.5
     # via distributed
 tqdm==4.67.3
     # via
+    #   datasets
+    #   evaluate
     #   huggingface-hub
     #   lightning
     #   pytorch-lightning
@@ -371,6 +408,10 @@ werkzeug==3.1.8
     # via tensorboard
 wheel==0.47.0
     # via pip-tools
+xxhash==3.7.0
+    # via
+    #   datasets
+    #   evaluate
 yarl==1.23.0
     # via aiohttp
 zict==3.0.0

@@ -14,7 +14,9 @@ requires-python = ">=3.12"
 dependencies = [
     "dask",
     "dask-jobqueue",
+    "datasets",
     "distributed",
+    "evaluate",
     "lightning",
     "pandas",
     "pandera",

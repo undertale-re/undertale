@@ -2,6 +2,7 @@
 
 from typing import Dict, List, Optional, Tuple
 
+import evaluate
 from pandas import Series
 from pandas import read_parquet as pandas_read_parquet
 from pytorch_lightning import LightningModule
@@ -182,6 +183,8 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
 
         self.save_hyperparameters()
 
+        self.rouge = evaluate.load("rouge")
+
         self.language_tokens = language_tokens
 
         gpt2_config = GPT2Config.from_dict(language_config)
@@ -337,9 +340,34 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
 
     def validation_step(self, batch, index):
         """"""
+        # Compute perplexity as the square of loss.
         labels = batch["summary_tokens"].masked_fill(
             ~batch["summary_mask"].bool(), -100
         )
-        _, loss = self(batch["tokens"], batch["mask"], labels=labels)
+        logits, loss = self(batch["tokens"], batch["mask"], labels=labels)
+
+        N = batch["summary_tokens"].size(1)
+        pred_ids = logits[
+            :, self.language_tokens - 1 : self.language_tokens + N - 1, :
+        ].argmax(dim=-1)
+
+        # Compute Rouge-L.
+        #
+        # To avoid needing the tokenizer, we generate strings of
+        # space-separated token IDs - Rouge shouldn't care if these are real
+        # tokens or not.
+        predictions = []
+        references = []
+        for i in range(batch["summary_tokens"].size(0)):
+            mask = batch["summary_mask"][i].bool()
+            predictions.append(" ".join(str(t) for t in pred_ids[i][mask].tolist()))
+            references.append(
+                " ".join(str(t) for t in batch["summary_tokens"][i][mask].tolist())
+            )
+
+        rouge_l = self.rouge.compute(predictions=predictions, references=references)[
+            "rougeL"
+        ]
 
         self.log("valid_perplexity", exp(loss), prog_bar=True, sync_dist=True)
+        self.log("valid_rougeL", rouge_l, prog_bar=True, sync_dist=True)
