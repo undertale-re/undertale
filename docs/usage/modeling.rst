@@ -238,4 +238,13 @@ in particular for distributed SLURM training.
 Inference
 """""""""
 
-Coming soon...
+With a trained model checkpoint, you can generate a natural-language summary
+of a piece of disassembly input.
+
+.. code-block:: bash
+
+    # Generate a summary for a piece of disassembly.
+    python pipelines/models/infer-summarization.py \
+        --tokenizer tokenizer.json \
+        --checkpoint summarization/checkpoint.ckpt \
+        "push rbp [NEXT] mov rbp rsp [NEXT] ..."
