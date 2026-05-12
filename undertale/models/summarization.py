@@ -6,8 +6,8 @@ import evaluate
 from pandas import Series
 from pandas import read_parquet as pandas_read_parquet
 from pytorch_lightning import LightningModule
-from torch import Tensor, cat, exp, full, long, stack, tensor
-from torch.nn import GELU, Linear, Module
+from torch import Tensor, cat, exp, full, long, ones, randn, stack, tensor
+from torch.nn import GELU, Linear, Module, ModuleList, Parameter
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
 from transformers import GPT2Config, GPT2LMHeadModel, GPT2Tokenizer
@@ -16,6 +16,7 @@ from ..logging import get_logger
 from ..schema import SummarizedDataset, validate_dataset
 from ..utils import assert_path_exists, get_or_create_file, write_parquet
 from .custom import InstructionTraceTransformerEncoder
+from .transformer import TransformerEncoderLayer
 
 logger = get_logger(__name__)
 
@@ -96,7 +97,8 @@ class MLPConnector(Module):
 
     Arguments:
         hidden_dimensions: The size of the hidden state space.
-        connector_dimensions: The size of the intermediate state space.
+        connector_dimensions: Scaling factor; intermediate MLP size is
+            ``language_dimensions × connector_dimensions``.
         language_dimensions: The size of the language state space.
         language_tokens: The number of language tokens to produce.
     """
@@ -113,28 +115,112 @@ class MLPConnector(Module):
         self.language_tokens = language_tokens
         self.language_dimensions = language_dimensions
 
-        self.linear1 = Linear(hidden_dimensions, connector_dimensions)
+        intermediate_dimensions = language_dimensions * connector_dimensions / 8
+
+        self.linear1 = Linear(hidden_dimensions, intermediate_dimensions)
         self.linear2 = Linear(
-            connector_dimensions, language_dimensions * language_tokens
+            intermediate_dimensions,
+            language_dimensions * language_tokens,
         )
         self.activation = GELU()
 
-    def forward(self, state: Tensor) -> Tensor:
+    def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
         """Project the input tensor into language token space.
 
         Arguments:
-            state: Pooled encoder hidden state.
+            state: Encoder hidden states of shape
+                ``(batch, seq_len, hidden_dimensions)``.
+            mask: Optional attention mask used for pooling.
 
         Returns:
-            A batched projection into a tensor of shape ``(language_tokens,
-            language_dimensions)``.
+            A batched projection into a tensor of shape ``(batch,
+            language_tokens, language_dimensions)``.
         """
 
-        hidden = self.activation(self.linear1(state))
+        if mask is not None:
+            expanded = mask.unsqueeze(-1).float()
+            pooled = (state * expanded).sum(dim=1) / expanded.sum(dim=1).clamp(min=1)
+        else:
+            pooled = state.mean(dim=1)
+
+        hidden = self.activation(self.linear1(pooled))
         values = self.linear2(hidden)
         output = values.view(-1, self.language_tokens, self.language_dimensions)
 
         return output
+
+
+class TransformerConnector(Module):
+    """A transformer language connector.
+
+    Design inspiration taken from the paper "ClipCap: CLIP Prefix for Image
+    Captioning."
+
+    Uses learnable prefix queries that attend over the full encoder sequence
+    via transformer self-attention to produce richer prefix representations
+    than the MLP connector.
+
+    Arguments:
+        hidden_dimensions: The size of the hidden state space.
+        connector_dimensions: Number of attention heads and transformer layers.
+            Must evenly divide ``language_dimensions``.
+        language_dimensions: The size of the language state space.
+        language_tokens: The number of language tokens to produce.
+    """
+
+    def __init__(
+        self,
+        hidden_dimensions: int,
+        connector_dimensions: int,
+        language_dimensions: int,
+        language_tokens: int,
+    ):
+        super().__init__()
+
+        self.language_tokens = language_tokens
+
+        self.projection = Linear(hidden_dimensions, language_dimensions)
+        self.prefix = Parameter(randn(language_tokens, language_dimensions))
+        self.layers = ModuleList(
+            [
+                TransformerEncoderLayer(
+                    language_dimensions,
+                    connector_dimensions,
+                    4 * language_dimensions,
+                    dropout=0.0,
+                )
+                for _ in range(connector_dimensions)
+            ]
+        )
+
+    def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
+        """Project the input tensor into language token space.
+
+        Arguments:
+            state: Encoder hidden states of shape
+                ``(batch, seq_len, hidden_dimensions)``.
+            mask: Optional attention mask over the encoder sequence.
+
+        Returns:
+            A batched projection into a tensor of shape ``(batch,
+            language_tokens, language_dimensions)``.
+        """
+
+        batch_size = state.size(0)
+        projected = self.projection(state)
+        prefix = self.prefix.unsqueeze(0).expand(batch_size, -1, -1)
+        combined = cat([prefix, projected], dim=1)
+
+        if mask is not None:
+            prefix_mask = ones(batch_size, self.language_tokens, device=state.device)
+            combined_mask = cat([prefix_mask, mask.float()], dim=1)
+        else:
+            combined_mask = None
+
+        for layer in self.layers:
+            combined = layer(combined, combined_mask)
+
+        return combined[:, : self.language_tokens, :]
 
 
 class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
@@ -178,7 +264,7 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
         eps: float,
         lr: float = LR,
         warmup: float = WARMUP,
-        connector_dimensions: int = 768,
+        connector_dimensions: int = 8,
         language_tokens: int = 40,
     ):
         super().__init__()
@@ -217,7 +303,7 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
         self.bertscore = None
 
     def encode(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
-        """Encode, pool, and compute language tokens.
+        """Encode and compute language tokens.
 
         Arguments:
             state: The tokenized input state tensor.
@@ -228,14 +314,7 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
         """
 
         hidden = self.encoder(state, mask)
-
-        if mask is not None:
-            expanded = mask.unsqueeze(-1).float()
-            pooled = (hidden * expanded).sum(dim=1) / expanded.sum(dim=1).clamp(min=1)
-        else:
-            pooled = hidden.mean(dim=1)
-
-        return self.connector(pooled)
+        return self.connector(hidden, mask)
 
     def forward(
         self,
