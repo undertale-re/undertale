@@ -13,7 +13,7 @@ TOKENIZER=$SHARE/models/tokenizer/$PRETRAIN_DATASET/latest
 TRAINING=$SHARE/datasets/$FINETUNE_DATASET-finetune-classification/training/latest
 VALIDATION=$SHARE/datasets/$FINETUNE_DATASET-finetune-classification/validation/latest
 PRETRAINED=$SHARE/models/maskedlm/$PRETRAIN_DATASET/latest
-CLASSES=10
+CLASSES=2
 BATCH=64
 
 srun python finetune-classification.py \
@@ -27,4 +27,6 @@ srun python finetune-classification.py \
     --nodes $SLURM_JOB_NUM_NODES \
     --devices $SLURM_NTASKS_PER_NODE \
     --version $SLURM_JOB_ID \
-    --batch-size $BATCH
+    --batch-size $BATCH \
+    --label_balance \
+    --cache_dir ~/

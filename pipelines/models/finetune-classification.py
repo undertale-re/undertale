@@ -1,3 +1,4 @@
+from collections import Counter
 from os.path import basename, dirname
 from typing import Callable, Optional
 
@@ -21,6 +22,24 @@ from undertale.models.tokenizer import load as load_tokenizer
 from undertale.parsers import ModelArgumentParser
 from undertale.schema import TokenizedClassificationDataset
 from undertale.utils import cache_path
+
+
+def compute_class_weights(dataset):
+    # Count occurrences of each class
+    targets = []
+    for batch in dataset:
+        targets += [int(i) for i in batch["labels"]]
+    class_counts = Counter(targets)
+    total_samples = len(targets)
+
+    # Compute weights (inverse frequency)
+    class_weights = {cls: total_samples / count for cls, count in class_counts.items()}
+
+    # Convert to tensor
+    weights_tensor = torch.tensor(
+        [class_weights[i] for i in range(len(class_counts))], dtype=torch.float
+    )
+    return weights_tensor
 
 
 class ProgressBar(TQDMProgressBar):
@@ -58,6 +77,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "-k", "--classes", type=int, required=True, help="number of output classes"
     )
+    parser.add_argument(
+        "--label_balance",
+        action="store_true",
+        help="Whether to try to apply weights to the training for an unbalanced dataset",
+    )
+    parser.add_argument(
+        "--cache_dir", type=str, default=".", help="location to save checkpoints"
+    )
 
     arguments = parser.parse_args()
     parser.setup(arguments)
@@ -67,18 +94,6 @@ if __name__ == "__main__":
     vocab_size = tokenizer.get_vocab_size()
     next_token_id = tokenizer.token_to_id(TOKEN_NEXT)
 
-    model = InstructionTraceTransformerEncoderForSequenceClassification(
-        vocab_size=vocab_size,
-        next_token_id=next_token_id,
-        classes=arguments.classes,
-        lr=arguments.learning_rate,
-        warmup=arguments.warmup,
-        **InstructionTraceTransformerEncoderConfiguration.medium,
-    )
-
-    pretrained = torch.load(cache_path(arguments.pretrained), map_location="cpu")
-    model.load_state_dict(pretrained["state_dict"], strict=False)
-
     collator = ClassificationCollator()
 
     training = load_dataset(
@@ -87,6 +102,24 @@ if __name__ == "__main__":
         collator=collator,
         workers=arguments.dataloaders,
     )
+
+    if arguments.label_balance:
+        weights = compute_class_weights(training)
+    else:
+        weights = []
+
+    model = InstructionTraceTransformerEncoderForSequenceClassification(
+        vocab_size=vocab_size,
+        next_token_id=next_token_id,
+        classes=arguments.classes,
+        lr=arguments.learning_rate,
+        warmup=arguments.warmup,
+        class_weights=weights,
+        **InstructionTraceTransformerEncoderConfiguration.medium,
+    )
+
+    pretrained = torch.load(cache_path(arguments.pretrained), map_location="cpu")
+    model.load_state_dict(pretrained["state_dict"], strict=False)
 
     if arguments.validation is not None:
         validation = load_dataset(
@@ -124,6 +157,7 @@ if __name__ == "__main__":
         num_nodes=arguments.nodes,
         strategy=arguments.strategy,
         max_epochs=arguments.epochs,
+        default_root_dir=arguments.cache_dir,
     )
     trainer.fit(
         model,
