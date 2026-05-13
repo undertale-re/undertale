@@ -49,6 +49,7 @@ from undertale.pipeline.binary import segment_and_disassemble_binary
 from undertale.pipeline.cpp import compile_cpp
 from undertale.pipeline.json import merge_json
 from undertale.pipeline.parquet import (
+    Cast,
     Deduplicate,
     Drop,
     HashColumn,
@@ -1002,6 +1003,51 @@ class TestPipelineParquet(TestCase):
         metadata = pyarrow_read_metadata(join(output, files[0]))
 
         self.assertEqual(metadata.row_group(0).column(0).compression, "SNAPPY")
+
+    def test_parquet_cast_invalid_schema(self):
+        working = TemporaryDirectory()
+        dataset = self.mock_dataset(working, "dataset", size=10)
+
+        with self.assertRaises(SchemaError):
+            path = join(working.name, "cast")
+            modify_parquet(dataset, path, [Cast({"nonexistent": "float64"})])
+
+    def test_parquet_cast_invalid_dtype(self):
+        working = TemporaryDirectory()
+        dataset = self.mock_dataset(working, "dataset", size=10)
+
+        with self.assertRaises(ValueError):
+            path = join(working.name, "cast")
+            modify_parquet(dataset, path, [Cast({"id": "not_a_dtype"})])
+
+    def test_parquet_cast_simple(self):
+        working = TemporaryDirectory()
+        dataset = self.mock_dataset(working, "dataset", size=10)
+
+        output = join(working.name, "cast")
+        modify_parquet(dataset, output, [Cast({"id": "float64"})])
+
+        loaded = read_parquet(output)
+
+        self.assertIn("id", loaded.columns)
+        self.assertEqual(loaded["id"].dtype, "float64")
+
+    def test_parquet_cast_multiple(self):
+        working = TemporaryDirectory()
+
+        dataset = [{"id": i, "value": float(i)} for i in range(10)]
+
+        frame = DataFrame(dataset)
+        path = join(working.name, "dataset")
+        write_parquet(frame, path)
+
+        output = join(working.name, "cast")
+        modify_parquet(path, output, [Cast({"id": "float32", "value": "int64"})])
+
+        loaded = read_parquet(output)
+
+        self.assertEqual(loaded["id"].dtype, "float32")
+        self.assertEqual(loaded["value"].dtype, "int64")
 
 
 class TestPipelineCpp(TestCase):

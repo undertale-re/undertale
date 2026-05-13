@@ -7,6 +7,7 @@ from typing import Dict, List, Optional
 
 from dask.dataframe import DataFrame
 from dask.dataframe import read_parquet as dask_read_parquet
+from pandas.api.types import pandas_dtype
 
 from ..exceptions import SchemaError
 from ..logging import get_logger
@@ -138,6 +139,31 @@ class Rename(ParquetOperation):
         return frame.rename(columns=self.mapping)
 
 
+class Cast(ParquetOperation):
+    """Cast column types in the dataset.
+
+    Arguments:
+        mapping: A mapping of column names to new column type strings.
+    """
+
+    def __init__(self, mapping: Dict[str, str]):
+        self.mapping = mapping
+
+    def __call__(self, frame: DataFrame) -> DataFrame:
+        logger.info(f"casting dataset column(s): {', '.join(self.mapping)}")
+
+        for column, dtype in self.mapping.items():
+            if column not in frame.columns:
+                raise SchemaError(f"dataset does not include the column {column!r}")
+
+            try:
+                pandas_dtype(dtype)
+            except TypeError:
+                raise ValueError(f"invalid dtype {dtype!r}")
+
+        return frame.astype(self.mapping)
+
+
 class Repartition(ParquetOperation):
     """Repartition the dataset by number of chunks or target chunk size.
 
@@ -232,6 +258,7 @@ __all__ = [
     "Drop",
     "Keep",
     "Rename",
+    "Cast",
     "Repartition",
     "modify_parquet",
 ]
