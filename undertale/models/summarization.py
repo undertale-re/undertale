@@ -353,7 +353,7 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
         # Append target labels to input vector during training - allows single
         # step loss computation instead of iterative loss during generation.
         if labels is not None:
-            labels_embedded = self.language.transformer.wte(labels)
+            labels_embedded = self.language.transformer.wte(labels.clamp(min=0))
             language_embedded = cat([language_embedded, labels_embedded], dim=1)
 
             # Ignore prefix tokens in loss computation (-100).
