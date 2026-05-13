@@ -88,7 +88,9 @@ if __name__ == "__main__":
     language_pretrained = GPT2LMHeadModel.from_pretrained(model.LANGUAGE)
     model.language.load_state_dict(language_pretrained.state_dict())
 
-    collator = SummarizationCollator()
+    collator = SummarizationCollator(
+        summary_length=model.language.config.n_positions - model.language_tokens
+    )
 
     training = load_dataset(
         arguments.dataset,

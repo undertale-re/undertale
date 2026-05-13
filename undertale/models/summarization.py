@@ -68,7 +68,17 @@ def tokenize_summaries_gpt2(input: str, output: str) -> str:
 
 
 class SummarizationCollator:
-    """Collation function for sequence summarization."""
+    """Collation function for sequence summarization.
+
+    Arguments:
+        summary_length: Optional maximum summary token length. Sequences are
+            truncated after padding. Should be set to the language model's
+            context window minus the number of prefix tokens produced by the
+            connector.
+    """
+
+    def __init__(self, summary_length: int):
+        self.summary_length = summary_length
 
     def __call__(self, batch: List[dict]) -> dict:
         """Collate a batch of dataset rows.
@@ -82,6 +92,11 @@ class SummarizationCollator:
 
         tokens = stack([tensor(item["tokens"]) for item in batch])
         mask = stack([tensor(item["mask"]) for item in batch])
+
+        # Pad and truncate summaries.
+        #
+        # The GPT2 tokenizer does not implement padding and truncation, so we
+        # need to do it here.
         summary_tokens = pad_sequence(
             [tensor(item["summary_tokens"]) for item in batch],
             batch_first=True,
@@ -92,6 +107,9 @@ class SummarizationCollator:
             batch_first=True,
             padding_value=0,
         )
+
+        summary_tokens = summary_tokens[:, : self.summary_length]
+        summary_mask = summary_mask[:, : self.summary_length]
 
         return {
             "tokens": tokens,
