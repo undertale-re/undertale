@@ -14,7 +14,7 @@ if __name__ == "__main__":
     parser = DatasetArgumentParser(description="summary tokenization")
 
     parser.add_argument(
-        "-c",
+        "-f",
         "--cache",
         help="path to a HuggingFace cache directory - if not provided, models will be downloaded as necessary",
     )

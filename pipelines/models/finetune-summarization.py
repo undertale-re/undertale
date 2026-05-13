@@ -57,7 +57,7 @@ if __name__ == "__main__":
         help="path to a pretrained masked LM checkpoint",
     )
     parser.add_argument(
-        "-c",
+        "-f",
         "--cache",
         help="path to a HuggingFace cache directory - if not provided, models will be downloaded as necessary",
     )
