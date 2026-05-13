@@ -115,7 +115,7 @@ class MLPConnector(Module):
         self.language_tokens = language_tokens
         self.language_dimensions = language_dimensions
 
-        intermediate_dimensions = language_dimensions * connector_dimensions / 8
+        intermediate_dimensions = language_dimensions * connector_dimensions // 8
 
         self.linear1 = Linear(hidden_dimensions, intermediate_dimensions)
         self.linear2 = Linear(
