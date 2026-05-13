@@ -3,9 +3,9 @@
 from typing import List, Optional, Tuple
 
 import evaluate
+from lightning.pytorch import LightningModule
 from pandas import Series
 from pandas import read_parquet as pandas_read_parquet
-from pytorch_lightning import LightningModule
 from torch import Tensor, cat, exp, full, long, ones, randn, stack, tensor
 from torch.nn import GELU, Linear, Module, ModuleList, Parameter
 from torch.optim import AdamW
