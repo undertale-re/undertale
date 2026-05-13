@@ -4,7 +4,14 @@
       <div class="d-flex align-items-center gap-2">
         <span [class]="stateBadgeClass(c.state)">{{ stateLabel(c.state) }}</span>
       </div>
-      <small class="text-muted">{{ c.timestamp | date: 'medium' }}</small>
+      <div class="d-flex align-items-center gap-2">
+        <small class="text-muted">{{ c.timestamp | date: 'medium' }}</small>
+        @if (isAdmin()) {
+          <button type="button" class="btn btn-danger btn-sm" (click)="deleteCompletion()">
+            Delete
+          </button>
+        }
+      </div>
     </div>
 
     <div class="mb-3">
@@ -55,4 +62,13 @@
       </div>
     }
   </div>
+}
+
+@if (showDeleteConfirm()) {
+  <app-confirm-modal
+    message="Are you sure you want to delete this completion?"
+    confirmLabel="Delete"
+    (confirmed)="onDeleteConfirmed()"
+    (cancelled)="onDeleteCancelled()"
+  />
 }

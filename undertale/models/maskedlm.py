@@ -1,6 +1,6 @@
 """Masked language modeling implementation."""
 
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from lightning import LightningModule
 from sklearn.metrics import f1_score
@@ -272,27 +272,3 @@ class InstructionTraceTransformerEncoderForMaskedLM(LightningModule, Module):
         f1 = f1_score(references.tolist(), predictions.tolist(), average="micro")
 
         self.log("valid_f1", f1, prog_bar=True, sync_dist=True)
-
-
-class InstructionTraceTransformerEncoderForMaskedLMConfiguration:
-    """Model size configurations with associated parameters.
-
-    To make use of this class, simply pass the model size dictionary to model
-    initialization as kwargs.
-    """
-
-    regularization: Dict[str, Any] = {
-        "dropout": 0.1,
-        "eps": 1e-12,
-    }
-
-    medium: Dict[str, Any] = {
-        "sequence_length": 512,
-        "depth": 12,
-        "heads": 12,
-        "hidden_dimensions": 768,
-        "intermediate_dimensions": 3072,
-        **regularization,
-    }
-
-    options = {"medium": medium}

@@ -3,8 +3,10 @@ import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { debounceTime } from 'rxjs/operators';
+import { AuthService } from '../../../../core/services/auth.service';
 import { CompletionService } from '../../../../core/services/completion.service';
 import { stateBadgeClass, stateLabel } from '../../../../core/models/completion.model';
+import { ConfirmModal } from '../../../../shared/components/confirm-modal/confirm-modal';
 
 interface PendingFeedback {
   id: number;
@@ -14,14 +16,17 @@ interface PendingFeedback {
 
 @Component({
   selector: 'app-completion-detail',
-  imports: [FormsModule, DatePipe],
+  imports: [FormsModule, DatePipe, ConfirmModal],
   templateUrl: './completion-detail.html',
   styleUrl: './completion-detail.css',
 })
 export class CompletionDetail implements OnDestroy {
+  protected readonly auth = inject(AuthService);
   protected readonly completionService = inject(CompletionService);
 
   protected readonly completion = computed(() => this.completionService.selected());
+  protected readonly isAdmin = computed(() => this.auth.isAdmin());
+  protected showDeleteConfirm = signal(false);
   protected rating = signal<number | null>(null);
   protected comments = signal<string>('');
   protected showComments = computed(() => this.rating() !== null);
@@ -65,6 +70,20 @@ export class CompletionDetail implements OnDestroy {
       );
       this.pending = null;
     }
+  }
+
+  deleteCompletion(): void {
+    this.showDeleteConfirm.set(true);
+  }
+
+  onDeleteConfirmed(): void {
+    const c = this.completion();
+    if (c) this.completionService.delete(c.id);
+    this.showDeleteConfirm.set(false);
+  }
+
+  onDeleteCancelled(): void {
+    this.showDeleteConfirm.set(false);
   }
 
   setRating(index: number): void {

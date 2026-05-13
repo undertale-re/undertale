@@ -99,12 +99,22 @@ inference purge
 inference users
 inference users --sorted          # sort by completion count (descending)
 
+# Force authentication of a given user by username
+inference authenticate username
+
 # List completions (default limit: 10)
 inference completions
 inference completions --user <username>
 inference completions --date YYYY-MM-DD
 inference completions --input <substring>
 inference completions --limit <n>
+
+# Submit a completion from the CLI
+inference submit -u username "xor rax [MASK]"
+
+# Delete a completion
+inference delete 42
+inference delete 42 --confirm
 
 # Export completions to Parquet
 inference export completions.parquet

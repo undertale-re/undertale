@@ -142,7 +142,9 @@ def create_app() -> Flask:
             g.session.add(user)
             g.session.commit()
 
-        return jsonify({"token": create_access_token(identity=username)})
+        return jsonify(
+            {"token": create_access_token(identity=username), "admin": user.admin}
+        )
 
     @application.route("/")
     @jwt_required()
