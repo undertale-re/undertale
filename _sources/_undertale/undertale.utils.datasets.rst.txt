@@ -10,6 +10,7 @@ datasets
    :toctree:
    :recursive:
 
+   cast
    drop
    rename
    repartition

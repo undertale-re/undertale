@@ -48,25 +48,28 @@
 <p class="rubric">Classes</p>
 <table class="autosummary longtable docutils align-default">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.pipeline.parquet.Deduplicate" title="undertale.pipeline.parquet.Deduplicate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Deduplicate</span></code></a>(columns)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.pipeline.parquet.Cast" title="undertale.pipeline.parquet.Cast"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Cast</span></code></a>(mapping)</p></td>
+<td><p>Cast column types in the dataset.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#undertale.pipeline.parquet.Deduplicate" title="undertale.pipeline.parquet.Deduplicate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Deduplicate</span></code></a>(columns)</p></td>
 <td><p>Remove duplicate rows by a set of columns.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#undertale.pipeline.parquet.Drop" title="undertale.pipeline.parquet.Drop"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Drop</span></code></a>(columns)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.pipeline.parquet.Drop" title="undertale.pipeline.parquet.Drop"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Drop</span></code></a>(columns)</p></td>
 <td><p>Drop specific columns from the dataset.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.pipeline.parquet.HashColumn" title="undertale.pipeline.parquet.HashColumn"><code class="xref py py-obj docutils literal notranslate"><span class="pre">HashColumn</span></code></a>(column, target)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#undertale.pipeline.parquet.HashColumn" title="undertale.pipeline.parquet.HashColumn"><code class="xref py py-obj docutils literal notranslate"><span class="pre">HashColumn</span></code></a>(column, target)</p></td>
 <td><p>Add a column containing the hash of an existing column.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#undertale.pipeline.parquet.Keep" title="undertale.pipeline.parquet.Keep"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Keep</span></code></a>(columns)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.pipeline.parquet.Keep" title="undertale.pipeline.parquet.Keep"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Keep</span></code></a>(columns)</p></td>
 <td><p>Keep only specific columns from the dataset.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.pipeline.parquet.ParquetOperation" title="undertale.pipeline.parquet.ParquetOperation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ParquetOperation</span></code></a>()</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#undertale.pipeline.parquet.ParquetOperation" title="undertale.pipeline.parquet.ParquetOperation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ParquetOperation</span></code></a>()</p></td>
 <td><p>Abstract base class for parquet DataFrame transformations.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#undertale.pipeline.parquet.Rename" title="undertale.pipeline.parquet.Rename"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Rename</span></code></a>(mapping)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.pipeline.parquet.Rename" title="undertale.pipeline.parquet.Rename"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Rename</span></code></a>(mapping)</p></td>
 <td><p>Rename columns in the dataset.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.pipeline.parquet.Repartition" title="undertale.pipeline.parquet.Repartition"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Repartition</span></code></a>([chunks, size])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#undertale.pipeline.parquet.Repartition" title="undertale.pipeline.parquet.Repartition"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Repartition</span></code></a>([chunks, size])</p></td>
 <td><p>Repartition the dataset by number of chunks or target chunk size.</p></td>
 </tr>
 </tbody>
@@ -137,6 +140,18 @@
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>mapping</strong> – A mapping of old column names to new column names.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="undertale.pipeline.parquet.Cast">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">undertale.pipeline.parquet.</span></span><span class="sig-name descname"><span class="pre">Cast</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mapping</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.pipeline.parquet.Cast" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#undertale.pipeline.parquet.ParquetOperation" title="undertale.pipeline.parquet.ParquetOperation"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParquetOperation</span></code></a></p>
+<p>Cast column types in the dataset.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>mapping</strong> – A mapping of column names to new column type strings.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -264,6 +279,7 @@ methods.</p></li>
 <li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.parquet.Drop"><code class="docutils literal notranslate"><span class="pre">Drop</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.parquet.Keep"><code class="docutils literal notranslate"><span class="pre">Keep</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.parquet.Rename"><code class="docutils literal notranslate"><span class="pre">Rename</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.parquet.Cast"><code class="docutils literal notranslate"><span class="pre">Cast</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.parquet.Repartition"><code class="docutils literal notranslate"><span class="pre">Repartition</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.parquet.modify_parquet"><code class="docutils literal notranslate"><span class="pre">modify_parquet()</span></code></a></li>
 </ul>

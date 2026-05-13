@@ -1,0 +1,12 @@
+cast
+====
+
+.. automodule:: undertale.utils.datasets.cast
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      parse_cast
+   

@@ -202,6 +202,26 @@ python<span class="w"> </span>-m<span class="w"> </span>undertale.utils.datasets
 </div>
 <p>The output dataset preserves the same chunk structure as the input.</p>
 </section>
+<section id="cast-column-data-types">
+<h2>Cast Column Data Types<a class="headerlink" href="#cast-column-data-types" title="Link to this heading">¶</a></h2>
+<p>To cast one or more columns to a new data type, use the cast utility.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Cast a single column.</span>
+python<span class="w"> </span>-m<span class="w"> </span>undertale.utils.datasets.cast<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>humaneval-x/<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>humaneval-x-cast<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--cast<span class="w"> </span>id:int64
+
+<span class="c1"># Cast multiple columns at once.</span>
+python<span class="w"> </span>-m<span class="w"> </span>undertale.utils.datasets.cast<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>humaneval-x/<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>humaneval-x-cast<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--cast<span class="w"> </span>id:int64<span class="w"> </span>score:float32
+</pre></div>
+</div>
+<p>Each cast is specified as <code class="docutils literal notranslate"><span class="pre">column:dtype</span></code>, where <code class="docutils literal notranslate"><span class="pre">dtype</span></code> is any dtype string
+accepted by <code class="docutils literal notranslate"><span class="pre">pandas</span></code> (e.g. <code class="docutils literal notranslate"><span class="pre">int8</span></code>, <code class="docutils literal notranslate"><span class="pre">int16</span></code>, <code class="docutils literal notranslate"><span class="pre">int32</span></code>, <code class="docutils literal notranslate"><span class="pre">int64</span></code>,
+<code class="docutils literal notranslate"><span class="pre">float32</span></code>, <code class="docutils literal notranslate"><span class="pre">float64</span></code>, <code class="docutils literal notranslate"><span class="pre">bool</span></code>, <code class="docutils literal notranslate"><span class="pre">str</span></code>, <code class="docutils literal notranslate"><span class="pre">category</span></code>).</p>
+</section>
 </section>
 
 
@@ -262,6 +282,7 @@ python<span class="w"> </span>-m<span class="w"> </span>undertale.utils.datasets
 <li class="toctree-l3"><a class="reference internal" href="#repartition-a-dataset">Repartition a Dataset</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#drop-or-keep-columns">Drop or Keep Columns</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#rename-columns">Rename Columns</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#cast-column-data-types">Cast Column Data Types</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="modeling.html">Modeling</a></li>
