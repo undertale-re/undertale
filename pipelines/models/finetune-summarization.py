@@ -22,6 +22,7 @@ from undertale.models.tokenizer import load as load_tokenizer
 from undertale.parsers import ModelArgumentParser
 from undertale.schema import TokenizedSummarizationDataset
 from undertale.utils import cache_path
+from undertale.utils.models.cache.load import load as load_hf_cache
 
 
 class ProgressBar(TQDMProgressBar):
@@ -55,9 +56,17 @@ if __name__ == "__main__":
         "--pretrained",
         help="path to a pretrained masked LM checkpoint",
     )
+    parser.add_argument(
+        "-c",
+        "--cache",
+        help="path to a HuggingFace cache directory - if not provided, models will be downloaded as necessary",
+    )
 
     arguments = parser.parse_args()
     parser.setup(arguments)
+
+    if arguments.cache:
+        load_hf_cache(arguments.cache)
 
     tokenizer = load_tokenizer(cache_path(arguments.tokenizer))
 

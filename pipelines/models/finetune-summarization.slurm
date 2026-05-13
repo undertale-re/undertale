@@ -13,6 +13,7 @@ TOKENIZER=$SHARE/models/tokenizer/$PRETRAIN_DATASET/latest
 TRAINING=$SHARE/datasets/$FINETUNE_DATASET-finetune-summarization/training/latest
 VALIDATION=$SHARE/datasets/$FINETUNE_DATASET-finetune-summarization/validation/latest
 PRETRAINED=$SHARE/models/maskedlm/$PRETRAIN_DATASET/latest
+CACHE=$SHARE/software/huggingface
 BATCH=32
 
 srun python finetune-summarization.py \
@@ -20,6 +21,7 @@ srun python finetune-summarization.py \
     --pretrained $PRETRAINED \
     $TRAINING \
     --validation $VALIDATION \
+    --cache $CACHE \
     $SLURM_JOB_NAME \
     --accelerator gpu \
     --nodes $SLURM_JOB_NUM_NODES \

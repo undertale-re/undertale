@@ -5,7 +5,7 @@ from undertale.models.summarization import tokenize_summaries_gpt2
 from undertale.parsers import DatasetArgumentParser
 from undertale.pipeline import Client, Cluster, fanout, flush
 from undertale.pipeline.parquet import Repartition, modify_parquet
-from undertale.utils.models.cache.load import load as load_cache
+from undertale.utils.models.cache.load import load as load_hf_cache
 
 logger = get_logger(__name__)
 
@@ -31,7 +31,7 @@ if __name__ == "__main__":
 
             logger.info("loading HuggingFace cache")
 
-            client.run(load_cache, arguments.cache)
+            client.run(load_hf_cache, arguments.cache)
             client.run(lambda: os.environ.update({"HF_HUB_OFFLINE": "1"}))
 
         logger.info("tokenizing summaries")
