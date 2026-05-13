@@ -17,32 +17,11 @@ class Dataset(DataFrameModel):
     """Row identifier."""
 
 
-class TokenizedDataset(Dataset):
-    """A tokenized dataset."""
-
-    tokens: Series[object]
-    """The token IDs for the tokenized row."""
-
-    mask: Series[object]
-    """The attention mask for the tokenized row."""
-
-
 class SourceDataset(Dataset):
     """Source code."""
 
     source: Series[str]
     """Source code."""
-
-
-class SummarizedMixin(DataFrameModel):
-    """A mixin adding a ``summary`` field."""
-
-    summary: Series[str]
-    """Human-readable summary."""
-
-
-class SummarizedSourceDataset(SummarizedMixin, SourceDataset):
-    """Summarized source code."""
 
 
 class BinaryDataset(Dataset):
@@ -77,22 +56,38 @@ class DisassembledFunctionDatasetWithSource(DisassembledFunctionDataset, SourceD
     """Disassembled functions with source code."""
 
 
-class SummarizedDisassembledFunctionDatasetWithSource(
-    SummarizedMixin, DisassembledFunctionDatasetWithSource
-):
-    """Summarized, disassembled functions with source code."""
+class SummarizedDataset(Dataset):
+    """A dataset including text summaries."""
+
+    summary: Series[str]
+    """Human-readable summary."""
 
 
-class VulnerabilityMixin(DataFrameModel):
-    """A mixin adding a ``vulnerability`` field."""
+class TokenizedDataset(Dataset):
+    """A tokenized dataset."""
 
-    vulnerability: Series[str]
+    tokens: Series[object]
+    """The token IDs for the tokenized row."""
+
+    mask: Series[object]
+    """The attention mask for the tokenized row."""
 
 
-class VulnerabilityDisassembledFunctionDatasetWithSource(
-    VulnerabilityMixin, DisassembledFunctionDatasetWithSource
-):
-    """Disassembled functions with source code and associated vulnerabilities (if one exists)."""
+class TokenizedClassificationDataset(TokenizedDataset):
+    """A tokenized dataset with integer classification labels."""
+
+    label: Series[int]
+    """Integer class label for the sequence."""
+
+
+class TokenizedSummarizationDataset(TokenizedDataset):
+    """A tokenized dataset with tokenized summaries."""
+
+    summary_tokens: Series[object]
+    """The token IDs for the summary."""
+
+    summary_mask: Series[object]
+    """The attention mask for the summary."""
 
 
 def validate_dataset(frame: DataFrame, schema: Type[Dataset]) -> None:
@@ -114,15 +109,15 @@ def validate_dataset(frame: DataFrame, schema: Type[Dataset]) -> None:
 
 __all__ = [
     "Dataset",
-    "SummarizedMixin",
     "SourceDataset",
-    "SummarizedSourceDataset",
     "BinaryDataset",
     "BinaryDatasetWithSource",
     "FunctionDataset",
     "FunctionDatasetWithSource",
     "DisassembledFunctionDataset",
     "DisassembledFunctionDatasetWithSource",
-    "SummarizedDisassembledFunctionDatasetWithSource",
-    "VulnerabilityDisassembledFunctionDatasetWithSource",
+    "SummarizedDataset",
+    "TokenizedDataset",
+    "TokenizedClassificationDataset",
+    "TokenizedSummarizationDataset",
 ]

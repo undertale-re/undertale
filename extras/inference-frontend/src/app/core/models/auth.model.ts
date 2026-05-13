@@ -5,4 +5,5 @@ export interface Credentials {
 
 export interface TokenResponse {
   token: string;
+  admin: boolean;
 }
