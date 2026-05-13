@@ -8,6 +8,7 @@ from pandas import Series
 from pandas import read_parquet as pandas_read_parquet
 from torch import Tensor, cat, exp, full, long, ones, randn, stack, tensor
 from torch.nn import GELU, Linear, Module, ModuleList, Parameter
+from torch.nn.utils.rnn import pad_sequence
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
 from transformers import GPT2Config, GPT2LMHeadModel, GPT2Tokenizer
@@ -79,10 +80,6 @@ class SummarizationCollator:
     def __init__(self, summary_length: int):
         self.summary_length = summary_length
 
-    def _pad(self, seq: list, fill: int) -> Tensor:
-        t = tensor(seq[: self.summary_length], dtype=long)
-        return cat([t, full((self.summary_length - len(t),), fill, dtype=long)])
-
     def __call__(self, batch: List[dict]) -> dict:
         """Collate a batch of dataset rows.
 
@@ -100,8 +97,19 @@ class SummarizationCollator:
         #
         # The GPT2 tokenizer does not implement padding and truncation, so we
         # need to do it here.
-        summary_tokens = stack([self._pad(item["summary_tokens"], 0) for item in batch])
-        summary_mask = stack([self._pad(item["summary_mask"], 0) for item in batch])
+        summary_tokens = pad_sequence(
+            [tensor(item["summary_tokens"]) for item in batch],
+            batch_first=True,
+            padding_value=0,
+        )
+        summary_mask = pad_sequence(
+            [tensor(item["summary_mask"]) for item in batch],
+            batch_first=True,
+            padding_value=0,
+        )
+
+        summary_tokens = summary_tokens[:, : self.summary_length]
+        summary_mask = summary_mask[:, : self.summary_length]
 
         return {
             "tokens": tokens,
