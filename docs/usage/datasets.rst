@@ -202,3 +202,26 @@ To rename one or more columns in a dataset, use the rename utility.
         --rename source:origin metadata:info
 
 The output dataset preserves the same chunk structure as the input.
+
+Cast Column Data Types
+^^^^^^^^^^^^^^^^^^^^^^
+
+To cast one or more columns to a new data type, use the cast utility.
+
+.. code-block:: bash
+
+    # Cast a single column.
+    python -m undertale.utils.datasets.cast \
+        humaneval-x/ \
+        humaneval-x-cast \
+        --cast id:int64
+
+    # Cast multiple columns at once.
+    python -m undertale.utils.datasets.cast \
+        humaneval-x/ \
+        humaneval-x-cast \
+        --cast id:int64 score:float32
+
+Each cast is specified as ``column:dtype``, where ``dtype`` is any dtype string
+accepted by ``pandas`` (e.g. ``int8``, ``int16``, ``int32``, ``int64``,
+``float32``, ``float64``, ``bool``, ``str``, ``category``).
