@@ -3,7 +3,7 @@ import os
 from undertale.logging import get_logger
 from undertale.models.summarization import tokenize_summaries_gpt2
 from undertale.parsers import DatasetArgumentParser
-from undertale.pipeline import Client, Cluster, fanout, flush
+from undertale.pipeline import Client, Cluster, fanout, flush, read_directory
 from undertale.pipeline.parquet import Repartition, modify_parquet
 from undertale.utils.models.cache.load import load as load_hf_cache
 
@@ -36,12 +36,7 @@ if __name__ == "__main__":
 
         logger.info("tokenizing summaries")
 
-        chunks = client.submit(
-            modify_parquet,
-            arguments.input,
-            f"{arguments.output}-repartitioned",
-            [Repartition(chunks=arguments.parallelism)],
-        )
+        chunks = read_directory(client, arguments.input)
         tokenized = fanout(
             client,
             tokenize_summaries_gpt2,

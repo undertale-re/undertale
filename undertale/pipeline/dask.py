@@ -1,5 +1,6 @@
 """Custom Dask wrappers and utilities."""
 
+from os import listdir
 from os.path import basename, join
 from typing import Callable, List, Optional
 
@@ -8,7 +9,7 @@ from dask.distributed import Future, LocalCluster, WorkerPlugin
 from dask_jobqueue import SLURMCluster
 
 from ..logging import get_logger, setup_logging
-from ..utils import get_or_create_directory
+from ..utils import assert_path_exists, get_or_create_directory
 
 logger = get_logger(__name__)
 
@@ -91,6 +92,27 @@ def merge(client: DaskClient, objects: List) -> Future:
     """
 
     return client.submit(lambda x: x, objects)
+
+
+def read_directory(client: DaskClient, input: str) -> Future:
+    """Read the contents of a directory and return it as a future.
+
+    This is useful for operating over an existing directory of files without
+    repartitioning.
+
+    Arguments:
+        client: The Dask Client where tasks should be issued.
+        input: A path to an input directory.
+
+    Returns:
+        A future representing a list of files in ``input``.
+    """
+
+    input = assert_path_exists(input)
+
+    files = sorted([join(input, f) for f in listdir(input)])
+
+    return merge(client, files)
 
 
 def fanout(
