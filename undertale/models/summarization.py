@@ -295,6 +295,9 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
         )
         self.language = GPT2LMHeadModel(gpt2_config)
 
+        for p in self.encoder.parameters():
+            p.requires_grad = False
+
         self.lr = lr or self.LR
         self.warmup = warmup or self.WARMUP
 
