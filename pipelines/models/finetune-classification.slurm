@@ -28,5 +28,4 @@ srun python finetune-classification.py \
     --devices $SLURM_NTASKS_PER_NODE \
     --version $SLURM_JOB_ID \
     --batch-size $BATCH \
-    --label_balance \
-    --cache_dir ~/
+    --label_balance
