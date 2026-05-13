@@ -8,6 +8,7 @@ from pandas import Series
 from pandas import read_parquet as pandas_read_parquet
 from torch import Tensor, cat, exp, full, long, ones, randn, stack, tensor
 from torch.nn import GELU, Linear, Module, ModuleList, Parameter
+from torch.nn.utils.rnn import pad_sequence
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
 from transformers import GPT2Config, GPT2LMHeadModel, GPT2Tokenizer
@@ -81,8 +82,16 @@ class SummarizationCollator:
 
         tokens = stack([tensor(item["tokens"]) for item in batch])
         mask = stack([tensor(item["mask"]) for item in batch])
-        summary_tokens = stack([tensor(item["summary_tokens"]) for item in batch])
-        summary_mask = stack([tensor(item["summary_mask"]) for item in batch])
+        summary_tokens = pad_sequence(
+            [tensor(item["summary_tokens"]) for item in batch],
+            batch_first=True,
+            padding_value=0,
+        )
+        summary_mask = pad_sequence(
+            [tensor(item["summary_mask"]) for item in batch],
+            batch_first=True,
+            padding_value=0,
+        )
 
         return {
             "tokens": tokens,
