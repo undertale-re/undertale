@@ -1,5 +1,6 @@
 """Sequence summarization implementation."""
 
+from logging import WARNING
 from typing import List, Optional, Tuple
 
 import evaluate
@@ -458,6 +459,7 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
 
         if self.rouge is None:
             self.rouge = evaluate.load("rouge")
+            get_logger("rouge_score").setLevel(WARNING)
 
         if self.bertscore is None:
             self.bertscore = evaluate.load("bertscore")
