@@ -10,7 +10,6 @@ from os import listdir, makedirs
 from os.path import basename, exists, isdir, isfile, join
 from tempfile import TemporaryDirectory
 from time import sleep
-from types import SimpleNamespace
 from typing import Dict
 from unittest import SkipTest, TestCase
 from unittest.mock import patch
@@ -1854,31 +1853,40 @@ class TestModelDataset(TestCase):
 
         self.assertEqual([r["chunk"] for r in dataset], ["a", "b", "c"])
 
-    def test_dataset_multi_worker(self):
+    def test_dataset_cross_shard_indexing(self):
         working = TemporaryDirectory()
-        for i in range(4):
-            self.write_chunk(working.name, f"chunk_{i}.parquet", [{"chunk": i}])
+        self.write_chunk(
+            working.name,
+            "a.parquet",
+            [{"shard": "a", "row": i} for i in range(3)],
+        )
+        self.write_chunk(
+            working.name,
+            "b.parquet",
+            [{"shard": "b", "row": i} for i in range(2)],
+        )
 
         dataset = ParquetDataset(working.name)
 
-        with patch("undertale.models.dataset.get_worker_info") as mock:
-            mock.return_value = SimpleNamespace(id=0, num_workers=2)
-            worker_0 = list(dataset)
+        # Last row of shard a (global index 2) must come from shard a.
+        self.assertEqual(dataset[2]["shard"], "a")
+        self.assertEqual(dataset[2]["row"], 2)
 
-            mock.return_value = SimpleNamespace(id=1, num_workers=2)
-            worker_1 = list(dataset)
+        # First row of shard b (global index 3) must come from shard b.
+        self.assertEqual(dataset[3]["shard"], "b")
+        self.assertEqual(dataset[3]["row"], 0)
 
-        self.assertEqual(len(worker_0) + len(worker_1), 4)
-        self.assertFalse(
-            set(r["chunk"] for r in worker_0) & set(r["chunk"] for r in worker_1)
-        )
+        self.assertEqual(dataset[0]["shard"], "a")
+        self.assertEqual(dataset[4]["shard"], "b")
+        self.assertEqual(dataset[4]["row"], 1)
+
+        self.assertEqual(len(dataset), 5)
 
     def test_dataset_empty_directory(self):
         working = TemporaryDirectory()
 
-        dataset = ParquetDataset(working.name)
-
-        self.assertEqual(list(dataset), [])
+        with self.assertRaises(ValueError):
+            ParquetDataset(working.name)
 
     def test_dataset_schema_valid(self):
         working = TemporaryDirectory()
@@ -1886,19 +1894,16 @@ class TestModelDataset(TestCase):
             working.name, "chunk.parquet", [{"id": "1", "value": 1}]
         )
 
-        ParquetDataset(path, schema=Dataset)
+        dataset = ParquetDataset(path)
+        dataset.validate(Dataset)
 
     def test_dataset_schema_invalid(self):
         working = TemporaryDirectory()
         path = self.write_chunk(working.name, "chunk.parquet", [{"value": 1}])
 
         with self.assertRaises(SchemaError):
-            ParquetDataset(path, schema=Dataset)
-
-    def test_dataset_schema_empty_directory(self):
-        working = TemporaryDirectory()
-
-        ParquetDataset(working.name, schema=Dataset)
+            dataset = ParquetDataset(path)
+            dataset.validate(Dataset)
 
 
 class TestModelMaskedLMCollator(TestCase):

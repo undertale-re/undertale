@@ -35,8 +35,11 @@ def load_dataset(
 ) -> DataLoader:
     cached = cache_path(path)
 
+    dataset = ParquetDataset(cached)
+    dataset.validate(TokenizedClassificationDataset)
+
     return DataLoader(
-        ParquetDataset(cached, schema=TokenizedClassificationDataset),
+        dataset,
         batch_size=batch,
         collate_fn=collator,
         num_workers=workers,
