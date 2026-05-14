@@ -166,8 +166,7 @@ trained disassembly tokenizer.
     # Tokenize summaries in the HumanEval-X dataset.
     python pipelines/models/tokenize-summaries.py \
         humaneval-x/ \
-        humaneval-x-summaries \
-        --tokenizer gpt2/
+        humaneval-x-summaries
 
 Consider :ref:`splitting <dataset-splitting>` off some (10%) of your dataset
 for validation.
@@ -187,14 +186,12 @@ now ready to fine-tune for summarization.
     # Results will be written to summarization/.
     python pipelines/models/finetune-summarization.py \
         --tokenizer tokenizer.json \
-        --language-config gpt2/ \
         humaneval-x-summaries/ \
         summarization
 
     # Initialize from a pre-trained masked LM checkpoint.
     python pipelines/models/finetune-summarization.py \
         --tokenizer tokenizer.json \
-        --language-config gpt2/ \
         --pretrained maskedlm/checkpoint.ckpt \
         humaneval-x-summaries/ \
         summarization
@@ -202,7 +199,6 @@ now ready to fine-tune for summarization.
     # Include validation data (pre-split).
     python pipelines/models/finetune-summarization.py \
         --tokenizer tokenizer.json \
-        --language-config gpt2/ \
         --pretrained maskedlm/checkpoint.ckpt \
         humaneval-x-summaries-training/ \
         --validation humaneval-x-summaries-validation/ \
@@ -212,7 +208,6 @@ now ready to fine-tune for summarization.
     python pipelines/models/finetune-summarization.py \
         --devices 4 \
         --tokenizer tokenizer.json \
-        --language-config gpt2/ \
         --pretrained maskedlm/checkpoint.ckpt \
         humaneval-x-summaries-training/ \
         --validation humaneval-x-summaries-validation/ \
