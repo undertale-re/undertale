@@ -1,5 +1,6 @@
 """Sequence summarization implementation."""
 
+import json
 from logging import WARNING
 from typing import List, Optional, Tuple
 
@@ -7,7 +8,8 @@ import evaluate
 from lightning.pytorch import LightningModule
 from pandas import Series
 from pandas import read_parquet as pandas_read_parquet
-from torch import Tensor, cat, exp, full, long, ones, randn, stack, tensor
+from torch import Tensor, cat, exp, full, long, no_grad, ones, randn, stack, tensor
+from torch.cuda import is_available as cuda_is_available
 from torch.nn import GELU, Linear, Module, ModuleList, Parameter
 from torch.nn.utils.rnn import pad_sequence
 from torch.optim import AdamW
@@ -15,7 +17,12 @@ from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
 from transformers import GPT2Config, GPT2LMHeadModel, GPT2Tokenizer
 
 from ..logging import get_logger
-from ..schema import SummarizedDataset, validate_dataset
+from ..schema import (
+    GeneratedSummarizedDataset,
+    SummarizedDataset,
+    TokenizedSummarizationDataset,
+    validate_dataset,
+)
 from ..utils import assert_path_exists, get_or_create_file, write_parquet
 from .custom import InstructionTraceTransformerEncoder
 from .transformer import TransformerEncoderLayer
@@ -329,10 +336,6 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
         self.lr = lr or self.LR
         self.warmup = warmup or self.WARMUP
 
-        self.language_tokenizer = None
-        self.rouge = None
-        self.bertscore = None
-
     def encode(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
         """Encode and compute language tokens.
 
@@ -454,55 +457,109 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
 
     def validation_step(self, batch, index):
         """"""
-        if self.language_tokenizer is None:
-            self.language_tokenizer = GPT2Tokenizer.from_pretrained(self.LANGUAGE)
-
-        if self.rouge is None:
-            self.rouge = evaluate.load("rouge")
-            get_logger("rouge_score").setLevel(WARNING)
-
-        if self.bertscore is None:
-            self.bertscore = evaluate.load("bertscore")
-
-        # Compute Perplexity.
         labels = batch["summary_tokens"].masked_fill(
             ~batch["summary_mask"].bool(), -100
         )
-        logits, loss = self(batch["tokens"], batch["mask"], labels=labels)
+        _, loss = self(batch["tokens"], batch["mask"], labels=labels)
         perplexity = exp(loss)
 
-        # Decode summary tokens for metrics.
-        N = batch["summary_tokens"].size(1)
-        pred_ids = logits[
-            :, self.language_tokens - 1 : self.language_tokens + N - 1, :
-        ].argmax(dim=-1)
+        self.log("valid_perplexity", perplexity, prog_bar=True, sync_dist=True)
 
-        predictions = []
-        references = []
-        for i in range(batch["summary_tokens"].size(0)):
-            mask = batch["summary_mask"][i].bool()
-            predictions.append(
-                self.language_tokenizer.decode(pred_ids[i][mask].tolist())
-            )
-            references.append(
-                self.language_tokenizer.decode(
-                    batch["summary_tokens"][i][mask].tolist()
+
+def summarize_tokenized(
+    input: str, output: str, tokenizer: str, checkpoint: str
+) -> str:
+    """Summarize a given tokenized dataset.
+
+    Arguments:
+        input: Path to the tokenized dataset.
+        output: Path where the summarized dataset should be written.
+        tokenizer: Path to a trained tokenizer file.
+        checkpoint: Path to a trained model checkpoint.
+
+    Returns:
+        The path to the summarized dataset - adds a ``generated`` field
+        containing the generated summary.
+    """
+
+    input = assert_path_exists(input)
+    output, created = get_or_create_file(output)
+
+    if not created:
+        return output
+
+    model = InstructionTraceTransformerEncoderForSequenceSummarizationGPT2.load_from_checkpoint(
+        checkpoint
+    )
+    model.eval()
+
+    language_tokenizer = GPT2Tokenizer.from_pretrained(model.LANGUAGE)
+    device = "cuda" if cuda_is_available() else "cpu"
+    model = model.to(device)
+
+    logger.info(f"summarizing {input!r} to {output!r} ({device})")
+
+    frame = pandas_read_parquet(input)
+    validate_dataset(frame, TokenizedSummarizationDataset)
+
+    summaries = []
+    with no_grad():
+        for _, row in frame.iterrows():
+            tokens_tensor = tensor(row["tokens"]).unsqueeze(0).to(device)
+            mask_tensor = tensor(row["mask"]).unsqueeze(0).to(device)
+            generated = model.generate(tokens_tensor, mask_tensor)
+            summaries.append(
+                language_tokenizer.decode(
+                    generated[0].tolist(), skip_special_tokens=True
                 )
             )
 
-        # Compute Rouge-L.
-        rouge_l = self.rouge.compute(predictions=predictions, references=references)[
-            "rougeL"
-        ]
+    frame["generated"] = summaries
 
-        # Compute BERTScore.
-        result = self.bertscore.compute(
-            predictions=predictions,
-            references=references,
-            model_type=self.BERTSCORE,
-        )
-        bert_score = sum(result["f1"]) / len(result["f1"])
+    write_parquet(frame, output)
 
-        self.log("valid_perplexity", perplexity, prog_bar=True, sync_dist=True)
-        self.log("valid_rougeL", rouge_l, prog_bar=True, sync_dist=True)
-        self.log("valid_bertscore", bert_score, prog_bar=True, sync_dist=True)
+    return output
+
+
+def evaluate_summarized(input: str, output: str) -> str:
+    """Evaluate generated summaries.
+
+    Arguments:
+        input: Path to the summarized dataset.
+        output: Path where the evaluated dataset should be written.
+
+    Returns:
+        The path where the evaluation results are written (JSON).
+    """
+
+    input = assert_path_exists(input)
+
+    output, created = get_or_create_file(output)
+
+    if not created:
+        return output
+
+    logger.info(f"evaluating {input!r} to {output!r}")
+
+    frame = pandas_read_parquet(input)
+    validate_dataset(frame, GeneratedSummarizedDataset)
+
+    predictions = frame["generated"].tolist()
+    references = frame["summary"].tolist()
+
+    rouge = evaluate.load("rouge")
+    get_logger("rouge_score").setLevel(WARNING)
+    rouge_l = rouge.compute(predictions=predictions, references=references)["rougeL"]
+
+    bertscore = evaluate.load("bertscore")
+    result = bertscore.compute(
+        predictions=predictions,
+        references=references,
+        model_type=InstructionTraceTransformerEncoderForSequenceSummarizationGPT2.BERTSCORE,
+    )
+    bert_score = sum(result["f1"]) / len(result["f1"])
+
+    with open(output, "w") as f:
+        json.dump({"rouge-l": rouge_l, "bertscore": bert_score}, f)
+
+    return output

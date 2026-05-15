@@ -243,3 +243,41 @@ of a piece of disassembly input.
         --tokenizer tokenizer.json \
         --checkpoint summarization/checkpoint.ckpt \
         "push rbp [NEXT] mov rbp rsp [NEXT] ..."
+
+Evaluation
+""""""""""
+
+After training, you can evaluate a checkpoint against a tokenized summary
+dataset using Rouge-L and BERTScore. The pipeline runs inference and scoring
+in parallel across shards and writes a single averaged JSON result.
+
+.. code-block:: bash
+
+    # Evaluate a checkpoint locally.
+    python pipelines/models/evaluate-summarization.py \
+        --tokenizer tokenizer.json \
+        --checkpoint summarization/checkpoint.ckpt \
+        humaneval-x-summaries/ \
+        summarization-eval
+
+    # Scale evaluation across a SLURM cluster.
+    #
+    # This requires certain environment variables to be configured -
+    # see `environments/example-slurm.env` for more details.
+    source environments/example-slurm.env
+    python pipelines/models/evaluate-summarization.py \
+        --cluster slurm \
+        --parallelism 8 \
+        --tokenizer tokenizer.json \
+        --checkpoint summarization/checkpoint.ckpt \
+        humaneval-x-summaries/ \
+        summarization-eval
+
+Results are written to ``summarization-eval`` as a JSON file with the
+following structure:
+
+.. code-block:: json
+
+    {"rouge-l": 0.0, "bertscore": 0.0}
+
+See :ref:`parallelism` for controlling parallel workers and cluster backends.

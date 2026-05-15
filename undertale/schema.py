@@ -63,6 +63,13 @@ class SummarizedDataset(Dataset):
     """Human-readable summary."""
 
 
+class GeneratedSummarizedDataset(SummarizedDataset):
+    """A dataset including text summaries with generated predictions."""
+
+    generated: Series[str]
+    """Model-generated summary."""
+
+
 class TokenizedDataset(Dataset):
     """A tokenized dataset."""
 
