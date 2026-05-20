@@ -62,8 +62,8 @@ def tokenize_summaries_gpt2(input: str, output: str) -> str:
 
         return Series(
             {
-                "summary_tokens": encoding["input_ids"],
-                "summary_mask": encoding["attention_mask"],
+                "summary_tokens": encoding["input_ids"] + [tok.eos_token_id],
+                "summary_mask": encoding["attention_mask"] + [1],
             }
         )
 
