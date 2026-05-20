@@ -148,6 +148,7 @@ if __name__ == "__main__":
         collator=collator,
         batch=arguments.batch_size,
         workers=arguments.dataloaders,
+        memory=arguments.dataloader_memory,
     )
 
     if arguments.validation is not None:

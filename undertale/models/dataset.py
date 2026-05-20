@@ -7,7 +7,6 @@ from typing import Any, Callable, Dict, List, Optional, Type
 
 from lightning import LightningDataModule
 from pandas import read_parquet
-from psutil import virtual_memory
 from pyarrow import parquet
 from torch import distributed
 from torch.utils.data import DataLoader, Dataset, Sampler
@@ -20,19 +19,18 @@ class ParquetDataset(Dataset):
     """A parquet-backed dataset featuring random access and caching.
 
     Loads data from a parquet dataset in one or more shards on disk. Caches
-    shard reads in memory to optimize for high-locality access. Automatically
-    sizes cache based on available memory.
+    shard reads in memory to optimize for high-locality access. Cache size is
+    controlled by the ``memory`` parameter.
 
-    If the source dataset is smaller than available memory, then this is
-    essentially just a lazy-loaded dataset. If the dataset is larger than
-    memory, this is a locality-optimized cached dataset reader.
+    If the source dataset is smaller than the cache limit, then this is
+    essentially just a lazy-loaded dataset. If the dataset is larger than the
+    cache limit, this is a locality-optimized cached dataset reader.
 
     Arguments:
         source: Path to a single parquet file or a directory of several parquet
             files.
-        utilization: Available memory utilization scaling factor - this
-            controls approximately how much of available memory the cache will
-            attempt to use.
+        memory: Cache size limit in megabytes. Controls the maximum amount of
+            memory the shard cache will use.
     """
 
     def build_cache(self):
@@ -41,8 +39,7 @@ class ParquetDataset(Dataset):
         # This assumes all dataset shards are roughly the same size.
         table = parquet.read_table(self.files[0])
         size = table.nbytes
-        available = virtual_memory().available
-        maxsize = int(available * self.utilization / size)
+        maxsize = int(self.memory * 1024 * 1024 / size)
         maxsize = max(1, min(maxsize, len(self.files)))
 
         # Initialize cache.
@@ -57,8 +54,8 @@ class ParquetDataset(Dataset):
         self.__dict__.update(state)
         self.build_cache()
 
-    def __init__(self, source: str, utilization: float = 0.4):
-        self.utilization = utilization
+    def __init__(self, source: str, memory: int = 4096):
+        self.memory = memory
 
         if isfile(source):
             self.files = [source]
@@ -219,6 +216,7 @@ def load(
     collator: Callable,
     batch: int,
     workers: int = 0,
+    memory: int = 4096,
 ) -> DataLoader:
     """Build a DataLoader for the given dataset.
 
@@ -229,13 +227,14 @@ def load(
         batch: Batch size.
         workers: Number of parallel dataset workers. By default, this will
             spawn no dataset workers and fetch data in the main process.
+        memory: Shard cache memory limit in megabytes.
 
     Returns:
         A DataLoader for the given dataset at ``path`` with the given
         parameters.
     """
 
-    dataset = ParquetDataset(path)
+    dataset = ParquetDataset(path, memory=memory)
     dataset.validate(schema)
 
     sampler = ChunkedSampler(
@@ -265,6 +264,7 @@ class DataModule(LightningDataModule):
         batch: Batch size.
         workers: Number of parallel dataset workers. By default, this will
             spawn no dataset workers and fetch data in the main process.
+        memory: Shard cache memory limit in megabytes.
     """
 
     def __init__(
@@ -275,6 +275,7 @@ class DataModule(LightningDataModule):
         collator: Callable,
         batch: int,
         workers: int = 0,
+        memory: int = 4096,
     ):
         super().__init__()
 
@@ -284,6 +285,7 @@ class DataModule(LightningDataModule):
         self.collator = collator
         self.batch = batch
         self.workers = workers
+        self.memory = memory
 
     def _load(self, dataset: str) -> DataLoader:
         return load(
@@ -292,6 +294,7 @@ class DataModule(LightningDataModule):
             collator=self.collator,
             batch=self.batch,
             workers=self.workers,
+            memory=self.memory,
         )
 
     def train_dataloader(self) -> DataLoader:
