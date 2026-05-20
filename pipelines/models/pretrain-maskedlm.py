@@ -1,17 +1,15 @@
 from os.path import basename, dirname
-from typing import Callable, Optional
 
 import torch
 from lightning import Trainer
 from lightning.pytorch.callbacks import Callback, ModelCheckpoint, TQDMProgressBar
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 from lightning.pytorch.loggers import TensorBoardLogger
-from torch.utils.data import DataLoader
 
 from undertale.models.configuration import (
     InstructionTraceTransformerEncoderConfiguration,
 )
-from undertale.models.dataset import ParquetDataset
+from undertale.models.dataset import DataModule
 from undertale.models.maskedlm import (
     InstructionTraceTransformerEncoderForMaskedLM,
     MaskedLMCollator,
@@ -108,22 +106,6 @@ class InferenceLogger(Callback):
         model.train()
 
 
-def load_dataset(
-    path: str, batch: int, collator: Optional[Callable] = None, workers: int = 0
-) -> DataLoader:
-    cached = cache_path(path)
-
-    dataset = ParquetDataset(cached)
-    dataset.validate(TokenizedDataset)
-
-    return DataLoader(
-        dataset,
-        batch_size=batch,
-        collate_fn=collator,
-        num_workers=workers,
-    )
-
-
 if __name__ == "__main__":
     parser = ModelArgumentParser(description="masked language modeling pretraining")
 
@@ -154,20 +136,21 @@ if __name__ == "__main__":
         vocab_size=vocab_size,
     )
 
-    training = load_dataset(
-        arguments.dataset,
-        arguments.batch_size,
+    dataset = cache_path(arguments.dataset)
+    validation = arguments.validation
+    if validation is not None:
+        validation = cache_path(arguments.validation)
+
+    datamodule = DataModule(
+        dataset,
+        validation,
+        schema=TokenizedDataset,
         collator=collator,
+        batch=arguments.batch_size,
         workers=arguments.dataloaders,
     )
 
     if arguments.validation is not None:
-        validation = load_dataset(
-            arguments.validation,
-            arguments.batch_size,
-            collator=collator,
-            workers=arguments.dataloaders,
-        )
         stop = EarlyStopping(
             monitor="valid_f1", mode="max", patience=5, min_delta=0.001
         )
@@ -175,7 +158,6 @@ if __name__ == "__main__":
             filename="{epoch}-{train_loss:.2f}-{valid_f1:.2f}", save_top_k=-1
         )
     else:
-        validation = None
         stop = EarlyStopping(
             monitor="train_loss", mode="min", patience=5, min_delta=0.001
         )
@@ -198,10 +180,10 @@ if __name__ == "__main__":
         num_nodes=arguments.nodes,
         strategy=arguments.strategy,
         max_epochs=arguments.epochs,
+        use_distributed_sampler=False,
     )
     trainer.fit(
         model,
-        train_dataloaders=training,
-        val_dataloaders=validation,
+        datamodule=datamodule,
         ckpt_path=arguments.checkpoint,
     )
