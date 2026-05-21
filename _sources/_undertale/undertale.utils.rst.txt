@@ -32,3 +32,4 @@ utils
    :recursive:
 
    datasets
+   models

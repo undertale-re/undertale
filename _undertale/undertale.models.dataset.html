@@ -36,45 +36,140 @@
             
   <section id="module-undertale.models.dataset">
 <span id="dataset"></span><h1>dataset<a class="headerlink" href="#module-undertale.models.dataset" title="Link to this heading">¶</a></h1>
+<p class="rubric">Functions</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.models.dataset.load" title="undertale.models.dataset.load"><code class="xref py py-obj docutils literal notranslate"><span class="pre">load</span></code></a>(path, schema, collator, batch[, ...])</p></td>
+<td><p>Build a DataLoader for the given dataset.</p></td>
+</tr>
+</tbody>
+</table>
 <p class="rubric">Classes</p>
 <table class="autosummary longtable docutils align-default">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.models.dataset.ParquetDataset" title="undertale.models.dataset.ParquetDataset"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ParquetDataset</span></code></a>(source[, schema])</p></td>
-<td><p>An iterable dataset backed by one or more parquet files.</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.models.dataset.ChunkedSampler" title="undertale.models.dataset.ChunkedSampler"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ChunkedSampler</span></code></a>(dataset, batch, workers[, ...])</p></td>
+<td><p>A chunked distributed sampler.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#undertale.models.dataset.DataModule" title="undertale.models.dataset.DataModule"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DataModule</span></code></a>(training, validation, schema, ...)</p></td>
+<td><p>A DataModule that wraps ParquetDatasets.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.models.dataset.ParquetDataset" title="undertale.models.dataset.ParquetDataset"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ParquetDataset</span></code></a>(source[, memory])</p></td>
+<td><p>A parquet-backed dataset featuring random access and caching.</p></td>
 </tr>
 </tbody>
 </table>
 <dl class="py class">
 <dt class="sig sig-object py" id="undertale.models.dataset.ParquetDataset">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">undertale.models.dataset.</span></span><span class="sig-name descname"><span class="pre">ParquetDataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">schema</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Type</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="undertale.schema.html#undertale.schema.Dataset" title="undertale.schema.Dataset"><span class="pre">Dataset</span></a><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.models.dataset.ParquetDataset" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">IterableDataset</span></code></p>
-<p>An iterable dataset backed by one or more parquet files.</p>
-<p>Loads parquet data sequentially, one file at a time, making it suitable for
-datasets larger than memory. When used with a multi-worker <code class="docutils literal notranslate"><span class="pre">DataLoader</span></code>,
-files are distributed across workers so that each row is yielded by exactly
-one worker.</p>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">undertale.models.dataset.</span></span><span class="sig-name descname"><span class="pre">ParquetDataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">4096</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.models.dataset.ParquetDataset" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Dataset</span></code></p>
+<p>A parquet-backed dataset featuring random access and caching.</p>
+<p>Loads data from a parquet dataset in one or more shards on disk. Caches
+shard reads in memory to optimize for high-locality access. Cache size is
+controlled by the <code class="docutils literal notranslate"><span class="pre">memory</span></code> parameter.</p>
+<p>If the source dataset is smaller than the cache limit, then this is
+essentially just a lazy-loaded dataset. If the dataset is larger than the
+cache limit, this is a locality-optimized cached dataset reader.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>source</strong> – Path to a single parquet file or a directory of several parquet
+files.</p></li>
+<li><p><strong>memory</strong> – Cache size limit in megabytes. Controls the maximum amount of
+memory the shard cache will use.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="undertale.models.dataset.ParquetDataset.validate">
+<span class="sig-name descname"><span class="pre">validate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">schema</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Type</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="undertale.schema.html#undertale.schema.Dataset" title="undertale.schema.Dataset"><span class="pre">Dataset</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#undertale.models.dataset.ParquetDataset.validate" title="Link to this definition">¶</a></dt>
+<dd><p>Validate this dataset against a given schema.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>schema</strong> – A schema class to validate the dataset against.</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="undertale.exceptions.html#undertale.exceptions.SchemaError" title="undertale.exceptions.SchemaError"><strong>SchemaError</strong></a> – If the dataset does not conform to <code class="docutils literal notranslate"><span class="pre">schema</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="undertale.models.dataset.ChunkedSampler">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">undertale.models.dataset.</span></span><span class="sig-name descname"><span class="pre">ChunkedSampler</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dataset</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">workers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ranks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rank</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.models.dataset.ChunkedSampler" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Sampler</span></code></p>
+<p>A chunked distributed sampler.</p>
+<p>The default <code class="docutils literal notranslate"><span class="pre">DistributedSampler</span></code> from <code class="docutils literal notranslate"><span class="pre">pytorch</span></code> uses a strided sampling
+approach that does not suit the locality constraints of the caching
+approach in <code class="docutils literal notranslate"><span class="pre">ParquetDataset</span></code>. This sampler guarantees per rank and per
+worker contiguity.</p>
+<p>If not provided, this will attempt to discover rank and world size from
+<code class="docutils literal notranslate"><span class="pre">torch.distributed</span></code> state. If not running in a distributed environment a
+world size of 1 and rank index of 0 will be assumed - i.e., non-distributed
+training.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p><code class="docutils literal notranslate"><span class="pre">DataLoader</span></code> shuffle is not supported - shuffling must happen prior
-to loading.</p>
-</div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Schema validation is performed against the first file only, as a
-representative check. It is assumed that all files in a directory
-share the same schema.</p>
+<p>This makes some assumptions about relatively stable, but undocumented
+pytorch internals - in particular that the worker distribution strategy
+in <code class="docutils literal notranslate"><span class="pre">DataLoader</span></code> is round-robin. If this changes in the future this
+code will break.</p>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>source</strong> – Path to a single parquet file or a directory of parquet files.</p></li>
-<li><p><strong>schema</strong> – An optional schema class to validate the dataset against on
-construction.</p></li>
+<li><p><strong>dataset</strong> – The dataset from which to sample.</p></li>
+<li><p><strong>batch</strong> – Batch size.</p></li>
+<li><p><strong>workers</strong> – Number of parallel dataset workers. By default, this will
+spawn no dataset workers and fetch data in the main process.</p></li>
+<li><p><strong>ranks</strong> – The number of distributed ranks.</p></li>
+<li><p><strong>rank</strong> – The index of this distributed rank.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><p><a class="reference internal" href="undertale.exceptions.html#undertale.exceptions.SchemaError" title="undertale.exceptions.SchemaError"><strong>SchemaError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">schema</span></code> is provided and the dataset does not
-    conform to it.</p>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="undertale.models.dataset.load">
+<span class="sig-prename descclassname"><span class="pre">undertale.models.dataset.</span></span><span class="sig-name descname"><span class="pre">load</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">schema</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Type</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="undertale.schema.html#undertale.schema.Dataset" title="undertale.schema.Dataset"><span class="pre">Dataset</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">collator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">workers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">4096</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DataLoader</span></span></span><a class="headerlink" href="#undertale.models.dataset.load" title="Link to this definition">¶</a></dt>
+<dd><p>Build a DataLoader for the given dataset.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>path</strong> – Path to the dataset to process.</p></li>
+<li><p><strong>schema</strong> – Expected dataset schema.</p></li>
+<li><p><strong>collator</strong> – Dataset collator.</p></li>
+<li><p><strong>batch</strong> – Batch size.</p></li>
+<li><p><strong>workers</strong> – Number of parallel dataset workers. By default, this will
+spawn no dataset workers and fetch data in the main process.</p></li>
+<li><p><strong>memory</strong> – Shard cache memory limit in megabytes.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A DataLoader for the given dataset at <code class="docutils literal notranslate"><span class="pre">path</span></code> with the given
+parameters.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="undertale.models.dataset.DataModule">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">undertale.models.dataset.</span></span><span class="sig-name descname"><span class="pre">DataModule</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">training</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">validation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">schema</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Type</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="undertale.schema.html#undertale.schema.Dataset" title="undertale.schema.Dataset"><span class="pre">Dataset</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">collator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">workers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">4096</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.models.dataset.DataModule" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">LightningDataModule</span></code></p>
+<p>A DataModule that wraps ParquetDatasets.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>training</strong> – Path to the training dataset.</p></li>
+<li><p><strong>validation</strong> – Path to the validation dataset. If <code class="docutils literal notranslate"><span class="pre">None</span></code> validation will
+be skipped.</p></li>
+<li><p><strong>schema</strong> – Expected dataset schema.</p></li>
+<li><p><strong>collator</strong> – Dataset collator.</p></li>
+<li><p><strong>batch</strong> – Batch size.</p></li>
+<li><p><strong>workers</strong> – Number of parallel dataset workers. By default, this will
+spawn no dataset workers and fetch data in the main process.</p></li>
+<li><p><strong>memory</strong> – Shard cache memory limit in megabytes.</p></li>
+</ul>
 </dd>
 </dl>
 </dd></dl>
@@ -135,10 +230,17 @@ construction.</p></li>
 <li class="toctree-l4"><a class="reference internal" href="undertale.models.configuration.html">configuration</a></li>
 <li class="toctree-l4"><a class="reference internal" href="undertale.models.custom.html">custom</a></li>
 <li class="toctree-l4 current"><a class="current reference internal" href="#">dataset</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="#undertale.models.dataset.ParquetDataset"><code class="docutils literal notranslate"><span class="pre">ParquetDataset</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.models.dataset.ParquetDataset"><code class="docutils literal notranslate"><span class="pre">ParquetDataset</span></code></a><ul>
+<li class="toctree-l6"><a class="reference internal" href="#undertale.models.dataset.ParquetDataset.validate"><code class="docutils literal notranslate"><span class="pre">ParquetDataset.validate()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.models.dataset.ChunkedSampler"><code class="docutils literal notranslate"><span class="pre">ChunkedSampler</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.models.dataset.load"><code class="docutils literal notranslate"><span class="pre">load()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.models.dataset.DataModule"><code class="docutils literal notranslate"><span class="pre">DataModule</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l4"><a class="reference internal" href="undertale.models.maskedlm.html">maskedlm</a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.models.summarization.html">summarization</a></li>
 <li class="toctree-l4"><a class="reference internal" href="undertale.models.tokenizer.html">tokenizer</a></li>
 <li class="toctree-l4"><a class="reference internal" href="undertale.models.transformer.html">transformer</a></li>
 <li class="toctree-l4"><a class="reference internal" href="undertale.models.tuning.html">tuning</a></li>

@@ -4,9 +4,17 @@ dataset
 .. automodule:: undertale.models.dataset
 
    
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      load
+   
    .. rubric:: Classes
 
    .. autosummary::
    
+      ChunkedSampler
+      DataModule
       ParquetDataset
    

@@ -21,12 +21,10 @@ schema
       DisassembledFunctionDatasetWithSource
       FunctionDataset
       FunctionDatasetWithSource
+      GeneratedSummarizedDataset
       SourceDataset
-      SummarizedDisassembledFunctionDatasetWithSource
-      SummarizedMixin
-      SummarizedSourceDataset
+      SummarizedDataset
       TokenizedClassificationDataset
       TokenizedDataset
-      VulnerabilityDisassembledFunctionDatasetWithSource
-      VulnerabilityMixin
+      TokenizedSummarizationDataset
    

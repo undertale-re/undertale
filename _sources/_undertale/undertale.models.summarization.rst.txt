@@ -1,0 +1,23 @@
+summarization
+=============
+
+.. automodule:: undertale.models.summarization
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      evaluate_summarized
+      summarize_tokenized
+      tokenize_summaries_gpt2
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      InstructionTraceTransformerEncoderForSequenceSummarizationGPT2
+      MLPConnector
+      SummarizationCollator
+      TransformerConnector
+   

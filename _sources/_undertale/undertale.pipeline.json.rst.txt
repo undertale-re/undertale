@@ -8,6 +8,7 @@ json
 
    .. autosummary::
    
+      average_json
       merge_json
       split_json
    

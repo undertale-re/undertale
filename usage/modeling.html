@@ -56,7 +56,7 @@ for pre-training.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Tokenize the HumanEval-X dataset.</span>
 <span class="c1">#</span>
 <span class="c1"># Only retain the minimal fields necessary for pre-training.</span>
-python<span class="w"> </span>pipelines/models/tokenize-dataset.py<span class="w"> </span><span class="se">\</span>
+python<span class="w"> </span>pipelines/models/tokenize-disassembly.py<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>humaneval-x/<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>humaneval-x-pretraining<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--tokenizer<span class="w"> </span>tokenizer.json<span class="w"> </span><span class="se">\</span>
@@ -130,12 +130,147 @@ python<span class="w"> </span>pipelines/models/infer-maskedlm.py<span class="w">
 </div>
 </section>
 </section>
-<section id="fine-tuning-multi-modal-summarization">
-<h2>Fine-Tuning (Multi-Modal Summarization)<a class="headerlink" href="#fine-tuning-multi-modal-summarization" title="Link to this heading">¶</a></h2>
+<section id="fine-tuning-sequence-classification">
+<h2>Fine-Tuning (Sequence Classification)<a class="headerlink" href="#fine-tuning-sequence-classification" title="Link to this heading">¶</a></h2>
 <p>Coming soon…</p>
 <section id="id2">
 <h3>Inference<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h3>
 <p>Coming soon…</p>
+</section>
+</section>
+<section id="fine-tuning-multi-modal-sequence-summarization">
+<h2>Fine-Tuning (Multi-Modal Sequence Summarization)<a class="headerlink" href="#fine-tuning-multi-modal-sequence-summarization" title="Link to this heading">¶</a></h2>
+<section id="prerequisites">
+<h3>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading">¶</a></h3>
+<p>The multimodal dataset and model pipelines in this section use trained models
+and tokenizers from the <a class="reference external" href="https://huggingface.co/docs/hub/index">HuggingFace Hub</a>. These will be downloaded and cached
+automatically as necessary.</p>
+<p>If your pipelines do not have access to the internet, you can download a cache
+of all required models for offline use with the following utility:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>undertale.utils.models.cache.build<span class="w"> </span>path/to/output
+</pre></div>
+</div>
+<p>Then, on your offline system, you can load the cache with the following:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>undertale.utils.models.cache.load<span class="w"> </span>path/to/cache
+</pre></div>
+</div>
+<p>For offline systems, you should also consider setting the following environment
+variable(s):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">HF_HUB_OFFLINE</span><span class="o">=</span><span class="m">1</span>
+</pre></div>
+</div>
+</section>
+<section id="dataset-preparation">
+<h3>Dataset Preparation<a class="headerlink" href="#dataset-preparation" title="Link to this heading">¶</a></h3>
+<p>With an existing dataset, you can tokenize the natural language summaries to
+prepare for fine-tuning. This step uses a GPT-2 tokenizer rather than your
+trained disassembly tokenizer.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Tokenize summaries in the HumanEval-X dataset.</span>
+python<span class="w"> </span>pipelines/models/tokenize-summaries.py<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>humaneval-x/<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>humaneval-x-summaries
+</pre></div>
+</div>
+<p>Consider <a class="reference internal" href="datasets.html#dataset-splitting"><span class="std std-ref">splitting</span></a> off some (10%) of your dataset
+for validation.</p>
+<p>See <a class="reference internal" href="datasets.html#parallelism"><span class="std std-ref">Parallelism</span></a> for controlling parallel workers and cluster backends.</p>
+</section>
+<section id="training">
+<h3>Training<a class="headerlink" href="#training" title="Link to this heading">¶</a></h3>
+<p>With your tokenized summary dataset (and optional validation split) you are
+now ready to fine-tune for summarization.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Start a fine-tuning run locally (as an example).</span>
+<span class="c1">#</span>
+<span class="c1"># Results will be written to summarization/.</span>
+python<span class="w"> </span>pipelines/models/finetune-summarization.py<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--tokenizer<span class="w"> </span>tokenizer.json<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>humaneval-x-summaries/<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>summarization
+
+<span class="c1"># Initialize from a pre-trained masked LM checkpoint.</span>
+python<span class="w"> </span>pipelines/models/finetune-summarization.py<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--tokenizer<span class="w"> </span>tokenizer.json<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--pretrained<span class="w"> </span>maskedlm/checkpoint.ckpt<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>humaneval-x-summaries/<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>summarization
+
+<span class="c1"># Include validation data (pre-split).</span>
+python<span class="w"> </span>pipelines/models/finetune-summarization.py<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--tokenizer<span class="w"> </span>tokenizer.json<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--pretrained<span class="w"> </span>maskedlm/checkpoint.ckpt<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>humaneval-x-summaries-training/<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--validation<span class="w"> </span>humaneval-x-summaries-validation/<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>summarization
+
+<span class="c1"># Use multiple accelerators on the same host.</span>
+python<span class="w"> </span>pipelines/models/finetune-summarization.py<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--devices<span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--tokenizer<span class="w"> </span>tokenizer.json<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--pretrained<span class="w"> </span>maskedlm/checkpoint.ckpt<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>humaneval-x-summaries-training/<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--validation<span class="w"> </span>humaneval-x-summaries-validation/<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>summarization
+
+<span class="c1"># Distributed training on a SLURM Cluster.</span>
+<span class="c1">#</span>
+<span class="c1"># This SLURM script requires certain environment variables</span>
+<span class="c1"># to be configured - see `environments/example-slurm.env`</span>
+<span class="c1"># for more details or customize the SLURM script to your</span>
+<span class="c1"># environment.</span>
+<span class="nb">source</span><span class="w"> </span>environments/example-slurm.env
+sbatch<span class="w"> </span>pipelines/models/finetune-summarization.slurm
+</pre></div>
+</div>
+<p>There are several other configurable parameters for other training scenarios -
+to get a full list, see the <code class="docutils literal notranslate"><span class="pre">--help</span></code> output.</p>
+<p>Saved model checkpoints are available in the output directory.</p>
+<p>See <a class="reference internal" href="datasets.html#environments"><span class="std std-ref">Environments</span></a> for details on configuring the local environment -
+in particular for distributed SLURM training.</p>
+</section>
+<section id="id3">
+<h3>Inference<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h3>
+<p>With a trained model checkpoint, you can generate a natural-language summary
+of a piece of disassembly input.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Generate a summary for a piece of disassembly.</span>
+python<span class="w"> </span>pipelines/models/infer-summarization.py<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--tokenizer<span class="w"> </span>tokenizer.json<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--checkpoint<span class="w"> </span>summarization/checkpoint.ckpt<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="s2">&quot;push rbp [NEXT] mov rbp rsp [NEXT] ...&quot;</span>
+</pre></div>
+</div>
+</section>
+<section id="evaluation">
+<h3>Evaluation<a class="headerlink" href="#evaluation" title="Link to this heading">¶</a></h3>
+<p>After training, you can evaluate a checkpoint against a tokenized summary
+dataset using Rouge-L and BERTScore. The pipeline runs inference and scoring
+in parallel across shards and writes a single averaged JSON result.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Evaluate a checkpoint locally.</span>
+python<span class="w"> </span>pipelines/models/evaluate-summarization.py<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--tokenizer<span class="w"> </span>tokenizer.json<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--checkpoint<span class="w"> </span>summarization/checkpoint.ckpt<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>humaneval-x-summaries/<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>summarization-eval
+
+<span class="c1"># Scale evaluation across a SLURM cluster.</span>
+<span class="c1">#</span>
+<span class="c1"># This requires certain environment variables to be configured -</span>
+<span class="c1"># see `environments/example-slurm.env` for more details.</span>
+<span class="nb">source</span><span class="w"> </span>environments/example-slurm.env
+python<span class="w"> </span>pipelines/models/evaluate-summarization.py<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--cluster<span class="w"> </span>slurm<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--parallelism<span class="w"> </span><span class="m">8</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--tokenizer<span class="w"> </span>tokenizer.json<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--checkpoint<span class="w"> </span>summarization/checkpoint.ckpt<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>humaneval-x-summaries/<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>summarization-eval
+</pre></div>
+</div>
+<p>Results are written to <code class="docutils literal notranslate"><span class="pre">summarization-eval</span></code> as a JSON file with the
+following structure:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="nt">&quot;rouge-l&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;bertscore&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="p">}</span>
+</pre></div>
+</div>
+<p>See <a class="reference internal" href="datasets.html#parallelism"><span class="std std-ref">Parallelism</span></a> for controlling parallel workers and cluster backends.</p>
 </section>
 </section>
 </section>
@@ -194,8 +329,16 @@ python<span class="w"> </span>pipelines/models/infer-maskedlm.py<span class="w">
 <li class="toctree-l4"><a class="reference internal" href="#inference">Inference</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#fine-tuning-multi-modal-summarization">Fine-Tuning (Multi-Modal Summarization)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#fine-tuning-sequence-classification">Fine-Tuning (Sequence Classification)</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#id2">Inference</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#fine-tuning-multi-modal-sequence-summarization">Fine-Tuning (Multi-Modal Sequence Summarization)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#prerequisites">Prerequisites</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#dataset-preparation">Dataset Preparation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#training">Training</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id3">Inference</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#evaluation">Evaluation</a></li>
 </ul>
 </li>
 </ul>

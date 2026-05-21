@@ -13,6 +13,7 @@ dask
       fanout
       flush
       merge
+      read_directory
    
    .. rubric:: Classes
 

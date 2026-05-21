@@ -1,0 +1,12 @@
+load
+====
+
+.. automodule:: undertale.utils.models.cache.load
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      load
+   

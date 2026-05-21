@@ -15,6 +15,7 @@ models
    custom
    dataset
    maskedlm
+   summarization
    tokenizer
    transformer
    tuning

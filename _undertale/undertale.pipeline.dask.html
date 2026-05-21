@@ -55,6 +55,9 @@
 <tr class="row-odd"><td><p><a class="reference internal" href="#undertale.pipeline.dask.merge" title="undertale.pipeline.dask.merge"><code class="xref py py-obj docutils literal notranslate"><span class="pre">merge</span></code></a>(client, objects)</p></td>
 <td><p>Merge a list of objects into a single future.</p></td>
 </tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#undertale.pipeline.dask.read_directory" title="undertale.pipeline.dask.read_directory"><code class="xref py py-obj docutils literal notranslate"><span class="pre">read_directory</span></code></a>(client, input)</p></td>
+<td><p>Read the contents of a directory and return it as a future.</p></td>
+</tr>
 </tbody>
 </table>
 <p class="rubric">Classes</p>
@@ -110,6 +113,25 @@ objects/futures.</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>A single Future wrapping the list of objects</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="undertale.pipeline.dask.read_directory">
+<span class="sig-prename descclassname"><span class="pre">undertale.pipeline.dask.</span></span><span class="sig-name descname"><span class="pre">read_directory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">client</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Client</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Future</span></span></span><a class="headerlink" href="#undertale.pipeline.dask.read_directory" title="Link to this definition">¶</a></dt>
+<dd><p>Read the contents of a directory and return it as a future.</p>
+<p>This is useful for operating over an existing directory of files without
+repartitioning.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>client</strong> – The Dask Client where tasks should be issued.</p></li>
+<li><p><strong>input</strong> – A path to an input directory.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A future representing a list of files in <code class="docutils literal notranslate"><span class="pre">input</span></code>.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -218,6 +240,7 @@ shutdown and work completion.</p>
 <li class="toctree-l4"><a class="reference internal" href="undertale.pipeline.html#undertale.pipeline.Cluster"><code class="docutils literal notranslate"><span class="pre">Cluster()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="undertale.pipeline.html#undertale.pipeline.Client"><code class="docutils literal notranslate"><span class="pre">Client()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="undertale.pipeline.html#undertale.pipeline.merge"><code class="docutils literal notranslate"><span class="pre">merge()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.pipeline.html#undertale.pipeline.read_directory"><code class="docutils literal notranslate"><span class="pre">read_directory()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="undertale.pipeline.html#undertale.pipeline.fanout"><code class="docutils literal notranslate"><span class="pre">fanout()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="undertale.pipeline.html#undertale.pipeline.flush"><code class="docutils literal notranslate"><span class="pre">flush()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="undertale.pipeline.binary.html">binary</a></li>
@@ -226,6 +249,7 @@ shutdown and work completion.</p>
 <li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.dask.Cluster"><code class="docutils literal notranslate"><span class="pre">Cluster()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.dask.Client"><code class="docutils literal notranslate"><span class="pre">Client()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.dask.merge"><code class="docutils literal notranslate"><span class="pre">merge()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.dask.read_directory"><code class="docutils literal notranslate"><span class="pre">read_directory()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.dask.fanout"><code class="docutils literal notranslate"><span class="pre">fanout()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.dask.flush"><code class="docutils literal notranslate"><span class="pre">flush()</span></code></a></li>
 </ul>

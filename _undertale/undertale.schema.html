@@ -69,29 +69,23 @@
 <tr class="row-odd"><td><p><a class="reference internal" href="#undertale.schema.FunctionDatasetWithSource" title="undertale.schema.FunctionDatasetWithSource"><code class="xref py py-obj docutils literal notranslate"><span class="pre">FunctionDatasetWithSource</span></code></a>(*args, **kwargs)</p></td>
 <td><p>Functions with source code.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#undertale.schema.SourceDataset" title="undertale.schema.SourceDataset"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SourceDataset</span></code></a>(*args, **kwargs)</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">GeneratedSummarizedDataset</span></code>(*args, **kwargs)</p></td>
+<td><p>A dataset including text summaries with generated predictions.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.schema.SourceDataset" title="undertale.schema.SourceDataset"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SourceDataset</span></code></a>(*args, **kwargs)</p></td>
 <td><p>Source code.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.schema.SummarizedDisassembledFunctionDatasetWithSource" title="undertale.schema.SummarizedDisassembledFunctionDatasetWithSource"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SummarizedDisassembledFunctionDatasetWithSource</span></code></a>(...)</p></td>
-<td><p>Summarized, disassembled functions with source code.</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#undertale.schema.SummarizedDataset" title="undertale.schema.SummarizedDataset"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SummarizedDataset</span></code></a>(*args, **kwargs)</p></td>
+<td><p>A dataset including text summaries.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#undertale.schema.SummarizedMixin" title="undertale.schema.SummarizedMixin"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SummarizedMixin</span></code></a>(*args, **kwargs)</p></td>
-<td><p>A mixin adding a <code class="docutils literal notranslate"><span class="pre">summary</span></code> field.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.schema.SummarizedSourceDataset" title="undertale.schema.SummarizedSourceDataset"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SummarizedSourceDataset</span></code></a>(*args, **kwargs)</p></td>
-<td><p>Summarized source code.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#undertale.schema.TokenizedClassificationDataset" title="undertale.schema.TokenizedClassificationDataset"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TokenizedClassificationDataset</span></code></a>(*args, **kwargs)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.schema.TokenizedClassificationDataset" title="undertale.schema.TokenizedClassificationDataset"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TokenizedClassificationDataset</span></code></a>(*args, **kwargs)</p></td>
 <td><p>A tokenized dataset with integer classification labels.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.schema.TokenizedDataset" title="undertale.schema.TokenizedDataset"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TokenizedDataset</span></code></a>(*args, **kwargs)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#undertale.schema.TokenizedDataset" title="undertale.schema.TokenizedDataset"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TokenizedDataset</span></code></a>(*args, **kwargs)</p></td>
 <td><p>A tokenized dataset.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#undertale.schema.VulnerabilityDisassembledFunctionDatasetWithSource" title="undertale.schema.VulnerabilityDisassembledFunctionDatasetWithSource"><code class="xref py py-obj docutils literal notranslate"><span class="pre">VulnerabilityDisassembledFunctionDatasetWithSource</span></code></a>(...)</p></td>
-<td><p>Disassembled functions with source code and associated vulnerabilities (if one exists).</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">VulnerabilityMixin</span></code>(*args, **kwargs)</p></td>
-<td><p>A mixin adding a <code class="docutils literal notranslate"><span class="pre">vulnerability</span></code> field.</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.schema.TokenizedSummarizationDataset" title="undertale.schema.TokenizedSummarizationDataset"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TokenizedSummarizationDataset</span></code></a>(*args, **kwargs)</p></td>
+<td><p>A tokenized dataset with tokenized summaries.</p></td>
 </tr>
 </tbody>
 </table>
@@ -109,51 +103,6 @@
 </dd></dl>
 
 <dl class="py class">
-<dt class="sig sig-object py" id="undertale.schema.TokenizedDataset">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">undertale.schema.</span></span><span class="sig-name descname"><span class="pre">TokenizedDataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.schema.TokenizedDataset" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#undertale.schema.Dataset" title="undertale.schema.Dataset"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dataset</span></code></a></p>
-<p>A tokenized dataset.</p>
-<dl class="py attribute">
-<dt class="sig sig-object py" id="undertale.schema.TokenizedDataset.tokens">
-<span class="sig-name descname"><span class="pre">tokens</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Series</span><span class="p"><span class="pre">[</span></span><span class="pre">object</span><span class="p"><span class="pre">]</span></span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'tokens'</span></span><a class="headerlink" href="#undertale.schema.TokenizedDataset.tokens" title="Link to this definition">¶</a></dt>
-<dd><p>The token IDs for the tokenized row.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="undertale.schema.TokenizedDataset.mask">
-<span class="sig-name descname"><span class="pre">mask</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Series</span><span class="p"><span class="pre">[</span></span><span class="pre">object</span><span class="p"><span class="pre">]</span></span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'mask'</span></span><a class="headerlink" href="#undertale.schema.TokenizedDataset.mask" title="Link to this definition">¶</a></dt>
-<dd><p>The attention mask for the tokenized row.</p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="undertale.schema.TokenizedClassificationDataset">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">undertale.schema.</span></span><span class="sig-name descname"><span class="pre">TokenizedClassificationDataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.schema.TokenizedClassificationDataset" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#undertale.schema.TokenizedDataset" title="undertale.schema.TokenizedDataset"><code class="xref py py-class docutils literal notranslate"><span class="pre">TokenizedDataset</span></code></a></p>
-<p>A tokenized dataset with integer classification labels.</p>
-<dl class="py attribute">
-<dt class="sig sig-object py" id="undertale.schema.TokenizedClassificationDataset.label">
-<span class="sig-name descname"><span class="pre">label</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Series</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'label'</span></span><a class="headerlink" href="#undertale.schema.TokenizedClassificationDataset.label" title="Link to this definition">¶</a></dt>
-<dd><p>Integer class label for the sequence.</p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="undertale.schema.SummarizedMixin">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">undertale.schema.</span></span><span class="sig-name descname"><span class="pre">SummarizedMixin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.schema.SummarizedMixin" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">DataFrameModel</span></code></p>
-<p>A mixin adding a <code class="docutils literal notranslate"><span class="pre">summary</span></code> field.</p>
-<dl class="py attribute">
-<dt class="sig sig-object py" id="undertale.schema.SummarizedMixin.summary">
-<span class="sig-name descname"><span class="pre">summary</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Series</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'summary'</span></span><a class="headerlink" href="#undertale.schema.SummarizedMixin.summary" title="Link to this definition">¶</a></dt>
-<dd><p>Human-readable summary.</p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
 <dt class="sig sig-object py" id="undertale.schema.SourceDataset">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">undertale.schema.</span></span><span class="sig-name descname"><span class="pre">SourceDataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.schema.SourceDataset" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#undertale.schema.Dataset" title="undertale.schema.Dataset"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dataset</span></code></a></p>
@@ -164,13 +113,6 @@
 <dd><p>Source code.</p>
 </dd></dl>
 
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="undertale.schema.SummarizedSourceDataset">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">undertale.schema.</span></span><span class="sig-name descname"><span class="pre">SummarizedSourceDataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.schema.SummarizedSourceDataset" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#undertale.schema.SummarizedMixin" title="undertale.schema.SummarizedMixin"><code class="xref py py-class docutils literal notranslate"><span class="pre">SummarizedMixin</span></code></a>, <a class="reference internal" href="#undertale.schema.SourceDataset" title="undertale.schema.SourceDataset"><code class="xref py py-class docutils literal notranslate"><span class="pre">SourceDataset</span></code></a></p>
-<p>Summarized source code.</p>
 </dd></dl>
 
 <dl class="py class">
@@ -228,17 +170,67 @@
 </dd></dl>
 
 <dl class="py class">
-<dt class="sig sig-object py" id="undertale.schema.SummarizedDisassembledFunctionDatasetWithSource">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">undertale.schema.</span></span><span class="sig-name descname"><span class="pre">SummarizedDisassembledFunctionDatasetWithSource</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.schema.SummarizedDisassembledFunctionDatasetWithSource" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#undertale.schema.SummarizedMixin" title="undertale.schema.SummarizedMixin"><code class="xref py py-class docutils literal notranslate"><span class="pre">SummarizedMixin</span></code></a>, <a class="reference internal" href="#undertale.schema.DisassembledFunctionDatasetWithSource" title="undertale.schema.DisassembledFunctionDatasetWithSource"><code class="xref py py-class docutils literal notranslate"><span class="pre">DisassembledFunctionDatasetWithSource</span></code></a></p>
-<p>Summarized, disassembled functions with source code.</p>
+<dt class="sig sig-object py" id="undertale.schema.SummarizedDataset">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">undertale.schema.</span></span><span class="sig-name descname"><span class="pre">SummarizedDataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.schema.SummarizedDataset" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#undertale.schema.Dataset" title="undertale.schema.Dataset"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dataset</span></code></a></p>
+<p>A dataset including text summaries.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="undertale.schema.SummarizedDataset.summary">
+<span class="sig-name descname"><span class="pre">summary</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Series</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'summary'</span></span><a class="headerlink" href="#undertale.schema.SummarizedDataset.summary" title="Link to this definition">¶</a></dt>
+<dd><p>Human-readable summary.</p>
+</dd></dl>
+
 </dd></dl>
 
 <dl class="py class">
-<dt class="sig sig-object py" id="undertale.schema.VulnerabilityDisassembledFunctionDatasetWithSource">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">undertale.schema.</span></span><span class="sig-name descname"><span class="pre">VulnerabilityDisassembledFunctionDatasetWithSource</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.schema.VulnerabilityDisassembledFunctionDatasetWithSource" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">VulnerabilityMixin</span></code>, <a class="reference internal" href="#undertale.schema.DisassembledFunctionDatasetWithSource" title="undertale.schema.DisassembledFunctionDatasetWithSource"><code class="xref py py-class docutils literal notranslate"><span class="pre">DisassembledFunctionDatasetWithSource</span></code></a></p>
-<p>Disassembled functions with source code and associated vulnerabilities (if one exists).</p>
+<dt class="sig sig-object py" id="undertale.schema.TokenizedDataset">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">undertale.schema.</span></span><span class="sig-name descname"><span class="pre">TokenizedDataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.schema.TokenizedDataset" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#undertale.schema.Dataset" title="undertale.schema.Dataset"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dataset</span></code></a></p>
+<p>A tokenized dataset.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="undertale.schema.TokenizedDataset.tokens">
+<span class="sig-name descname"><span class="pre">tokens</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Series</span><span class="p"><span class="pre">[</span></span><span class="pre">object</span><span class="p"><span class="pre">]</span></span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'tokens'</span></span><a class="headerlink" href="#undertale.schema.TokenizedDataset.tokens" title="Link to this definition">¶</a></dt>
+<dd><p>The token IDs for the tokenized row.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="undertale.schema.TokenizedDataset.mask">
+<span class="sig-name descname"><span class="pre">mask</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Series</span><span class="p"><span class="pre">[</span></span><span class="pre">object</span><span class="p"><span class="pre">]</span></span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'mask'</span></span><a class="headerlink" href="#undertale.schema.TokenizedDataset.mask" title="Link to this definition">¶</a></dt>
+<dd><p>The attention mask for the tokenized row.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="undertale.schema.TokenizedClassificationDataset">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">undertale.schema.</span></span><span class="sig-name descname"><span class="pre">TokenizedClassificationDataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.schema.TokenizedClassificationDataset" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#undertale.schema.TokenizedDataset" title="undertale.schema.TokenizedDataset"><code class="xref py py-class docutils literal notranslate"><span class="pre">TokenizedDataset</span></code></a></p>
+<p>A tokenized dataset with integer classification labels.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="undertale.schema.TokenizedClassificationDataset.label">
+<span class="sig-name descname"><span class="pre">label</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Series</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'label'</span></span><a class="headerlink" href="#undertale.schema.TokenizedClassificationDataset.label" title="Link to this definition">¶</a></dt>
+<dd><p>Integer class label for the sequence.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="undertale.schema.TokenizedSummarizationDataset">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">undertale.schema.</span></span><span class="sig-name descname"><span class="pre">TokenizedSummarizationDataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.schema.TokenizedSummarizationDataset" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#undertale.schema.TokenizedDataset" title="undertale.schema.TokenizedDataset"><code class="xref py py-class docutils literal notranslate"><span class="pre">TokenizedDataset</span></code></a></p>
+<p>A tokenized dataset with tokenized summaries.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="undertale.schema.TokenizedSummarizationDataset.summary_tokens">
+<span class="sig-name descname"><span class="pre">summary_tokens</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Series</span><span class="p"><span class="pre">[</span></span><span class="pre">object</span><span class="p"><span class="pre">]</span></span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'summary_tokens'</span></span><a class="headerlink" href="#undertale.schema.TokenizedSummarizationDataset.summary_tokens" title="Link to this definition">¶</a></dt>
+<dd><p>The token IDs for the summary.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="undertale.schema.TokenizedSummarizationDataset.summary_mask">
+<span class="sig-name descname"><span class="pre">summary_mask</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Series</span><span class="p"><span class="pre">[</span></span><span class="pre">object</span><span class="p"><span class="pre">]</span></span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'summary_mask'</span></span><a class="headerlink" href="#undertale.schema.TokenizedSummarizationDataset.summary_mask" title="Link to this definition">¶</a></dt>
+<dd><p>The attention mask for the summary.</p>
+</dd></dl>
+
 </dd></dl>
 
 </section>
@@ -300,24 +292,10 @@
 <li class="toctree-l5"><a class="reference internal" href="#undertale.schema.Dataset.id"><code class="docutils literal notranslate"><span class="pre">Dataset.id</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l4"><a class="reference internal" href="#undertale.schema.TokenizedDataset"><code class="docutils literal notranslate"><span class="pre">TokenizedDataset</span></code></a><ul>
-<li class="toctree-l5"><a class="reference internal" href="#undertale.schema.TokenizedDataset.tokens"><code class="docutils literal notranslate"><span class="pre">TokenizedDataset.tokens</span></code></a></li>
-<li class="toctree-l5"><a class="reference internal" href="#undertale.schema.TokenizedDataset.mask"><code class="docutils literal notranslate"><span class="pre">TokenizedDataset.mask</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l4"><a class="reference internal" href="#undertale.schema.TokenizedClassificationDataset"><code class="docutils literal notranslate"><span class="pre">TokenizedClassificationDataset</span></code></a><ul>
-<li class="toctree-l5"><a class="reference internal" href="#undertale.schema.TokenizedClassificationDataset.label"><code class="docutils literal notranslate"><span class="pre">TokenizedClassificationDataset.label</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l4"><a class="reference internal" href="#undertale.schema.SummarizedMixin"><code class="docutils literal notranslate"><span class="pre">SummarizedMixin</span></code></a><ul>
-<li class="toctree-l5"><a class="reference internal" href="#undertale.schema.SummarizedMixin.summary"><code class="docutils literal notranslate"><span class="pre">SummarizedMixin.summary</span></code></a></li>
-</ul>
-</li>
 <li class="toctree-l4"><a class="reference internal" href="#undertale.schema.SourceDataset"><code class="docutils literal notranslate"><span class="pre">SourceDataset</span></code></a><ul>
 <li class="toctree-l5"><a class="reference internal" href="#undertale.schema.SourceDataset.source"><code class="docutils literal notranslate"><span class="pre">SourceDataset.source</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l4"><a class="reference internal" href="#undertale.schema.SummarizedSourceDataset"><code class="docutils literal notranslate"><span class="pre">SummarizedSourceDataset</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#undertale.schema.BinaryDataset"><code class="docutils literal notranslate"><span class="pre">BinaryDataset</span></code></a><ul>
 <li class="toctree-l5"><a class="reference internal" href="#undertale.schema.BinaryDataset.binary"><code class="docutils literal notranslate"><span class="pre">BinaryDataset.binary</span></code></a></li>
 </ul>
@@ -330,8 +308,24 @@
 <li class="toctree-l4"><a class="reference internal" href="#undertale.schema.FunctionDatasetWithSource"><code class="docutils literal notranslate"><span class="pre">FunctionDatasetWithSource</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#undertale.schema.DisassembledFunctionDataset"><code class="docutils literal notranslate"><span class="pre">DisassembledFunctionDataset</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#undertale.schema.DisassembledFunctionDatasetWithSource"><code class="docutils literal notranslate"><span class="pre">DisassembledFunctionDatasetWithSource</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#undertale.schema.SummarizedDisassembledFunctionDatasetWithSource"><code class="docutils literal notranslate"><span class="pre">SummarizedDisassembledFunctionDatasetWithSource</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#undertale.schema.VulnerabilityDisassembledFunctionDatasetWithSource"><code class="docutils literal notranslate"><span class="pre">VulnerabilityDisassembledFunctionDatasetWithSource</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#undertale.schema.SummarizedDataset"><code class="docutils literal notranslate"><span class="pre">SummarizedDataset</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.schema.SummarizedDataset.summary"><code class="docutils literal notranslate"><span class="pre">SummarizedDataset.summary</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="#undertale.schema.TokenizedDataset"><code class="docutils literal notranslate"><span class="pre">TokenizedDataset</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.schema.TokenizedDataset.tokens"><code class="docutils literal notranslate"><span class="pre">TokenizedDataset.tokens</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.schema.TokenizedDataset.mask"><code class="docutils literal notranslate"><span class="pre">TokenizedDataset.mask</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="#undertale.schema.TokenizedClassificationDataset"><code class="docutils literal notranslate"><span class="pre">TokenizedClassificationDataset</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.schema.TokenizedClassificationDataset.label"><code class="docutils literal notranslate"><span class="pre">TokenizedClassificationDataset.label</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="#undertale.schema.TokenizedSummarizationDataset"><code class="docutils literal notranslate"><span class="pre">TokenizedSummarizationDataset</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.schema.TokenizedSummarizationDataset.summary_tokens"><code class="docutils literal notranslate"><span class="pre">TokenizedSummarizationDataset.summary_tokens</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.schema.TokenizedSummarizationDataset.summary_mask"><code class="docutils literal notranslate"><span class="pre">TokenizedSummarizationDataset.summary_mask</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="undertale.utils.html">utils</a></li>

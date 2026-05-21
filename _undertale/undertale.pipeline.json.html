@@ -40,10 +40,13 @@
 <p class="rubric">Functions</p>
 <table class="autosummary longtable docutils align-default">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.pipeline.json.merge_json" title="undertale.pipeline.json.merge_json"><code class="xref py py-obj docutils literal notranslate"><span class="pre">merge_json</span></code></a>(inputs, output)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.pipeline.json.average_json" title="undertale.pipeline.json.average_json"><code class="xref py py-obj docutils literal notranslate"><span class="pre">average_json</span></code></a>(inputs, output)</p></td>
+<td><p>Merge several JSON files, averaging their fields.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#undertale.pipeline.json.merge_json" title="undertale.pipeline.json.merge_json"><code class="xref py py-obj docutils literal notranslate"><span class="pre">merge_json</span></code></a>(inputs, output)</p></td>
 <td><p>Merge several JSON files into one list.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#undertale.pipeline.json.split_json" title="undertale.pipeline.json.split_json"><code class="xref py py-obj docutils literal notranslate"><span class="pre">split_json</span></code></a>(input, output, chunks)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.pipeline.json.split_json" title="undertale.pipeline.json.split_json"><code class="xref py py-obj docutils literal notranslate"><span class="pre">split_json</span></code></a>(input, output, chunks)</p></td>
 <td><p>Split one JSON into many files.</p></td>
 </tr>
 </tbody>
@@ -73,6 +76,25 @@
 <p>Input files may contain a single object or a list of objects. Singular
 objects will <code class="docutils literal notranslate"><span class="pre">append()</span></code> the final list while lists of objects will
 <code class="docutils literal notranslate"><span class="pre">extend()</span></code> it.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>inputs</strong> – Paths to JSON object files.</p></li>
+<li><p><strong>output</strong> – Merged output path.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The path to the merged JSON output file.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="undertale.pipeline.json.average_json">
+<span class="sig-prename descclassname"><span class="pre">undertale.pipeline.json.</span></span><span class="sig-name descname"><span class="pre">average_json</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inputs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#undertale.pipeline.json.average_json" title="Link to this definition">¶</a></dt>
+<dd><p>Merge several JSON files, averaging their fields.</p>
+<p>JSON must be a flat dictionary of keys mapping to scalar values which can
+be averaged. All input files must match the same schema.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -143,6 +165,7 @@ objects will <code class="docutils literal notranslate"><span class="pre">append
 <li class="toctree-l4"><a class="reference internal" href="undertale.pipeline.html#undertale.pipeline.Cluster"><code class="docutils literal notranslate"><span class="pre">Cluster()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="undertale.pipeline.html#undertale.pipeline.Client"><code class="docutils literal notranslate"><span class="pre">Client()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="undertale.pipeline.html#undertale.pipeline.merge"><code class="docutils literal notranslate"><span class="pre">merge()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="undertale.pipeline.html#undertale.pipeline.read_directory"><code class="docutils literal notranslate"><span class="pre">read_directory()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="undertale.pipeline.html#undertale.pipeline.fanout"><code class="docutils literal notranslate"><span class="pre">fanout()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="undertale.pipeline.html#undertale.pipeline.flush"><code class="docutils literal notranslate"><span class="pre">flush()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="undertale.pipeline.binary.html">binary</a></li>
@@ -151,6 +174,7 @@ objects will <code class="docutils literal notranslate"><span class="pre">append
 <li class="toctree-l4 current"><a class="current reference internal" href="#">json</a><ul>
 <li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.json.split_json"><code class="docutils literal notranslate"><span class="pre">split_json()</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.json.merge_json"><code class="docutils literal notranslate"><span class="pre">merge_json()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.json.average_json"><code class="docutils literal notranslate"><span class="pre">average_json()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l4"><a class="reference internal" href="undertale.pipeline.parquet.html">parquet</a></li>
