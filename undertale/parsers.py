@@ -62,6 +62,12 @@ class ModelArgumentParser(ArgumentParser):
             help="number of parallel dataloaders",
         )
         self.add_argument(
+            "--dataloader-memory",
+            type=int,
+            default=4096,
+            help="dataloader cache memory limit in megabytes",
+        )
+        self.add_argument(
             "-a", "--accelerator", default="auto", help="accelerator to use"
         )
         self.add_argument(
