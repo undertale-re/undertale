@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Pre-Training (Masked Language Modeling) &#8212; Undertale 0.3.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=e259d695"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="author" title="About these documents" href="../../about.html" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Fine-Tuning (Sequence Classification)" href="classification.html" />
+    <link rel="prev" title="Tokenization" href="tokenization.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="pre-training-masked-language-modeling">
+<h1>Pre-Training (Masked Language Modeling)<a class="headerlink" href="#pre-training-masked-language-modeling" title="Link to this heading">¶</a></h1>
+<p>With your tokenized training dataset (and optional validation split) you are
+now ready to begin pretraining a model.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Start a pretraining run locally (as an example).</span>
+<span class="c1">#</span>
+<span class="c1"># Results will be written to maskedlm/.</span>
+python<span class="w"> </span>pipelines/models/pretrain-maskedlm.py<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--tokenizer<span class="w"> </span>tokenizer.json<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>humaneval-x-pretraining/<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>maskedlm
+
+<span class="c1"># Include validation data (pre-split).</span>
+python<span class="w"> </span>pipelines/models/pretrain-maskedlm.py<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--tokenizer<span class="w"> </span>tokenizer.json<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>humaneval-x-pretraining-training/<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--validation<span class="w"> </span>humaneval-x-pretraining-validation/<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>maskedlm
+
+<span class="c1"># Use multiple accelerators on the same host.</span>
+python<span class="w"> </span>pipelines/models/pretrain-maskedlm.py<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--devices<span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--tokenizer<span class="w"> </span>tokenizer.json<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>humaneval-x-pretraining-training/<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--validation<span class="w"> </span>humaneval-x-pretraining-validation/<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>maskedlm
+
+<span class="c1"># Distributed training on a SLURM Cluster.</span>
+<span class="c1">#</span>
+<span class="c1"># This SLURM script requires certain environment variables</span>
+<span class="c1"># to be configured - see `environments/example-slurm.env`</span>
+<span class="c1"># for more details or customize the SLURM script to your</span>
+<span class="c1"># environment.</span>
+<span class="nb">source</span><span class="w"> </span>environments/example-slurm.env
+sbatch<span class="w"> </span>pipelines/models/pretrain-maskedlm.slurm
+</pre></div>
+</div>
+<p>There are several other configurable parameters for other training scenarios -
+to get a full list, see the <code class="docutils literal notranslate"><span class="pre">--help</span></code> output.</p>
+<p>Saved model checkpoints are available in the output directory.</p>
+<p>See <a class="reference internal" href="../datasets.html#environments"><span class="std std-ref">Environments</span></a> for details on configuring the local environment -
+in particular for distributed SLURM training.</p>
+<section id="tensorboard">
+<h2>Tensorboard<a class="headerlink" href="#tensorboard" title="Link to this heading">¶</a></h2>
+<p>The pretraining pipeline produces <a class="reference external" href="https://www.tensorflow.org/tensorboard">TensorBoard</a>-compatible logging in the output
+directory. To host a TensorBoard server and monitor training progress, run:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>tensorboard<span class="w"> </span>--logdir<span class="w"> </span>maskedlm/
+</pre></div>
+</div>
+</section>
+<section id="inference">
+<h2>Inference<a class="headerlink" href="#inference" title="Link to this heading">¶</a></h2>
+<p>With a trained model checkpoint, you can predict masked tokens in a piece of
+disassembly input.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Predict masked tokens in a piece of disassembly.</span>
+python<span class="w"> </span>pipelines/models/infer-maskedlm.py<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--tokenizer<span class="w"> </span>tokenizer.json<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--checkpoint<span class="w"> </span>maskedlm/checkpoint.ckpt<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="s2">&quot;xor rax [MASK]&quot;</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+          </div>
+              <div class="related bottom">
+                &nbsp;
+  <nav id="rellinks">
+    <ul>
+        <li>
+          &larr;
+          <a href="tokenization.html" title="Previous document">Tokenization</a>
+        </li>
+        <li>
+          <a href="classification.html" title="Next document">Fine-Tuning (Sequence Classification)</a>
+          &rarr;
+        </li>
+    </ul>
+  </nav>
+              </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">Undertale</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Usage</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../setup.html">Setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../datasets.html">Datasets</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Modeling</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="tokenization.html">Tokenization</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Pre-Training (Masked Language Modeling)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#tensorboard">Tensorboard</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#inference">Inference</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="classification.html">Fine-Tuning (Sequence Classification)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="summarization.html">Fine-Tuning (Multi-Modal Sequence Summarization)</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../development/index.html">Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Usage</a><ul>
+  <li><a href="index.html">Modeling</a><ul>
+      <li>Previous: <a href="tokenization.html" title="previous chapter">Tokenization</a></li>
+      <li>Next: <a href="classification.html" title="next chapter">Fine-Tuning (Sequence Classification)</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, MIT Lincoln Laboratory.
+      
+      |
+      <a href="../../_sources/usage/modeling/maskedlm.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
