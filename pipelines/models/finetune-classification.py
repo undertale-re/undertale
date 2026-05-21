@@ -1,5 +1,6 @@
 from collections import Counter
 from os.path import basename, dirname
+from typing import Optional
 
 import torch
 from lightning import Trainer
@@ -22,7 +23,7 @@ from undertale.schema import TokenizedClassificationDataset
 from undertale.utils import cache_path
 
 
-def compute_class_weights(dataset: DataLoader) -> list:
+def compute_class_weights(dataset: DataModule) -> list:
     """
     Computes class weights for a dataset to handle class imbalance.
 
@@ -92,16 +93,22 @@ if __name__ == "__main__":
 
     collator = ClassificationCollator()
 
-    training = load_dataset(
-        arguments.dataset,
-        arguments.batch_size,
+    dataset = cache_path(arguments.dataset)
+    validation = arguments.validation
+    if validation is not None:
+        validation = cache_path(arguments.validation)
+
+    datamodule = DataModule(
+        dataset,
+        validation,
+        schema=TokenizedClassificationDataset,
         collator=collator,
+        batch=arguments.batch_size,
         workers=arguments.dataloaders,
     )
-
     weights: Optional[list[float]] = None
     if arguments.label_balance:
-        weights = compute_class_weights(training)
+        weights = compute_class_weights(datamodule)
 
     model = InstructionTraceTransformerEncoderForSequenceClassification(
         vocab_size=vocab_size,
