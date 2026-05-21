@@ -7,4 +7,4 @@ Usage
 
     setup
     datasets
-    modeling
+    modeling/index
