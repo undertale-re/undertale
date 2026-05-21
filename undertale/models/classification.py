@@ -103,7 +103,7 @@ class InstructionTraceTransformerEncoderForSequenceClassification(
         eps: float,
         lr: float = LR,
         warmup: float = WARMUP,
-        class_weights: list[float] = [],
+        class_weights: Optional[List[float]] = None,
     ):
         super().__init__()
 
@@ -124,7 +124,10 @@ class InstructionTraceTransformerEncoderForSequenceClassification(
 
         self.lr = lr or self.LR
         self.warmup = warmup or self.WARMUP
-        self.class_weights = class_weights
+        if class_weights is not None:
+            self.class_weights = Tensor(class_weights)
+        else:
+            self.class_weights = None
 
     def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
         """Encode and classify the input sequence.
@@ -181,7 +184,7 @@ class InstructionTraceTransformerEncoderForSequenceClassification(
     def training_step(self, batch, index):
         """"""
         output = self(batch["tokens"], batch["mask"])
-        if len(self.class_weights) > 0:
+        if self.class_weights is not None:
             loss = cross_entropy(
                 output, batch["labels"], weight=self.class_weights.to(self.device)
             )

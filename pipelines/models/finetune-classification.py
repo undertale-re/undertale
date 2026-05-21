@@ -24,7 +24,7 @@ from undertale.schema import TokenizedClassificationDataset
 from undertale.utils import cache_path
 
 
-def compute_class_weights(dataset: DataLoader) -> torch.Tensor:
+def compute_class_weights(dataset: DataLoader) -> list:
     """
     Computes class weights for a dataset to handle class imbalance.
 
@@ -38,7 +38,7 @@ def compute_class_weights(dataset: DataLoader) -> torch.Tensor:
             containing a key "labels" that maps to a list of class labels.
 
     Returns:
-        torch.Tensor: A tensor of class weights, where the weight for each class
+        weights: A list of class weights, where the weight for each class
         is proportional to the inverse of its frequency in the dataset.
     """
     # Count occurrences of each class
@@ -52,10 +52,8 @@ def compute_class_weights(dataset: DataLoader) -> torch.Tensor:
     class_weights = {cls: total_samples / count for cls, count in class_counts.items()}
 
     # Convert to tensor
-    weights_tensor = torch.tensor(
-        [class_weights[i] for i in range(len(class_counts))], dtype=torch.float
-    )
-    return weights_tensor
+    weights = [class_weights[i] for i in range(len(class_counts))]
+    return weights
 
 
 class ProgressBar(TQDMProgressBar):
@@ -116,10 +114,9 @@ if __name__ == "__main__":
         workers=arguments.dataloaders,
     )
 
+    weights: Optional[list[float]] = None
     if arguments.label_balance:
         weights = compute_class_weights(training)
-    else:
-        weights = torch.Tensor([])
 
     model = InstructionTraceTransformerEncoderForSequenceClassification(
         vocab_size=vocab_size,
