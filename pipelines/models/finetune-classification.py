@@ -24,7 +24,23 @@ from undertale.schema import TokenizedClassificationDataset
 from undertale.utils import cache_path
 
 
-def compute_class_weights(dataset):
+def compute_class_weights(dataset: DataLoader) -> torch.Tensor:
+    """
+    Computes class weights for a dataset to handle class imbalance.
+
+    This function calculates the weights for each class in the dataset based on
+    the inverse frequency of occurrences of each class. The weights are returned
+    as a PyTorch tensor, which can be used to adjust the loss function during
+    training (e.g., for weighted cross-entropy loss).
+
+    Args:
+        dataset (Iterable[Dict[str, Any]]): A dataset where each batch is a dictionary
+            containing a key "labels" that maps to a list of class labels.
+
+    Returns:
+        torch.Tensor: A tensor of class weights, where the weight for each class
+        is proportional to the inverse of its frequency in the dataset.
+    """
     # Count occurrences of each class
     targets = []
     for batch in dataset:
@@ -78,12 +94,9 @@ if __name__ == "__main__":
         "-k", "--classes", type=int, required=True, help="number of output classes"
     )
     parser.add_argument(
-        "--label_balance",
+        "--label-balance",
         action="store_true",
-        help="Whether to try to apply weights to the training for an unbalanced dataset",
-    )
-    parser.add_argument(
-        "--cache_dir", type=str, default=".", help="location to save checkpoints"
+        help="apply class weights during training for an unbalanced dataset",
     )
 
     arguments = parser.parse_args()
@@ -106,7 +119,7 @@ if __name__ == "__main__":
     if arguments.label_balance:
         weights = compute_class_weights(training)
     else:
-        weights = []
+        weights = torch.Tensor([])
 
     model = InstructionTraceTransformerEncoderForSequenceClassification(
         vocab_size=vocab_size,
