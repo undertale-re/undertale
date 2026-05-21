@@ -166,17 +166,6 @@ Saved model checkpoints are available in the output directory.
 See :ref:`environments` for details on configuring the local environment -
 in particular for distributed SLURM training.
 
-Tensorboard
-"""""""""""
-
-The fine-tuning pipeline produces `TensorBoard
-<https://www.tensorflow.org/tensorboard>`_-compatible logging in the output
-directory. To host a TensorBoard server and monitor training progress, run:
-
-.. code-block:: bash
-
-    tensorboard --logdir classification/
-
 Inference
 """""""""
 
