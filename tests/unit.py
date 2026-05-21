@@ -10,7 +10,6 @@ from os import listdir, makedirs
 from os.path import basename, exists, isdir, isfile, join
 from tempfile import TemporaryDirectory
 from time import sleep
-from types import SimpleNamespace
 from typing import Dict
 from unittest import SkipTest, TestCase
 from unittest.mock import patch
@@ -24,7 +23,7 @@ from utils import load_resource, main
 from undertale.exceptions import EnvironmentError as LocalEnvironmentError
 from undertale.exceptions import InvalidFileType, PathError, SchemaError
 from undertale.models.custom import InstructionTracePositionEmbedding
-from undertale.models.dataset import ParquetDataset
+from undertale.models.dataset import ChunkedSampler, ParquetDataset
 from undertale.models.maskedlm import MaskedLMCollator
 from undertale.models.tokenizer import (
     TOKEN_UNKNOWN,
@@ -1854,31 +1853,141 @@ class TestModelDataset(TestCase):
 
         self.assertEqual([r["chunk"] for r in dataset], ["a", "b", "c"])
 
-    def test_dataset_multi_worker(self):
+    def test_dataset_cross_shard_indexing(self):
         working = TemporaryDirectory()
-        for i in range(4):
-            self.write_chunk(working.name, f"chunk_{i}.parquet", [{"chunk": i}])
+
+        self.write_chunk(
+            working.name,
+            "a.parquet",
+            [{"shard": "a", "row": i} for i in range(3)],
+        )
+        self.write_chunk(
+            working.name,
+            "b.parquet",
+            [{"shard": "b", "row": i} for i in range(2)],
+        )
 
         dataset = ParquetDataset(working.name)
 
-        with patch("undertale.models.dataset.get_worker_info") as mock:
-            mock.return_value = SimpleNamespace(id=0, num_workers=2)
-            worker_0 = list(dataset)
+        # Last row of shard a (global index 2) must come from shard a.
+        self.assertEqual(dataset[2]["shard"], "a")
+        self.assertEqual(dataset[2]["row"], 2)
 
-            mock.return_value = SimpleNamespace(id=1, num_workers=2)
-            worker_1 = list(dataset)
+        # First row of shard b (global index 3) must come from shard b.
+        self.assertEqual(dataset[3]["shard"], "b")
+        self.assertEqual(dataset[3]["row"], 0)
 
-        self.assertEqual(len(worker_0) + len(worker_1), 4)
-        self.assertFalse(
-            set(r["chunk"] for r in worker_0) & set(r["chunk"] for r in worker_1)
-        )
+        self.assertEqual(dataset[0]["shard"], "a")
+        self.assertEqual(dataset[4]["shard"], "b")
+        self.assertEqual(dataset[4]["row"], 1)
+
+        self.assertEqual(len(dataset), 5)
 
     def test_dataset_empty_directory(self):
         working = TemporaryDirectory()
 
-        dataset = ParquetDataset(working.name)
+        with self.assertRaises(ValueError):
+            ParquetDataset(working.name)
 
-        self.assertEqual(list(dataset), [])
+    def test_chunked_sampler_even_rank_distribution(self):
+        dataset = list(range(27))
+
+        s0 = ChunkedSampler(
+            dataset,
+            workers=1,
+            batch=4,
+            ranks=2,
+            rank=0,
+        )
+        s1 = ChunkedSampler(
+            dataset,
+            workers=1,
+            batch=4,
+            ranks=2,
+            rank=1,
+        )
+
+        self.assertEqual(len(list(s0)), len(list(s1)))
+        self.assertEqual(len(set(s0) & set(s1)), 0)
+
+    def test_chunked_sampler_even_worker_distribution(self):
+        dataset = list(range(21))
+
+        s = list(
+            ChunkedSampler(
+                dataset,
+                workers=4,
+                batch=4,
+                ranks=1,
+                rank=0,
+            )
+        )
+
+        self.assertEqual(len(s) % 4, 0)
+
+        # Worker-0, Batch: 0, 1
+        self.assertEqual(s[0:4], list(range(4)))
+        self.assertEqual(s[-4], 4)
+        # Worker-1, Batch: 0, 1
+        self.assertEqual(s[4:8], list(range(5, 9)))
+        self.assertEqual(s[-3], 9)
+        # Worker-2, Batch: 0, 1
+        self.assertEqual(s[8:12], list(range(10, 14)))
+        self.assertEqual(s[-2], 14)
+        # Worker-3, Batch: 0, 1
+        self.assertEqual(s[12:16], list(range(15, 19)))
+        self.assertEqual(s[-1], 19)
+
+    def test_chunked_sampler_even_worker_and_rank_distribution(self):
+        dataset = list(range(21))
+
+        s0 = list(
+            ChunkedSampler(
+                dataset,
+                workers=4,
+                batch=4,
+                ranks=2,
+                rank=0,
+            )
+        )
+        s1 = list(
+            ChunkedSampler(
+                dataset,
+                workers=4,
+                batch=4,
+                ranks=2,
+                rank=1,
+            )
+        )
+
+        self.assertEqual(len(s0), len(s1))
+        self.assertEqual(len(s0) % 4, 0)
+        self.assertEqual(len(s1) % 4, 0)
+        self.assertEqual(len(set(s0) & set(s1)), 0)
+
+    def test_chunked_sampler_single_process(self):
+        dataset = list(range(21))
+
+        s = list(
+            ChunkedSampler(
+                dataset,
+                workers=0,
+                batch=4,
+            )
+        )
+
+        self.assertGreater(len(s), 0)
+
+    def test_chunked_sampler_defaults(self):
+        dataset = list(range(21))
+
+        list(
+            ChunkedSampler(
+                dataset,
+                workers=4,
+                batch=4,
+            )
+        )
 
     def test_dataset_schema_valid(self):
         working = TemporaryDirectory()
@@ -1886,19 +1995,16 @@ class TestModelDataset(TestCase):
             working.name, "chunk.parquet", [{"id": "1", "value": 1}]
         )
 
-        ParquetDataset(path, schema=Dataset)
+        dataset = ParquetDataset(path)
+        dataset.validate(Dataset)
 
     def test_dataset_schema_invalid(self):
         working = TemporaryDirectory()
         path = self.write_chunk(working.name, "chunk.parquet", [{"value": 1}])
 
         with self.assertRaises(SchemaError):
-            ParquetDataset(path, schema=Dataset)
-
-    def test_dataset_schema_empty_directory(self):
-        working = TemporaryDirectory()
-
-        ParquetDataset(working.name, schema=Dataset)
+            dataset = ParquetDataset(path)
+            dataset.validate(Dataset)
 
 
 class TestModelMaskedLMCollator(TestCase):

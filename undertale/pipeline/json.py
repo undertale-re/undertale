@@ -64,4 +64,43 @@ def merge_json(inputs: List[str], output: str) -> str:
     return output
 
 
-__all__ = ["split_json", "merge_json"]
+def average_json(inputs: List[str], output: str) -> str:
+    """Merge several JSON files, averaging their fields.
+
+    JSON must be a flat dictionary of keys mapping to scalar values which can
+    be averaged. All input files must match the same schema.
+
+    Arguments:
+        inputs: Paths to JSON object files.
+        output: Merged output path.
+
+    Returns:
+        The path to the merged JSON output file.
+    """
+
+    output, created = get_or_create_file(output)
+
+    if not created:
+        return output
+
+    logger.info(f"averaging {len(inputs)} results to {output!r}")
+
+    totals: dict = {}
+    for path in inputs:
+        path = assert_path_exists(path)
+
+        with open(path, "r") as f:
+            data = json.load(f)
+
+        for key, value in data.items():
+            totals[key] = totals.get(key, 0.0) + value
+
+    averaged = {key: value / len(inputs) for key, value in totals.items()}
+
+    with open(output, "w") as f:
+        json.dump(averaged, f)
+
+    return output
+
+
+__all__ = ["split_json", "merge_json", "average_json"]

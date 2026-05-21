@@ -57,7 +57,7 @@ class ClassificationHead(Module):
         """Project hidden state to class logits.
 
         Arguments:
-            state: The input state tensor.
+            state: Pooled encoder hidden state.
 
         Returns:
             A tensor of class logits.
