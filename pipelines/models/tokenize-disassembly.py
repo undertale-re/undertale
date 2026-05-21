@@ -1,7 +1,7 @@
 from undertale.logging import get_logger
 from undertale.models.tokenizer import tokenize
 from undertale.parsers import DatasetArgumentParser
-from undertale.pipeline import Client, Cluster, fanout, flush
+from undertale.pipeline import Client, Cluster, fanout, flush, read_directory
 from undertale.pipeline.parquet import (
     Keep,
     ParquetOperation,
@@ -34,12 +34,7 @@ if __name__ == "__main__":
     ):
         logger.info("tokenizing dataset")
 
-        chunks = client.submit(
-            modify_parquet,
-            arguments.input,
-            f"{arguments.output}-repartitioned",
-            [Repartition(chunks=arguments.parallelism)],
-        )
+        chunks = read_directory(client, arguments.input)
         tokenized = fanout(
             client,
             tokenize,

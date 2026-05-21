@@ -128,8 +128,9 @@ def create_app() -> Flask:
                 password=password,
                 authentication=SIMPLE,
                 auto_bind=AUTO_BIND_NONE,
-            ):
-                pass
+            ) as connection:
+                if not connection.bind():
+                    abort(401)
         except LDAPBindError:
             abort(401)
         except LDAPException:

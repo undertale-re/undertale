@@ -1,46 +1,5 @@
-Modeling
---------
-
-Tokenizer Training
-^^^^^^^^^^^^^^^^^^
-
-The first step in training any of our models is to train a tokenizer. To train
-a tokenizer on e.g., the HumanEval-X dataset, run the tokenizer training
-pipeline script:
-
-.. code-block:: bash
-
-    # Train a tokenizer on the HumanEval-X dataset.
-    python pipelines/models/train-tokenizer.py \
-        humaneval-x/ \
-        tokenizer
-
-See :ref:`parallelism` for controlling parallel workers and cluster backends.
-
-Tokenization
-^^^^^^^^^^^^
-
-With your trained tokenizer you can now tokenize an entire dataset to prepare
-for pre-training.
-
-.. code-block:: bash
-
-    # Tokenize the HumanEval-X dataset.
-    #
-    # Only retain the minimal fields necessary for pre-training.
-    python pipelines/models/tokenize-dataset.py \
-        humaneval-x/ \
-        humaneval-x-pretraining \
-        --tokenizer tokenizer.json \
-        --minimal
-
-Consider :ref:`splitting <dataset-splitting>` off some (10%) of your dataset
-for validation.
-
-See :ref:`parallelism` for controlling parallel workers and cluster backends.
-
-Pre-Training (Maked Language Modeling)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Pre-Training (Masked Language Modeling)
+---------------------------------------
 
 With your tokenized training dataset (and optional validation split) you are
 now ready to begin pretraining a model.
@@ -73,8 +32,8 @@ now ready to begin pretraining a model.
     # Distributed training on a SLURM Cluster.
     #
     # This SLURM script requires certain environment variables
-    # to be configured - see `environments/example-slurm.env` 
-    # for more details or customize the SLURM script to your 
+    # to be configured - see `environments/example-slurm.env`
+    # for more details or customize the SLURM script to your
     # environment.
     source environments/example-slurm.env
     sbatch pipelines/models/pretrain-maskedlm.slurm
@@ -84,11 +43,11 @@ to get a full list, see the ``--help`` output.
 
 Saved model checkpoints are available in the output directory.
 
-See :ref:`environments` for for details on configuring the local environment -
+See :ref:`environments` for details on configuring the local environment -
 in particular for distributed SLURM training.
 
 Tensorboard
-"""""""""""
+^^^^^^^^^^^
 
 The pretraining pipeline produces `TensorBoard
 <https://www.tensorflow.org/tensorboard>`_-compatible logging in the output
@@ -99,7 +58,7 @@ directory. To host a TensorBoard server and monitor training progress, run:
     tensorboard --logdir maskedlm/
 
 Inference
-"""""""""
+^^^^^^^^^
 
 With a trained model checkpoint, you can predict masked tokens in a piece of
 disassembly input.
@@ -111,13 +70,3 @@ disassembly input.
         --tokenizer tokenizer.json \
         --checkpoint maskedlm/checkpoint.ckpt \
         "xor rax [MASK]"
-
-Fine-Tuning (Multi-Modal Summarization)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Coming soon...
-
-Inference
-"""""""""
-
-Coming soon...
