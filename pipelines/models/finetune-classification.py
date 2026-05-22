@@ -1,6 +1,6 @@
 from collections import Counter
 from os.path import basename, dirname
-from typing import Optional
+from typing import List, Optional
 
 import torch
 from lightning import Trainer
@@ -23,9 +23,8 @@ from undertale.schema import TokenizedClassificationDataset
 from undertale.utils import cache_path
 
 
-def compute_class_weights(dataset: DataModule) -> list:
-    """
-    Computes class weights for a dataset to handle class imbalance.
+def compute_class_weights(dataset: DataModule) -> List[float]:
+    """Computes class weights for a dataset to handle class imbalance.
 
     This function calculates the weights for each class in the dataset based on
     the inverse frequency of occurrences of each class. The weights are returned
@@ -33,13 +32,14 @@ def compute_class_weights(dataset: DataModule) -> list:
     training (e.g., for weighted cross-entropy loss).
 
     Args:
-        dataset (Iterable[Dict[str, Any]]): A dataset where each batch is a dictionary
-            containing a key "labels" that maps to a list of class labels.
+        dataset: A dataset where each batch is a dictionary containing a key
+            ``labels`` that maps to a list of class labels.
 
     Returns:
-        weights: A list of class weights, where the weight for each class
-        is proportional to the inverse of its frequency in the dataset.
+        A list of class weights, where the weight for each class is
+        proportional to the inverse of its frequency in the dataset.
     """
+
     # Count occurrences of each class
     targets = []
     for batch in dataset:
@@ -50,9 +50,7 @@ def compute_class_weights(dataset: DataModule) -> list:
     # Compute weights (inverse frequency)
     class_weights = {cls: total_samples / count for cls, count in class_counts.items()}
 
-    # Convert to tensor
-    weights = [class_weights[i] for i in range(len(class_counts))]
-    return weights
+    return [class_weights[i] for i in range(len(class_counts))]
 
 
 class ProgressBar(TQDMProgressBar):
