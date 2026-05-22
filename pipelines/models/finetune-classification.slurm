@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=finetune-classification
-#SBATCH --nodes=4
+#SBATCH --nodes=16
 #SBATCH --ntasks-per-node=2
 #SBATCH --cpus-per-task=12
 #SBATCH --mem=0

@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=finetune-summarization
-#SBATCH --nodes=4
+#SBATCH --nodes=16
 #SBATCH --ntasks-per-node=2
 #SBATCH --cpus-per-task=12
 #SBATCH --mem=0
@@ -14,7 +14,7 @@ TRAINING=$SHARE/datasets/$FINETUNE_DATASET-finetune-summarization/training/lates
 VALIDATION=$SHARE/datasets/$FINETUNE_DATASET-finetune-summarization/validation/latest
 PRETRAINED=$SHARE/models/maskedlm/$PRETRAIN_DATASET/latest
 CACHE=$SHARE/software/huggingface
-BATCH=32
+BATCH=40
 
 srun python finetune-summarization.py \
     --tokenizer $TOKENIZER \

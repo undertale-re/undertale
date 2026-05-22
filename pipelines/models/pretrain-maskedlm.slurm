@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=pretrain-maskedlm
-#SBATCH --nodes=32
+#SBATCH --nodes=16
 #SBATCH --ntasks-per-node=2
 #SBATCH --cpus-per-task=12
 #SBATCH --mem=0
