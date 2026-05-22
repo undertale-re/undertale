@@ -103,6 +103,7 @@ class InstructionTraceTransformerEncoderForSequenceClassification(
         eps: float,
         lr: float = LR,
         warmup: float = WARMUP,
+        class_weights: Optional[List[float]] = None,
     ):
         super().__init__()
 
@@ -123,6 +124,11 @@ class InstructionTraceTransformerEncoderForSequenceClassification(
 
         self.lr = lr or self.LR
         self.warmup = warmup or self.WARMUP
+
+        if class_weights is not None:
+            self.class_weights = Tensor(class_weights)
+        else:
+            self.class_weights = None
 
     def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
         """Encode and classify the input sequence.
@@ -176,10 +182,15 @@ class InstructionTraceTransformerEncoderForSequenceClassification(
             },
         }
 
+    def on_train_start(self):
+        """"""
+        if self.class_weights is not None:
+            self.class_weights = self.class_weights.to(self.device)
+
     def training_step(self, batch, index):
         """"""
         output = self(batch["tokens"], batch["mask"])
-        loss = cross_entropy(output, batch["labels"])
+        loss = cross_entropy(output, batch["labels"], weight=self.class_weights)
 
         self.log("train_loss", loss, prog_bar=True, sync_dist=True)
         self.log("lr", self.trainer.optimizers[0].param_groups[0]["lr"], sync_dist=True)

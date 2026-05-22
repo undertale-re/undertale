@@ -13,7 +13,7 @@ TOKENIZER=$SHARE/models/tokenizer/$PRETRAIN_DATASET/latest
 TRAINING=$SHARE/datasets/$FINETUNE_DATASET-finetune-classification/training/latest
 VALIDATION=$SHARE/datasets/$FINETUNE_DATASET-finetune-classification/validation/latest
 PRETRAINED=$SHARE/models/maskedlm/$PRETRAIN_DATASET/latest
-CLASSES=10
+CLASSES=2
 BATCH=64
 
 srun python finetune-classification.py \
