@@ -139,6 +139,30 @@ class Rename(ParquetOperation):
         return frame.rename(columns=self.mapping)
 
 
+class Shuffle(ParquetOperation):
+    """Randomly shuffle rows in the dataset.
+
+    Note:
+        This is a per-partition shuffle. In most cases, this is good enough,
+        but if you want to get closer to a global shuffle, consider
+        repartitioning to a smaller number of shards before shuffling. For
+        example, repartitioning to a single shard is equivalent to global
+        shuffle, but requires the full dataset to fit within the memory of a
+        single worker.
+
+    Arguments:
+        seed: Random seed for reproducibility. If ``None``, the shuffle is
+            non-deterministic.
+    """
+
+    def __init__(self, seed: Optional[int] = 42):
+        self.seed = seed
+
+    def __call__(self, frame: DataFrame) -> DataFrame:
+        logger.info("shuffling dataset")
+        return frame.sample(frac=1, random_state=self.seed)
+
+
 class Cast(ParquetOperation):
     """Cast column types in the dataset.
 
@@ -258,6 +282,7 @@ __all__ = [
     "Drop",
     "Keep",
     "Rename",
+    "Shuffle",
     "Cast",
     "Repartition",
     "modify_parquet",
