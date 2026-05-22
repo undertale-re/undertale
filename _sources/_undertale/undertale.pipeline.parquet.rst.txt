@@ -22,4 +22,5 @@ parquet
       ParquetOperation
       Rename
       Repartition
+      Shuffle
    

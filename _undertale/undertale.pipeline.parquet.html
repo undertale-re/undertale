@@ -72,6 +72,9 @@
 <tr class="row-even"><td><p><a class="reference internal" href="#undertale.pipeline.parquet.Repartition" title="undertale.pipeline.parquet.Repartition"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Repartition</span></code></a>([chunks, size])</p></td>
 <td><p>Repartition the dataset by number of chunks or target chunk size.</p></td>
 </tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.pipeline.parquet.Shuffle" title="undertale.pipeline.parquet.Shuffle"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Shuffle</span></code></a>([seed])</p></td>
+<td><p>Randomly shuffle rows in the dataset.</p></td>
+</tr>
 </tbody>
 </table>
 <dl class="py class">
@@ -140,6 +143,28 @@
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>mapping</strong> – A mapping of old column names to new column names.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="undertale.pipeline.parquet.Shuffle">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">undertale.pipeline.parquet.</span></span><span class="sig-name descname"><span class="pre">Shuffle</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">42</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.pipeline.parquet.Shuffle" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#undertale.pipeline.parquet.ParquetOperation" title="undertale.pipeline.parquet.ParquetOperation"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParquetOperation</span></code></a></p>
+<p>Randomly shuffle rows in the dataset.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This is a per-partition shuffle. In most cases, this is good enough,
+but if you want to get closer to a global shuffle, consider
+repartitioning to a smaller number of shards before shuffling. For
+example, repartitioning to a single shard is equivalent to global
+shuffle, but requires the full dataset to fit within the memory of a
+single worker.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>seed</strong> – Random seed for reproducibility. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, the shuffle is
+non-deterministic.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -280,6 +305,7 @@ methods.</p></li>
 <li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.parquet.Drop"><code class="docutils literal notranslate"><span class="pre">Drop</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.parquet.Keep"><code class="docutils literal notranslate"><span class="pre">Keep</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.parquet.Rename"><code class="docutils literal notranslate"><span class="pre">Rename</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.parquet.Shuffle"><code class="docutils literal notranslate"><span class="pre">Shuffle</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.parquet.Cast"><code class="docutils literal notranslate"><span class="pre">Cast</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.parquet.Repartition"><code class="docutils literal notranslate"><span class="pre">Repartition</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.parquet.modify_parquet"><code class="docutils literal notranslate"><span class="pre">modify_parquet()</span></code></a></li>

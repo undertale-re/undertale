@@ -15,4 +15,5 @@ datasets
    rename
    repartition
    shell
+   shuffle
    split
