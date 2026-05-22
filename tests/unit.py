@@ -55,6 +55,7 @@ from undertale.pipeline.parquet import (
     Keep,
     Rename,
     Repartition,
+    Shuffle,
     modify_parquet,
 )
 from undertale.pipeline.tarfile import extract_tarfile
@@ -1047,6 +1048,37 @@ class TestPipelineParquet(TestCase):
 
         self.assertEqual(loaded["id"].dtype, "float32")
         self.assertEqual(loaded["value"].dtype, "int64")
+
+    def test_parquet_shuffle_simple(self):
+        working = TemporaryDirectory()
+        dataset = self.mock_dataset(working, "dataset", size=20)
+
+        output = join(working.name, "shuffled")
+        modify_parquet(dataset, output, [Shuffle(seed=42)])
+
+        loaded = read_parquet(output)
+
+        self.assertEqual(set(loaded["id"]), set(range(20)))
+        self.assertEqual(len(loaded), 20)
+
+    def test_parquet_shuffle_seed(self):
+        working = TemporaryDirectory()
+        dataset = self.mock_dataset(working, "dataset", size=20)
+
+        output_a = join(working.name, "shuffled_a")
+        output_b = join(working.name, "shuffled_b")
+        output_c = join(working.name, "shuffled_c")
+
+        modify_parquet(dataset, output_a, [Shuffle(seed=42)])
+        modify_parquet(dataset, output_b, [Shuffle(seed=42)])
+        modify_parquet(dataset, output_c, [Shuffle(seed=99)])
+
+        loaded_a = read_parquet(output_a)
+        loaded_b = read_parquet(output_b)
+        loaded_c = read_parquet(output_c)
+
+        self.assertEqual(list(loaded_a["id"]), list(loaded_b["id"]))
+        self.assertNotEqual(list(loaded_a["id"]), list(loaded_c["id"]))
 
 
 class TestPipelineCpp(TestCase):

@@ -161,6 +161,42 @@ use the ``repartition`` utility.
 
 Exactly one of ``--chunks`` or ``--size`` must be specified.
 
+Shuffle a Dataset
+^^^^^^^^^^^^^^^^^
+
+To randomly shuffle the rows of a dataset, use the shuffle utility.
+
+.. code-block:: bash
+
+    python -m undertale.utils.datasets.shuffle \
+        humaneval-x/ \
+        humaneval-x-shuffled
+
+Use ``--seed`` for a reproducible shuffle:
+
+.. code-block:: bash
+
+    python -m undertale.utils.datasets.shuffle \
+        humaneval-x/ \
+        humaneval-x-shuffled \
+        --seed 42
+
+The shuffle is applied within each partition. To approximate a global shuffle,
+use ``--partitions`` to merge the dataset into fewer, larger partitions before
+shuffling. The output will be restored to the original number of partitions.
+
+.. code-block:: bash
+
+    # Merge into 4 partitions before shuffling, then restore original count.
+    python -m undertale.utils.datasets.shuffle \
+        humaneval-x/ \
+        humaneval-x-shuffled \
+        --partitions 4
+
+Fewer partitions means rows are drawn from a larger pool during each shuffle
+pass, producing a more globally mixed result at the cost of higher memory usage
+per worker.
+
 Drop or Keep Columns
 ^^^^^^^^^^^^^^^^^^^^
 
