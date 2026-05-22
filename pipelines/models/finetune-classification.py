@@ -1,6 +1,6 @@
 from collections import Counter
 from os.path import basename, dirname
-from typing import List, Optional
+from typing import Iterable, List, Optional
 
 import torch
 from lightning import Trainer
@@ -23,7 +23,7 @@ from undertale.schema import TokenizedClassificationDataset
 from undertale.utils import cache_path
 
 
-def compute_class_weights(dataset: DataModule) -> List[float]:
+def compute_class_weights(dataset: Iterable) -> List[float]:
     """Computes class weights for a dataset to handle class imbalance.
 
     This function calculates the weights for each class in the dataset based on
@@ -32,8 +32,8 @@ def compute_class_weights(dataset: DataModule) -> List[float]:
     training (e.g., for weighted cross-entropy loss).
 
     Args:
-        dataset: A dataset where each batch is a dictionary containing a key
-            ``labels`` that maps to a list of class labels.
+        dataset: An iterable of batches where each batch is a dictionary
+            containing a key ``labels`` that maps to a list of class labels.
 
     Returns:
         A list of class weights, where the weight for each class is
@@ -103,10 +103,12 @@ if __name__ == "__main__":
         collator=collator,
         batch=arguments.batch_size,
         workers=arguments.dataloaders,
+        memory=arguments.dataloader_memory,
     )
+
     weights: Optional[list[float]] = None
     if arguments.label_balance:
-        weights = compute_class_weights(datamodule)
+        weights = compute_class_weights(datamodule.train_dataloader())
 
     model = InstructionTraceTransformerEncoderForSequenceClassification(
         vocab_size=vocab_size,
@@ -120,23 +122,6 @@ if __name__ == "__main__":
 
     pretrained = torch.load(cache_path(arguments.pretrained), map_location="cpu")
     model.load_state_dict(pretrained["state_dict"], strict=False)
-
-    collator = ClassificationCollator()
-
-    dataset = cache_path(arguments.dataset)
-    validation = arguments.validation
-    if validation is not None:
-        validation = cache_path(arguments.validation)
-
-    datamodule = DataModule(
-        dataset,
-        validation,
-        schema=TokenizedClassificationDataset,
-        collator=collator,
-        batch=arguments.batch_size,
-        workers=arguments.dataloaders,
-        memory=arguments.dataloader_memory,
-    )
 
     if arguments.validation is not None:
         stop = EarlyStopping(
