@@ -195,6 +195,40 @@ python<span class="w"> </span>-m<span class="w"> </span>undertale.utils.datasets
 pass, producing a more globally mixed result at the cost of higher memory usage
 per worker.</p>
 </section>
+<section id="filter-or-exclude-rows">
+<h2>Filter or Exclude Rows<a class="headerlink" href="#filter-or-exclude-rows" title="Link to this heading">¶</a></h2>
+<p>To keep only rows where a column contains a substring, use the filter utility.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Keep rows where the &#39;language&#39; column contains &#39;python&#39;.</span>
+python<span class="w"> </span>-m<span class="w"> </span>undertale.utils.datasets.filter<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>humaneval-x/<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>humaneval-x-filtered<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--filter<span class="w"> </span>language:python
+
+<span class="c1"># Keep rows matching multiple clauses (all must match).</span>
+python<span class="w"> </span>-m<span class="w"> </span>undertale.utils.datasets.filter<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>humaneval-x/<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>humaneval-x-filtered<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--filter<span class="w"> </span>language:python<span class="w"> </span>source:github
+</pre></div>
+</div>
+<p>To remove rows where a column contains a substring, use the exclude utility.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Remove rows where the &#39;language&#39; column contains &#39;python&#39;.</span>
+python<span class="w"> </span>-m<span class="w"> </span>undertale.utils.datasets.exclude<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>humaneval-x/<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>humaneval-x-excluded<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--exclude<span class="w"> </span>language:python
+
+<span class="c1"># Remove rows matching multiple clauses (all must match).</span>
+python<span class="w"> </span>-m<span class="w"> </span>undertale.utils.datasets.exclude<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>humaneval-x/<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>humaneval-x-excluded<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--exclude<span class="w"> </span>language:python<span class="w"> </span>source:github
+</pre></div>
+</div>
+<p>Each clause is specified as <code class="docutils literal notranslate"><span class="pre">column:value</span></code>, where <code class="docutils literal notranslate"><span class="pre">value</span></code> is a
+case-sensitive substring. Rows are filtered or excluded only when all
+clauses match.</p>
+</section>
 <section id="drop-or-keep-columns">
 <h2>Drop or Keep Columns<a class="headerlink" href="#drop-or-keep-columns" title="Link to this heading">¶</a></h2>
 <p>To drop or keep specific columns from a dataset, use the drop utility.</p>
@@ -310,6 +344,7 @@ accepted by <code class="docutils literal notranslate"><span class="pre">pandas<
 <li class="toctree-l3"><a class="reference internal" href="#split-a-dataset">Split a Dataset</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#repartition-a-dataset">Repartition a Dataset</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#shuffle-a-dataset">Shuffle a Dataset</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#filter-or-exclude-rows">Filter or Exclude Rows</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#drop-or-keep-columns">Drop or Keep Columns</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#rename-columns">Rename Columns</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#cast-column-data-types">Cast Column Data Types</a></li>

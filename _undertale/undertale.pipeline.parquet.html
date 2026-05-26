@@ -57,6 +57,12 @@
 <tr class="row-odd"><td><p><a class="reference internal" href="#undertale.pipeline.parquet.Drop" title="undertale.pipeline.parquet.Drop"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Drop</span></code></a>(columns)</p></td>
 <td><p>Drop specific columns from the dataset.</p></td>
 </tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#undertale.pipeline.parquet.Exclude" title="undertale.pipeline.parquet.Exclude"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Exclude</span></code></a>(clauses)</p></td>
+<td><p>Remove rows where every column contains its target substring.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#undertale.pipeline.parquet.Filter" title="undertale.pipeline.parquet.Filter"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Filter</span></code></a>(clauses)</p></td>
+<td><p>Keep rows where every column contains its target substring.</p></td>
+</tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#undertale.pipeline.parquet.HashColumn" title="undertale.pipeline.parquet.HashColumn"><code class="xref py py-obj docutils literal notranslate"><span class="pre">HashColumn</span></code></a>(column, target)</p></td>
 <td><p>Add a column containing the hash of an existing column.</p></td>
 </tr>
@@ -131,6 +137,31 @@
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>columns</strong> – Column names to keep.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="undertale.pipeline.parquet.Filter">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">undertale.pipeline.parquet.</span></span><span class="sig-name descname"><span class="pre">Filter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">clauses</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.pipeline.parquet.Filter" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#undertale.pipeline.parquet.ParquetOperation" title="undertale.pipeline.parquet.ParquetOperation"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParquetOperation</span></code></a></p>
+<p>Keep rows where every column contains its target substring.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>clauses</strong> – Mapping of column names to substrings that must be present.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="undertale.pipeline.parquet.Exclude">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">undertale.pipeline.parquet.</span></span><span class="sig-name descname"><span class="pre">Exclude</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">clauses</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#undertale.pipeline.parquet.Exclude" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#undertale.pipeline.parquet.ParquetOperation" title="undertale.pipeline.parquet.ParquetOperation"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParquetOperation</span></code></a></p>
+<p>Remove rows where every column contains its target substring.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>clauses</strong> – Mapping of column names to substrings that must be present
+for a row to be excluded.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -304,6 +335,8 @@ methods.</p></li>
 <li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.parquet.Deduplicate"><code class="docutils literal notranslate"><span class="pre">Deduplicate</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.parquet.Drop"><code class="docutils literal notranslate"><span class="pre">Drop</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.parquet.Keep"><code class="docutils literal notranslate"><span class="pre">Keep</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.parquet.Filter"><code class="docutils literal notranslate"><span class="pre">Filter</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.parquet.Exclude"><code class="docutils literal notranslate"><span class="pre">Exclude</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.parquet.Rename"><code class="docutils literal notranslate"><span class="pre">Rename</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.parquet.Shuffle"><code class="docutils literal notranslate"><span class="pre">Shuffle</span></code></a></li>
 <li class="toctree-l5"><a class="reference internal" href="#undertale.pipeline.parquet.Cast"><code class="docutils literal notranslate"><span class="pre">Cast</span></code></a></li>

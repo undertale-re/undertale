@@ -17,6 +17,8 @@ parquet
       Cast
       Deduplicate
       Drop
+      Exclude
+      Filter
       HashColumn
       Keep
       ParquetOperation

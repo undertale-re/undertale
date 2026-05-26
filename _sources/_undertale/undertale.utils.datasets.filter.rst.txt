@@ -1,0 +1,12 @@
+filter
+======
+
+.. automodule:: undertale.utils.datasets.filter
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      parse_clause
+   

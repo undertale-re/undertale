@@ -12,6 +12,8 @@ datasets
 
    cast
    drop
+   exclude
+   filter
    rename
    repartition
    shell
