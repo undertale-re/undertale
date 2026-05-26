@@ -197,6 +197,45 @@ Fewer partitions means rows are drawn from a larger pool during each shuffle
 pass, producing a more globally mixed result at the cost of higher memory usage
 per worker.
 
+Filter or Exclude Rows
+^^^^^^^^^^^^^^^^^^^^^^
+
+To keep only rows where a column contains a substring, use the filter utility.
+
+.. code-block:: bash
+
+    # Keep rows where the 'language' column contains 'python'.
+    python -m undertale.utils.datasets.filter \
+        humaneval-x/ \
+        humaneval-x-filtered \
+        --filter language:python
+
+    # Keep rows matching multiple clauses (all must match).
+    python -m undertale.utils.datasets.filter \
+        humaneval-x/ \
+        humaneval-x-filtered \
+        --filter language:python source:github
+
+To remove rows where a column contains a substring, use the exclude utility.
+
+.. code-block:: bash
+
+    # Remove rows where the 'language' column contains 'python'.
+    python -m undertale.utils.datasets.exclude \
+        humaneval-x/ \
+        humaneval-x-excluded \
+        --exclude language:python
+
+    # Remove rows matching multiple clauses (all must match).
+    python -m undertale.utils.datasets.exclude \
+        humaneval-x/ \
+        humaneval-x-excluded \
+        --exclude language:python source:github
+
+Each clause is specified as ``column:value``, where ``value`` is a
+case-sensitive substring. Rows are filtered or excluded only when all
+clauses match.
+
 Drop or Keep Columns
 ^^^^^^^^^^^^^^^^^^^^
 
