@@ -51,6 +51,8 @@ from undertale.pipeline.parquet import (
     Cast,
     Deduplicate,
     Drop,
+    Exclude,
+    Filter,
     HashColumn,
     Keep,
     Rename,
@@ -1079,6 +1081,116 @@ class TestPipelineParquet(TestCase):
 
         self.assertEqual(list(loaded_a["id"]), list(loaded_b["id"]))
         self.assertNotEqual(list(loaded_a["id"]), list(loaded_c["id"]))
+
+    def test_parquet_filter_invalid_schema(self):
+        working = TemporaryDirectory()
+        dataset = self.mock_dataset(working, "dataset", size=5)
+
+        with self.assertRaises(SchemaError):
+            modify_parquet(
+                dataset, join(working.name, "output"), [Filter({"nonexistent": "foo"})]
+            )
+
+    def test_parquet_filter_simple(self):
+        working = TemporaryDirectory()
+        rows = [{"id": i, "name": "foo" if i % 2 == 0 else "bar"} for i in range(10)]
+        frame = from_pandas(DataFrame(rows), npartitions=1)
+        dataset = join(working.name, "dataset")
+        write_parquet(frame, dataset, write_index=False)
+
+        modify_parquet(dataset, join(working.name, "output"), [Filter({"name": "foo"})])
+        loaded = read_parquet(join(working.name, "output"))
+
+        self.assertTrue((loaded["name"] == "foo").all())
+        self.assertEqual(len(loaded), 5)
+
+    def test_parquet_filter_multiple_clauses(self):
+        working = TemporaryDirectory()
+        rows = [
+            {"id": 0, "name": "foobar", "title": "baz"},
+            {"id": 1, "name": "foo", "title": "qux"},
+            {"id": 2, "name": "foobar", "title": "qux"},
+        ]
+        frame = from_pandas(DataFrame(rows), npartitions=1)
+        dataset = join(working.name, "dataset")
+        write_parquet(frame, dataset, write_index=False)
+
+        modify_parquet(
+            dataset,
+            join(working.name, "output"),
+            [Filter({"name": "foo", "title": "qux"})],
+        )
+        loaded = read_parquet(join(working.name, "output"))
+
+        self.assertEqual(set(loaded["id"]), {1, 2})
+
+    def test_parquet_exclude_invalid_schema(self):
+        working = TemporaryDirectory()
+        dataset = self.mock_dataset(working, "dataset", size=5)
+
+        with self.assertRaises(SchemaError):
+            modify_parquet(
+                dataset, join(working.name, "output"), [Exclude({"nonexistent": "foo"})]
+            )
+
+    def test_parquet_exclude_simple(self):
+        working = TemporaryDirectory()
+        rows = [{"id": i, "name": "foo" if i % 2 == 0 else "bar"} for i in range(10)]
+        frame = from_pandas(DataFrame(rows), npartitions=1)
+        dataset = join(working.name, "dataset")
+        write_parquet(frame, dataset, write_index=False)
+
+        modify_parquet(
+            dataset, join(working.name, "output"), [Exclude({"name": "foo"})]
+        )
+        loaded = read_parquet(join(working.name, "output"))
+
+        self.assertTrue((loaded["name"] == "bar").all())
+        self.assertEqual(len(loaded), 5)
+
+    def test_parquet_exclude_multiple_clauses(self):
+        working = TemporaryDirectory()
+        rows = [
+            {"id": 0, "name": "foobar", "title": "baz"},
+            {"id": 1, "name": "foo", "title": "qux"},
+            {"id": 2, "name": "foobar", "title": "qux"},
+        ]
+        frame = from_pandas(DataFrame(rows), npartitions=1)
+        dataset = join(working.name, "dataset")
+        write_parquet(frame, dataset, write_index=False)
+
+        modify_parquet(
+            dataset,
+            join(working.name, "output"),
+            [Exclude({"name": "foo", "title": "qux"})],
+        )
+        loaded = read_parquet(join(working.name, "output"))
+
+        self.assertEqual(set(loaded["id"]), {0})
+
+    def test_parquet_filter_empty_clauses(self):
+        with self.assertRaises(ValueError):
+            Filter({})
+
+    def test_parquet_exclude_empty_clauses(self):
+        with self.assertRaises(ValueError):
+            Exclude({})
+
+    def test_parquet_filter_non_string_column(self):
+        working = TemporaryDirectory()
+        dataset = self.mock_dataset(working, "dataset", size=5)
+
+        with self.assertRaises(ValueError):
+            modify_parquet(dataset, join(working.name, "output"), [Filter({"id": "1"})])
+
+    def test_parquet_exclude_non_string_column(self):
+        working = TemporaryDirectory()
+        dataset = self.mock_dataset(working, "dataset", size=5)
+
+        with self.assertRaises(ValueError):
+            modify_parquet(
+                dataset, join(working.name, "output"), [Exclude({"id": "1"})]
+            )
 
 
 class TestPipelineCpp(TestCase):
