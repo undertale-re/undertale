@@ -7,7 +7,7 @@ from typing import Dict, List, Optional
 
 from dask.dataframe import DataFrame
 from dask.dataframe import read_parquet as dask_read_parquet
-from pandas.api.types import pandas_dtype
+from pandas.api.types import is_string_dtype, pandas_dtype
 
 from ..exceptions import SchemaError
 from ..logging import get_logger
@@ -117,6 +117,77 @@ class Keep(ParquetOperation):
                 raise SchemaError(f"dataset does not include the column {column!r}")
 
         return frame[self.columns]
+
+
+class Filter(ParquetOperation):
+    """Keep rows where every column contains its target substring.
+
+    Arguments:
+        clauses: Mapping of column names to substrings that must be present.
+    """
+
+    def __init__(self, clauses: Dict[str, str]):
+        if not clauses:
+            raise ValueError("clauses must not be empty")
+        self.clauses = clauses
+
+    def __call__(self, frame: DataFrame) -> DataFrame:
+        logger.info(f"filtering dataset by column(s): {', '.join(self.clauses)}")
+
+        for column in self.clauses:
+            if column not in frame.columns:
+                raise SchemaError(f"dataset does not include the column {column!r}")
+            if not is_string_dtype(frame[column].dtype):
+                raise ValueError(
+                    f"column {column!r} is not a string column"
+                    f" (got {frame[column].dtype})"
+                )
+
+        checks = [
+            frame[column].str.contains(value, regex=False, na=False)
+            for column, value in self.clauses.items()
+        ]
+        mask = checks[0]
+        for check in checks[1:]:
+            mask = mask & check
+
+        return frame[mask]
+
+
+class Exclude(ParquetOperation):
+    """Remove rows where every column contains its target substring.
+
+    Arguments:
+        clauses: Mapping of column names to substrings that must be present
+            for a row to be excluded.
+    """
+
+    def __init__(self, clauses: Dict[str, str]):
+        if not clauses:
+            raise ValueError("clauses must not be empty")
+        self.clauses = clauses
+
+    def __call__(self, frame: DataFrame) -> DataFrame:
+        logger.info(f"excluding from dataset by column(s): {', '.join(self.clauses)}")
+
+        for column in self.clauses:
+            if column not in frame.columns:
+                raise SchemaError(f"dataset does not include the column {column!r}")
+            if not is_string_dtype(frame[column].dtype):
+                raise ValueError(
+                    f"column {column!r} is not a string column"
+                    f" (got {frame[column].dtype})"
+                )
+
+        checks = [
+            frame[column].str.contains(value, regex=False, na=False)
+            for column, value in self.clauses.items()
+        ]
+        mask = checks[0]
+        for check in checks[1:]:
+            mask = mask & check
+
+        return frame[~mask]
 
 
 class Rename(ParquetOperation):
@@ -281,6 +352,8 @@ __all__ = [
     "Deduplicate",
     "Drop",
     "Keep",
+    "Filter",
+    "Exclude",
     "Rename",
     "Shuffle",
     "Cast",
