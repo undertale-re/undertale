@@ -161,6 +161,33 @@ use the ``repartition`` utility.
 
 Exactly one of ``--chunks`` or ``--size`` must be specified.
 
+Merge Datasets
+^^^^^^^^^^^^^^
+
+To merge two or more parquet dataset directories into a single dataset, use
+the merge utility. A repartition step is required after merging to control the
+output chunk structure.
+
+.. code-block:: bash
+
+    # Merge two datasets and repartition to 32 chunk files.
+    python -m undertale.utils.datasets.merge \
+        humaneval-x/ \
+        bigcode/ \
+        --output merged-dataset \
+        --chunks 32
+
+    # Merge three datasets by target chunk size.
+    python -m undertale.utils.datasets.merge \
+        humaneval-x/ \
+        bigcode/ \
+        mbpp/ \
+        --output merged-dataset \
+        --size 25MB
+
+Exactly one of ``--chunks`` or ``--size`` must be specified. At least two
+input datasets are required.
+
 Shuffle a Dataset
 ^^^^^^^^^^^^^^^^^
 

@@ -903,6 +903,24 @@ class TestPipelineParquet(TestCase):
 
         self.assertEqual(len(loaded), 100)
 
+    def test_parquet_merge_multiple_directories(self):
+        working = TemporaryDirectory()
+        dataset_a = self.mock_dataset(working, "dataset_a", size=50, chunks=5)
+        dataset_b = self.mock_dataset(working, "dataset_b", size=50, chunks=5)
+
+        chunks = [join(dataset_a, f) for f in listdir(dataset_a)] + [
+            join(dataset_b, f) for f in listdir(dataset_b)
+        ]
+
+        path = join(working.name, "merged")
+        created = modify_parquet(chunks, path, [Repartition(chunks=4)])
+
+        self.assertEqual(len(created), 4)
+
+        loaded = read_parquet(path)
+
+        self.assertEqual(len(loaded), 100)
+
     def test_parquet_deduplicate_invalid_schema(self):
         working = TemporaryDirectory()
         dataset = self.mock_dataset(working, "dataset", size=10)
