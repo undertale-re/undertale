@@ -1,0 +1,6 @@
+merge
+=====
+
+.. automodule:: undertale.utils.datasets.merge
+
+   

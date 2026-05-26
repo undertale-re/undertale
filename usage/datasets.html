@@ -166,6 +166,30 @@ python<span class="w"> </span>-m<span class="w"> </span>undertale.utils.datasets
 </div>
 <p>Exactly one of <code class="docutils literal notranslate"><span class="pre">--chunks</span></code> or <code class="docutils literal notranslate"><span class="pre">--size</span></code> must be specified.</p>
 </section>
+<section id="merge-datasets">
+<h2>Merge Datasets<a class="headerlink" href="#merge-datasets" title="Link to this heading">¶</a></h2>
+<p>To merge two or more parquet dataset directories into a single dataset, use
+the merge utility. A repartition step is required after merging to control the
+output chunk structure.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Merge two datasets and repartition to 32 chunk files.</span>
+python<span class="w"> </span>-m<span class="w"> </span>undertale.utils.datasets.merge<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>humaneval-x/<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>bigcode/<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--output<span class="w"> </span>merged-dataset<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--chunks<span class="w"> </span><span class="m">32</span>
+
+<span class="c1"># Merge three datasets by target chunk size.</span>
+python<span class="w"> </span>-m<span class="w"> </span>undertale.utils.datasets.merge<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>humaneval-x/<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>bigcode/<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>mbpp/<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--output<span class="w"> </span>merged-dataset<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--size<span class="w"> </span>25MB
+</pre></div>
+</div>
+<p>Exactly one of <code class="docutils literal notranslate"><span class="pre">--chunks</span></code> or <code class="docutils literal notranslate"><span class="pre">--size</span></code> must be specified. At least two
+input datasets are required.</p>
+</section>
 <section id="shuffle-a-dataset">
 <h2>Shuffle a Dataset<a class="headerlink" href="#shuffle-a-dataset" title="Link to this heading">¶</a></h2>
 <p>To randomly shuffle the rows of a dataset, use the shuffle utility.</p>
@@ -343,6 +367,7 @@ accepted by <code class="docutils literal notranslate"><span class="pre">pandas<
 <li class="toctree-l3"><a class="reference internal" href="#use-a-dataset-in-a-script">Use a Dataset in a Script</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#split-a-dataset">Split a Dataset</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#repartition-a-dataset">Repartition a Dataset</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#merge-datasets">Merge Datasets</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#shuffle-a-dataset">Shuffle a Dataset</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#filter-or-exclude-rows">Filter or Exclude Rows</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#drop-or-keep-columns">Drop or Keep Columns</a></li>
