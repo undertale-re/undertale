@@ -46,6 +46,29 @@ if __name__ == "__main__":
         "--cache",
         help="path to a HuggingFace cache directory - if not provided, models will be downloaded as necessary",
     )
+    parser.add_argument(
+        "--connector",
+        choices=["mlp", "transformer"],
+        default="mlp",
+        help="connector architecture between disassembly encoder and language model",
+    )
+    parser.add_argument(
+        "--connector-dimensions",
+        type=int,
+        default=8,
+        help="connector size hyperparameter (MLP: intermediate scale factor; Transformer: num heads and num layers)",
+    )
+    parser.add_argument(
+        "--language-tokens",
+        type=int,
+        default=40,
+        help="number of prefix tokens the connector produces for the language model",
+    )
+    parser.add_argument(
+        "--freeze-llm",
+        action="store_true",
+        help="freeze the language model; only the connector trains",
+    )
 
     arguments = parser.parse_args()
     parser.setup(arguments)
@@ -63,6 +86,10 @@ if __name__ == "__main__":
         next_token_id=next_token_id,
         lr=arguments.learning_rate,
         warmup=arguments.warmup,
+        connector_type=arguments.connector,
+        connector_dimensions=arguments.connector_dimensions,
+        language_tokens=arguments.language_tokens,
+        freeze_llm=arguments.freeze_llm,
         **InstructionTraceTransformerEncoderConfiguration.medium,
     )
 

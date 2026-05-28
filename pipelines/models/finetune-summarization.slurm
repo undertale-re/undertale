@@ -15,6 +15,15 @@ VALIDATION=$SHARE/datasets/$FINETUNE_DATASET-finetune-summarization/validation/l
 PRETRAINED=$SHARE/models/maskedlm/$PRETRAIN_DATASET/latest
 CACHE=$SHARE/software/huggingface
 BATCH=40
+CONNECTOR=mlp
+CONNECTOR_DIMENSIONS=8
+LANGUAGE_TOKENS=40
+FREEZE_LLM=false
+
+FREEZE_LLM_FLAG=""
+if [ "$FREEZE_LLM" = "true" ]; then
+    FREEZE_LLM_FLAG="--freeze-llm"
+fi
 
 srun python finetune-summarization.py \
     --tokenizer $TOKENIZER \
@@ -27,4 +36,8 @@ srun python finetune-summarization.py \
     --nodes $SLURM_JOB_NUM_NODES \
     --devices $SLURM_NTASKS_PER_NODE \
     --version $SLURM_JOB_ID \
-    --batch-size $BATCH
+    --batch-size $BATCH \
+    --connector $CONNECTOR \
+    --connector-dimensions $CONNECTOR_DIMENSIONS \
+    --language-tokens $LANGUAGE_TOKENS \
+    $FREEZE_LLM_FLAG

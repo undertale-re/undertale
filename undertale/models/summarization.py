@@ -301,6 +301,8 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
         warmup: float = WARMUP,
         connector_dimensions: int = 8,
         language_tokens: int = 40,
+        connector_type: str = "mlp",
+        freeze_llm: bool = False,
     ):
         super().__init__()
 
@@ -322,7 +324,10 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
             dropout,
             eps,
         )
-        self.connector = MLPConnector(
+        connector_cls = {"mlp": MLPConnector, "transformer": TransformerConnector}[
+            connector_type
+        ]
+        self.connector = connector_cls(
             hidden_dimensions,
             connector_dimensions,
             language_dimensions,
@@ -332,6 +337,10 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
 
         for p in self.encoder.parameters():
             p.requires_grad = False
+
+        if freeze_llm:
+            for p in self.language.parameters():
+                p.requires_grad = False
 
         self.lr = lr or self.LR
         self.warmup = warmup or self.WARMUP
@@ -415,7 +424,8 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
 
     def configure_optimizers(self):
         """"""
-        optimizer = AdamW(self.parameters(), lr=self.lr)
+        trainable = [p for p in self.parameters() if p.requires_grad]
+        optimizer = AdamW(trainable, lr=self.lr)
 
         total_steps = self.trainer.estimated_stepping_batches
         warmup_steps = int(self.warmup * total_steps)
