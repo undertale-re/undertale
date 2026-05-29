@@ -20,7 +20,7 @@ srun python finetune-classification.py \
     --tokenizer $TOKENIZER \
     $TRAINING \
     --validation $VALIDATION \
-    $SLURM_JOB_NAME \
+    $SHARE/models/tensorboard/classification/$FINETUNE_DATASET \
     --classes $CLASSES \
     --pretrained $PRETRAINED \
     --accelerator gpu \

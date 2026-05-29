@@ -17,7 +17,7 @@ srun python pretrain-maskedlm.py \
     --tokenizer $TOKENIZER \
     $TRAINING \
     --validation $VALIDATION \
-    $SLURM_JOB_NAME \
+    $SHARE/models/tensorboard/maskedlm/$FINETUNE_DATASET \
     --accelerator gpu \
     --nodes $SLURM_JOB_NUM_NODES \
     --devices $SLURM_NTASKS_PER_NODE \
