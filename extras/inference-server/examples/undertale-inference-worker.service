@@ -1,0 +1,11 @@
+[Unit]
+Description=Undertale Inference Worker
+After=network.target
+
+[Service]
+User=undertale
+ExecStart=inference worker --parallelism 4
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

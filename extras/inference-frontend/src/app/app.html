@@ -1,0 +1,45 @@
+@if (!isAuthenticated()) {
+  <div class="login-overlay d-flex align-items-center justify-content-center">
+    <app-login (loginSuccess)="onLoginSuccess()" />
+  </div>
+}
+
+@if (isAuthenticated()) {
+  <div class="d-flex flex-column app-shell">
+    <nav class="navbar navbar-dark bg-dark px-3">
+      <span class="navbar-brand">Undertale</span>
+      <div class="d-flex align-items-center gap-2">
+        <span class="text-light me-2"
+          ><b>{{ auth.username() }}</b></span
+        >
+        <button class="btn btn-outline-light btn-sm" (click)="confirmLogout()">
+          <i class="fa fa-sign-out-alt me-1"></i>Logout
+        </button>
+      </div>
+    </nav>
+
+    <div class="flex-grow-1 overflow-hidden">
+      <router-outlet />
+    </div>
+
+    <footer class="bg-light border-top px-3 py-2 d-flex justify-content-between align-items-center">
+      <small class="text-muted">v{{ version }}</small>
+      <button class="btn btn-link btn-sm p-0 text-muted" (click)="openEula()">
+        Data Collection Notice
+      </button>
+    </footer>
+  </div>
+}
+
+@if (showEula()) {
+  <app-eula-modal (dismissed)="onEulaDismissed()" />
+}
+
+@if (showLogoutConfirm()) {
+  <app-confirm-modal
+    message="Are you sure you want to log out?"
+    confirmLabel="Log out"
+    (confirmed)="onLogoutConfirmed()"
+    (cancelled)="onLogoutCancelled()"
+  />
+}

@@ -1,0 +1,100 @@
+<div class="modal d-block" tabindex="-1" style="background: rgba(0, 0, 0, 0.5)">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Assembly Format</h5>
+      </div>
+      <div class="modal-body">
+        <p>
+          The assembly you enter here must be in Undertale <i>pretoken format</i>. This is a bit
+          different from most assembly syntax that you may be familiar with (Intel, AT&amp;T, GAS).
+        </p>
+        <h5 class="modal-title">Different How?</h5>
+        <p>
+          Undertale's <i>pretoken format</i> consists of only letters <code>a-zA-Z</code>, numbers
+          <code>0-9</code>, some special characters <code>[]</code>, and spaces.
+        </p>
+        <p>
+          In general, you should remove commas, treat memory reference brackets
+          <code>[]</code> as their own token, and convert immediates as well as symbol references
+          (variables, function name references) to their integer equivalent.
+        </p>
+        <h5 class="modal-title">Remove Commas</h5>
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label fw-semibold">Intel</label>
+            <pre class="bg-light p-3 rounded border">xor rax, rax</pre>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label fw-semibold">Pretokens</label>
+            <pre class="bg-light p-3 rounded border">xor rax rax</pre>
+          </div>
+        </div>
+        <h5 class="modal-title">Memory Reference Syntax</h5>
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label fw-semibold">Intel</label>
+            <pre class="bg-light p-3 rounded border">mov rax, qword ptr [rsi+2h]</pre>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label fw-semibold">Pretokens</label>
+            <pre class="bg-light p-3 rounded border">mov rax qword [ rsi + 2 ]</pre>
+          </div>
+        </div>
+        <h5 class="modal-title">Immediates</h5>
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label fw-semibold">Intel</label>
+            <pre class="bg-light p-3 rounded border">mov rax, 2ah</pre>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label fw-semibold">Pretokens</label>
+            <pre class="bg-light p-3 rounded border">mov rax 42</pre>
+          </div>
+        </div>
+        <h5 class="modal-title">Addresses</h5>
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label fw-semibold">Intel</label>
+            <pre class="bg-light p-3 rounded border">call function_label</pre>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label fw-semibold">Pretokens</label>
+            <pre class="bg-light p-3 rounded border">call 3735928559</pre>
+          </div>
+        </div>
+        <h5 class="modal-title">Why?</h5>
+        <p>
+          Our assembly preprocessing pipeline includes logic that requires disassembler internals
+          and access to the binary form of the assembly. We didn't want to have to assemble and then
+          disassemble your input just to get inference results.
+        </p>
+        <h5 class="modal-title">What does <code>[UNK]</code> mean?</h5>
+        <p>
+          <code>[UNK]</code> is the unknown token. If the model has no way to represent a given
+          input, then it emits <code>[UNK]</code> tokens, typically one for each character of an
+          unrecognized input.
+        </p>
+        <p>
+          This most commonly happens when you feed the model an input which is not properly
+          formatted disassembly pretokens. But it can happen for legitimate assembly because of
+          idiosyncrasies in the underlying disassembler.
+        </p>
+        <p>
+          For example, Binary Ninja never emits the <code>jnz</code> instruction, instead only
+          emitting <code>jne</code>. <code>jnz</code> is therefore not a part of the model's
+          vocabulary, even though it is a valid instruction, and the model will emit
+          <code>[UNK] [UNK] [UNK]</code>.
+        </p>
+        <p>
+          We don't have a comprehensive list of these edge cases yet (they were learned from our
+          dataset) but we could use your help in finding them! Please provide detailed feedback on
+          completions.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="dismiss()">Close</button>
+      </div>
+    </div>
+  </div>
+</div>

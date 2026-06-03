@@ -1,0 +1,40 @@
+<div class="login-box card shadow-lg p-4">
+  <h2 class="text-center mb-4">Undertale</h2>
+  <form (ngSubmit)="submit()">
+    <div class="mb-3">
+      <label for="username" class="form-label">Username</label>
+      <input
+        id="username"
+        type="text"
+        class="form-control"
+        [ngModel]="username()"
+        (ngModelChange)="username.set($event)"
+        name="username"
+        required
+        autocomplete="username"
+      />
+    </div>
+    <div class="mb-3">
+      <label for="password" class="form-label">Password</label>
+      <input
+        id="password"
+        type="password"
+        class="form-control"
+        [ngModel]="password()"
+        (ngModelChange)="password.set($event)"
+        name="password"
+        required
+        autocomplete="current-password"
+      />
+    </div>
+    @if (error()) {
+      <div class="alert alert-danger py-2">{{ error() }}</div>
+    }
+    <button type="submit" class="btn btn-primary w-100" [disabled]="loading()">
+      @if (loading()) {
+        <span class="spinner-border spinner-border-sm me-2"></span>
+      }
+      Sign In
+    </button>
+  </form>
+</div>

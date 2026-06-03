@@ -1,0 +1,31 @@
+name: Merge
+
+on:
+  push:
+    branches: 
+      - main
+
+jobs:
+  Deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          python-version: '3.12'
+          activate-environment: undertale
+          environment-file: environment.yml
+      - name: Develop
+        run: |
+          conda env update -f environment.development.yml
+      - name: Build Documentation
+        run: |
+          conda run -n undertale sphinx-build -W -b html docs build/documentation
+      - uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: pages
+          publish_dir: build/documentation
+          exclude_assets: .gitignore

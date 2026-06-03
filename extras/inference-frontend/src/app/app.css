@@ -1,0 +1,11 @@
+.login-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.95);
+  z-index: 9999;
+}
+
+.app-shell {
+  height: 100vh;
+  height: 100dvh;
+}

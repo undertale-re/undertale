@@ -1,0 +1,6 @@
+name: undertale
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - nodejs

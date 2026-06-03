@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "undertale"
+authors = [
+    {name = "Alexander Interrante-Grant", email = "ainterr@ll.mit.edu"}
+]
+description = "large language models (LLMs) for binary program understanding"
+readme = "README.md"
+license-files = ["LICENSE.txt"]
+requires-python = ">=3.12"
+dependencies = [
+    "bert_score",
+    "dask",
+    "dask-jobqueue",
+    "datasets",
+    "distributed",
+    "evaluate",
+    "lightning",
+    "pandas",
+    "pandera",
+    "polars",
+    "pyarrow",
+    "rouge_score",
+    "scikit-learn",
+    "tensorboard",
+    "tokenizers",
+    "torch",
+    "transformers"
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+development = [
+    "black",
+    "flake8",
+    "isort",
+    "mypy",
+    "pip-tools",
+    "pre-commit",
+    "pyinstrument",
+    "sphinx",
+    "toml-sort"
+]
+
+[tool.isort]
+profile = "black"
+
+[tool.setuptools.dynamic]
+version = {attr = "undertale.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["undertale*"]
+
+[tool.tomlsort]
+in_place = true
+spaces_indent_inline_array = 4
+sort_inline_arrays = true
