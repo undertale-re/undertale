@@ -1,6 +1,7 @@
 # Attention Visualizer
 
-<video src="docs/demo.mp4" controls width="100%"></video>
+https://github.com/user-attachments/assets/7d90b0bc-2394-4feb-a4d7-2f68187b0761
+
 
 
 ## Description
