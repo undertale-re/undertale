@@ -204,7 +204,7 @@ class InstructionTraceTransformerEncoderForMaskedLM(LightningModule, Module):
         return self.head(hidden), layer_attentions
 
     def infer(
-        self, tokens: Tensor, mask: Optional[Tensor] = None, attn_weights: bool = True
+        self, tokens: Tensor, mask: Optional[Tensor] = None, attn_weights: bool = False
     ) -> Tensor:
         """Fill masked tokens given pre-tokenized input.
 

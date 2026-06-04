@@ -1,5 +1,6 @@
 """Basic transformer implementation."""
 
+from math import sqrt
 from typing import Optional
 
 from torch import (
@@ -9,7 +10,6 @@ from torch import (
     cat,
     long,
     softmax,
-    sqrt,
     stack,
 )
 from torch.nn import GELU, Dropout, Embedding, LayerNorm, Linear, Module, ModuleList
