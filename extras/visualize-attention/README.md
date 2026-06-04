@@ -1,6 +1,6 @@
 # Attention Visualizer
 
-<video src="docs/demo.mov" controls width="100%"></video>
+<video src="docs/demo.mp4" controls width="100%"></video>
 
 
 ## Description
