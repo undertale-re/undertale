@@ -1,6 +1,8 @@
 import html
 import os
+from contextlib import contextmanager
 from functools import partial
+from math import sqrt
 
 import gradio as gr
 import torch
@@ -20,15 +22,46 @@ def check_env() -> None:
         )
 
 
+@contextmanager
+def capture_attention(model):
+    collected = [[] for _ in model.encoder.layers]
+    handles = []
+    for layer_idx, layer in enumerate(model.encoder.layers):
+        for head in layer.attention.heads:
+
+            def hook(module, inp, _out, i=layer_idx):
+                state = inp[0]
+                mask = inp[1] if len(inp) > 1 else None
+                q, k = module.q(state), module.k(state)
+                scores = torch.bmm(q, k.transpose(-2, -1)) / sqrt(q.size(-1))
+                if mask is not None:
+                    attn_mask = mask.unsqueeze(-2).bool()
+                    scores = scores.masked_fill(~attn_mask, float("-inf"))
+                collected[i].append(torch.softmax(scores, dim=-1))
+
+            handles.append(head.register_forward_hook(hook))
+    yield collected
+    for h in handles:
+        h.remove()
+
+
 def visualize(text: str, tok, model):
     encoded = tok.encode(text)
     tokens = torch.tensor(encoded.ids).unsqueeze(0).to(model.device)
     mask = torch.tensor(encoded.attention_mask).unsqueeze(0).to(model.device)
 
-    with torch.no_grad():
-        filled, attention = model.infer(tokens, mask, attn_weights=True)
+    with capture_attention(model) as layer_attentions:
+        with torch.no_grad():
+            filled = model.infer(tokens, mask)
 
-    attention = attention.cpu()
+    attention = (
+        torch.stack(
+            [torch.stack(layer, dim=0) for layer in layer_attentions],
+            dim=0,
+        )
+        .squeeze(2)
+        .cpu()
+    )
     mask_bool = mask.squeeze(0).bool().cpu()
     layers = [
         layer[:, mask_bool, :][:, :, mask_bool].unsqueeze(0) for layer in attention

@@ -1,16 +1,12 @@
 """Basic transformer implementation."""
 
-from math import sqrt
 from typing import Optional
 
 from torch import (
     Tensor,
     arange,
-    bmm,
     cat,
     long,
-    softmax,
-    stack,
 )
 from torch.nn import GELU, Dropout, Embedding, LayerNorm, Linear, Module, ModuleList
 from torch.nn.functional import scaled_dot_product_attention
@@ -33,21 +29,15 @@ class Attention(Module):
         self.k = Linear(hidden_dimensions, head_dimensions)
         self.v = Linear(hidden_dimensions, head_dimensions)
 
-    def forward(
-        self, state: Tensor, mask: Optional[Tensor] = None, attn_weights: bool = False
-    ) -> Tensor:
+    def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
         """Compute attention.
 
         Arguments:
             state: The input state tensor.
             mask: Optional attention mask.
-            attn_weights: If True, also return the softmax attention weights.
-                Note: this disables optimizations obtained from the pytorch implementation to compute the outputs
-                to be able to capture the intermediate computation matrix with the attention weights.
 
         Returns:
-            A tensor in attended state space. If ``attn_weights`` is True, returns a tuple ``(output, weights)``
-            where ``weights`` has shape ``(batch, sequence_length, sequence_length)``.
+            A tensor in attended state space.
         """
 
         if state.ndim != 3:
@@ -71,20 +61,12 @@ class Attention(Module):
                     f"mismatched sequence length - got tensor of shape {tuple(state.shape)} and mask of shape {tuple(mask.shape)}"
                 )
 
-        q = self.q(state)
-        k = self.k(state)
-        v = self.v(state)
-        attn_mask = mask.unsqueeze(-2).bool() if mask is not None else None
-
-        if not attn_weights:
-            return scaled_dot_product_attention(q, k, v, attn_mask=attn_mask)
-
-        scores = bmm(q, k.transpose(-2, -1)) / sqrt(q.size(-1))
-        if attn_mask is not None:
-            scores = scores.masked_fill(~attn_mask, float("-inf"))
-            weights = softmax(scores, dim=-1)
-            output = bmm(weights, v)
-            return output, weights
+        return scaled_dot_product_attention(
+            self.q(state),
+            self.k(state),
+            self.v(state),
+            attn_mask=mask.unsqueeze(-2).bool() if mask is not None else None,
+        )
 
 
 class MultiHeadAttention(Module):
@@ -115,30 +97,21 @@ class MultiHeadAttention(Module):
 
         self.output = Linear(hidden_dimensions, hidden_dimensions)
 
-    def forward(
-        self, state: Tensor, mask: Optional[Tensor] = None, attn_weights: bool = False
-    ) -> Tensor:
+    def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
         """Compute attention.
 
         Arguments:
             state: The input state tensor.
             mask: Optional attention mask.
-            attn_weights: If True, also return per-head attention weights.
 
         Returns:
-            A tensor in attended state space. If ``attn_weights`` is True, returns a tuple ``(output, weights)``
-            where ``weights`` has shape ``(heads, batch, sequence_length, sequence_length)``.
+            A tensor in attended state space.
         """
 
-        if not attn_weights:
-            attended = cat([h(state, mask) for h in self.heads], dim=-1)
-            return self.output(attended)
-
-        results = [h(state, mask, attn_weights=True) for h in self.heads]
-        attended = cat([output for output, _ in results], dim=-1)
-        weights = stack([weights for _, weights in results], dim=0)
+        attended = cat([h(state, mask) for h in self.heads], dim=-1)
         output = self.output(attended)
-        return output, weights
+
+        return output
 
 
 class FeedForward(Module):
@@ -210,9 +183,7 @@ class TransformerEncoderLayer(Module):
         self.norm2 = LayerNorm(hidden_dimensions)
         self.ff = FeedForward(hidden_dimensions, intermediate_dimensions, dropout)
 
-    def forward(
-        self, state: Tensor, mask: Optional[Tensor] = None, attn_weights: bool = False
-    ) -> Tensor:
+    def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
         """Compute attention plus non-linear transform.
 
         Includes regularization (layer normalization, dropout) and skip
@@ -221,26 +192,17 @@ class TransformerEncoderLayer(Module):
         Arguments:
             state: The input state tensor.
             mask: Optional attention mask.
-            attn_weights: If True, also return this layer's attention weights.
 
         Returns:
-            Transformed state. If ``attn_weights`` is True, returns a tuple ``(output, weights)``
-            where ``weights`` has shape ``(heads, batch, sequence_length, sequence_length)``.
+            Transformed state.
         """
 
-        if not attn_weights:
-            hidden = self.norm1(state)
-            output = state + self.attention(hidden, mask)
-            hidden = self.norm2(output)
-            output = output + self.ff(hidden)
-            return output
-
         hidden = self.norm1(state)
-        attended, weights = self.attention(hidden, mask, attn_weights=True)
-        output = state + attended
+        output = state + self.attention(hidden, mask)
         hidden = self.norm2(output)
         output = output + self.ff(hidden)
-        return output, weights
+
+        return output
 
 
 class PositionEmbedding(Module):
@@ -349,30 +311,20 @@ class TransformerEncoder(Module):
             ]
         )
 
-    def forward(
-        self, state: Tensor, mask: Optional[Tensor] = None, attn_weights: bool = False
-    ) -> Tensor:
+    def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
         """Encode the given state.
 
         Arguments:
             state: The input state tensor.
             mask: Optional attention mask.
-            attn_weights: If True, also return per-layer attention weights.
 
         Returns:
-            Encoded state. If ``attn_weights`` is True, returns a tuple ``(output, weights)``
-            where ``weights`` has shape ``(layers, heads, batch, sequence_length, sequence_length)``.
+            Encoded state.
         """
 
         output = self.embedding(state)
 
-        if not attn_weights:
-            for layer in self.layers:
-                output = layer(output, mask)
-            return output
-
-        layer_attentions = []
         for layer in self.layers:
-            output, weights = layer(output, mask, attn_weights=True)
-            layer_attentions.append(weights)
-        return output, stack(layer_attentions, dim=0)
+            output = layer(output, mask)
+
+        return output

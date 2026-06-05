@@ -180,32 +180,23 @@ class InstructionTraceTransformerEncoderForMaskedLM(LightningModule, Module):
         self.lr = lr or self.LR
         self.warmup = warmup or self.WARMUP
 
-    def forward(
-        self, state: Tensor, mask: Optional[Tensor] = None, attn_weights: bool = False
-    ) -> Tensor:
+    def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
         """Encode and decode with the language modeling head.
 
         Arguments:
             state: The tokenized input state tensor.
             mask: Optional attention mask.
-            attn_weights: If True, also return per-layer attention weights.
 
         Returns:
-            The computed output tensor in output token space. If ``attn_weights`` is set True,
-            returns a tuple ``(output, weights)`` where ``weights`` has shape
-            ``(layers, heads, batch, sequence_length, sequence_length)``.
+            The computed output tensor in output token space.
         """
 
-        if not attn_weights:
-            hidden = self.encoder(state, mask)
-            return self.head(hidden)
+        hidden = self.encoder(state, mask)
+        output = self.head(hidden)
 
-        hidden, layer_attentions = self.encoder(state, mask, attn_weights=True)
-        return self.head(hidden), layer_attentions
+        return output
 
-    def infer(
-        self, tokens: Tensor, mask: Optional[Tensor] = None, attn_weights: bool = False
-    ) -> Tensor:
+    def infer(self, tokens: Tensor, mask: Optional[Tensor] = None) -> Tensor:
         """Fill masked tokens given pre-tokenized input.
 
         Runs a forward pass and replaces each masked position with the
@@ -215,31 +206,18 @@ class InstructionTraceTransformerEncoderForMaskedLM(LightningModule, Module):
         Arguments:
             tokens: Pre-tokenized input tensor.
             mask: Optional attention mask tensor.
-            attn_weights: If True, also return per-layer attention weights with the batch axis dropped.
 
         Returns:
-            A 1-D tensor of token IDs with masked positions filled. If ``attn_weights`` is True,
-            returns a tuple ``(filled, weights)`` where ``weights`` has shape
-            ``(layers, heads, sequence_length, sequence_length)``.
+            A 1-D tensor of token IDs with masked positions filled.
         """
 
-        if not attn_weights:
-            output = self(tokens, mask).squeeze(0)
-            filled = where(
-                tokens.squeeze(0) == self.mask_token_id,
-                argmax(output, dim=-1),
-                tokens.squeeze(0),
-            )
-            return filled
-
-        output, layer_attentions = self(tokens, mask, attn_weights=True)
-        output = output.squeeze(0)
+        output = self(tokens, mask).squeeze(0)
         filled = where(
             tokens.squeeze(0) == self.mask_token_id,
             argmax(output, dim=-1),
             tokens.squeeze(0),
         )
-        return filled, layer_attentions.squeeze(2)
+        return filled
 
     def configure_optimizers(self):
         """"""

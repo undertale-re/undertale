@@ -8,7 +8,6 @@ from torch import (
     cummax,
     cumsum,
     roll,
-    stack,
 )
 from torch.nn import Dropout, Embedding, LayerNorm, Module, ModuleList
 
@@ -178,30 +177,20 @@ class InstructionTraceTransformerEncoder(Module):
             ]
         )
 
-    def forward(
-        self, state: Tensor, mask: Optional[Tensor] = None, attn_weights: bool = False
-    ) -> Tensor:
+    def forward(self, state: Tensor, mask: Optional[Tensor] = None) -> Tensor:
         """Encode the given state.
 
         Arguments:
             state: The input state tensor.
             mask: Optional attention mask.
-            attn_weights: If True, also return per-layer attention weights.
 
         Returns:
-            Encoded state. If ``attn_weights`` is True, returns a tuple ``(output, weights)``
-            where ``weights`` has shape ``(layers, heads, batch, seq_len, seq_len)``.
+            Encoded state.
         """
 
         output = self.embedding(state)
 
-        if not attn_weights:
-            for layer in self.layers:
-                output = layer(output, mask)
-
-        layer_attentions = []
         for layer in self.layers:
-            output, weights = layer(output, mask, attn_weights=True)
-            layer_attentions.append(weights)
+            output = layer(output, mask)
 
-        return output, stack(layer_attentions, dim=0)
+        return output
