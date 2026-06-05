@@ -1,0 +1,46 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+  id-token: write
+  actions: read
+
+jobs:
+  Review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: "--disallowedTools Bash,Edit,Write --max-turns 10"
+          prompt: |
+            Review this pull request and submit a formal GitHub PR review (not a plain comment).
+
+            Your review must:
+            1. Post inline comments on specific changed lines where you have concrete, targeted feedback
+            2. Include an overall summary in the review body covering: what the PR does, key concerns, and a final verdict
+            3. Set the review state to one of:
+               - APPROVE — if the changes are correct, safe, and production-ready
+               - REQUEST_CHANGES — if there are bugs, security issues, or convention violations that must be fixed first
+               - COMMENT — if you have observations but no blocking objection
+
+            Focus on:
+            - Correctness and logic errors
+            - Security vulnerabilities
+            - Adherence to project conventions (see CLAUDE.md: Black, isort, Google docstrings, type hints, pipeline idempotency pattern)
+            - Type safety (mypy compliance)
+            - Test coverage for new functionality
+            - Performance concerns
+
+            Do not comment on formatting, import order, or anything already enforced by pre-commit CI.
+            Do not implement any changes yourself.
