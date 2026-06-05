@@ -46,6 +46,9 @@ def capture_attention(model):
 
 
 def visualize(text: str, tok, model):
+    if not text or not text.strip():
+        raise gr.Error("Please enter some input text.")
+
     encoded = tok.encode(text)
     tokens = torch.tensor(encoded.ids).unsqueeze(0).to(model.device)
     mask = torch.tensor(encoded.attention_mask).unsqueeze(0).to(model.device)
@@ -122,7 +125,7 @@ def main() -> None:
 
         button.click(fn=fn, inputs=text, outputs=[prediction, output])
 
-    demo.launch(server_name="127.0.0.1", server_port=8888)
+    demo.launch(server_name="127.0.0.1", server_port=8888, show_error=True)
 
 
 if __name__ == "__main__":
