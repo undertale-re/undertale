@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "attention-visualizer"
+authors = [
+    {name = "Carla Varela-Rosa", email = "carla.varela-rosa@ll.mit.edu"}
+]
+version = "0.1.0"
+description = "Gradio UI for visualizing masked LM attention weights via bertviz."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "bertviz>=1.4",
+    "gradio>=4.0",
+    "torch>=2.0"
+]
+
+[tool.setuptools]
+py-modules = ["server"]
