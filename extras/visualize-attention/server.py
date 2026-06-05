@@ -65,7 +65,7 @@ def main() -> None:
     model.eval()
 
     fn = partial(visualize, tok=tok, model=model)
-    css = "#input-box textarea { resize: vertical; }"
+    css = ".resizable textarea { resize: vertical; }"
 
     with gr.Blocks(title="Attention Visualizer", css=css) as demo:
         gr.Markdown("# Attention Visualizer")
@@ -75,14 +75,14 @@ def main() -> None:
             lines=4,
             label="Input",
             placeholder="mov eax [MASK]",
-            elem_id="input-box",
+            elem_classes="resizable",
         )
         button = gr.Button("Submit", variant="primary")
         prediction = gr.Textbox(
             label="Prediction",
             interactive=False,
             lines=2,
-            elem_id="input-box",
+            elem_classes="resizable",
         )
 
         output = gr.HTML(label="Attention")
