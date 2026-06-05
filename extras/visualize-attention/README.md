@@ -71,7 +71,7 @@ The viz server is intentionally a single file. The inference logic is one functi
 
 ## Troubleshooting
 
-**`RuntimeError: Missing required environment variable(s): ...`** — you need to export both env vars listed in the `Configureation` section before launching. Put them in a `.env` and `source` it if you launch the server often.
+**`RuntimeError: Missing required environment variable(s): ...`** — you need to export both env vars listed in the `Configuration` section before launching. Put them in a `.env` and `source` it if you launch the server often.
 
 **`ModuleNotFoundError: No module named 'undertale'`** — the `undertale` package isn't installed. `pip install -e /path/to/undertale` from the project root.
 
