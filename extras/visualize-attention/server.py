@@ -52,7 +52,6 @@ def visualize(text: str, tok, model):
         'style="border: none;"></iframe>'
     )
 
-    # return gr.update(value=predicted, visible=True), iframe
     return predicted, iframe
 
 
@@ -83,7 +82,6 @@ def main() -> None:
             label="Prediction",
             interactive=False,
             lines=2,
-            # visible=False,
             elem_id="input-box",
         )
 
