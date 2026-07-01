@@ -69,6 +69,12 @@ if __name__ == "__main__":
         action="store_true",
         help="freeze the language model; only the connector trains",
     )
+    parser.add_argument(
+        "--patience",
+        type=int,
+        default=5,
+        help="early stopping patience (epochs without improvement before stopping)",
+    )
 
     arguments = parser.parse_args()
     parser.setup(arguments)
@@ -121,14 +127,20 @@ if __name__ == "__main__":
 
     if arguments.validation is not None:
         stop = EarlyStopping(
-            monitor="valid_perplexity", mode="min", patience=5, min_delta=0.001
+            monitor="valid_perplexity",
+            mode="min",
+            patience=arguments.patience,
+            min_delta=0.001,
         )
         checkpoint = ModelCheckpoint(
             filename="{epoch}-{train_loss:.2f}-{valid_perplexity:.2f}", save_top_k=-1
         )
     else:
         stop = EarlyStopping(
-            monitor="train_loss", mode="min", patience=5, min_delta=0.001
+            monitor="train_loss",
+            mode="min",
+            patience=arguments.patience,
+            min_delta=0.001,
         )
         checkpoint = ModelCheckpoint(filename="{epoch}-{train_loss:.2f}", save_top_k=-1)
 
