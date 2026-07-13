@@ -24,6 +24,7 @@ from undertale.exceptions import EnvironmentError as LocalEnvironmentError
 from undertale.exceptions import InvalidFileType, PathError, SchemaError
 from undertale.models.custom import InstructionTracePositionEmbedding
 from undertale.models.dataset import ChunkedSampler, ParquetDataset
+from undertale.models.density import DensityCollator
 from undertale.models.maskedlm import MaskedLMCollator
 from undertale.models.tokenizer import (
     TOKEN_UNKNOWN,
@@ -2252,6 +2253,72 @@ class TestModelMaskedLMCollator(TestCase):
         self.assertEqual(MaskedLMCollator.PROBABILITY, 0.15)
         collator = MaskedLMCollator(self.MASK_TOKEN_ID, self.VOCAB_SIZE)
         self.assertEqual(collator.probability, 0.15)
+
+    def test_collator_next_token_not_masked(self):
+        next_token_id = 7
+        collator = MaskedLMCollator(
+            self.MASK_TOKEN_ID,
+            self.VOCAB_SIZE,
+            next_token_id=next_token_id,
+            probability=1.0,
+        )
+        batch = self.make_batch(4)
+        result = collator(batch)
+
+        original = tensor([item["tokens"] for item in batch])
+        next_positions = original == next_token_id
+
+        # NEXT tokens must never be corrupted or scored, since
+        # InstructionTracePositionEmbedding derives positional information
+        # from their exact positions.
+        self.assertTrue(result["tokens"][next_positions].eq(next_token_id).all())
+        self.assertTrue((result["labels"][next_positions] == -100).all())
+
+
+class TestModelDensityCollator(TestCase):
+    SEQUENCE_LENGTH = 16
+    VOCAB_SIZE = 100
+    MASK_TOKEN_ID = 4
+    NEXT_TOKEN_ID = 7
+
+    def make_batch(self, size: int) -> list:
+        return [
+            {
+                "tokens": list(range(1, self.SEQUENCE_LENGTH + 1)),
+                "mask": [1] * self.SEQUENCE_LENGTH,
+            }
+            for _ in range(size)
+        ]
+
+    def test_is_masked_lm_collator(self):
+        collator = DensityCollator(self.MASK_TOKEN_ID, self.VOCAB_SIZE)
+
+        self.assertIsInstance(collator, MaskedLMCollator)
+
+    def test_collator_masks_tokens(self):
+        collator = DensityCollator(self.MASK_TOKEN_ID, self.VOCAB_SIZE, probability=1.0)
+        result = collator(self.make_batch(4))
+
+        self.assertTrue((result["labels"] != -100).all())
+
+    def test_collator_protects_next_token(self):
+        collator = DensityCollator(
+            self.MASK_TOKEN_ID,
+            self.VOCAB_SIZE,
+            next_token_id=self.NEXT_TOKEN_ID,
+            probability=1.0,
+        )
+        batch = self.make_batch(4)
+        result = collator(batch)
+
+        original = tensor([item["tokens"] for item in batch])
+        next_positions = original == self.NEXT_TOKEN_ID
+
+        # Asserts the ``[NEXT]`` token was not masked.
+        self.assertTrue(result["tokens"][next_positions].eq(self.NEXT_TOKEN_ID).all())
+
+        # Asserts that every ``[NEXT]`` position is ingored during the loss computation.
+        self.assertTrue((result["labels"][next_positions] == -100).all())
 
 
 class TestUtilitiesDatasetSplit(TestCase):
