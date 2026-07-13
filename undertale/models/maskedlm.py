@@ -33,6 +33,11 @@ class MaskedLMCollator:
     Arguments:
         mask_token_id: The token ID of the ``[MASK]`` special token.
         vocab_size: The vocabulary size, used for random token replacement.
+        next_token_id: The ID of the special ``NEXT`` token, if any. When
+            given, ``NEXT`` positions are ineligible for masking, since
+            corrupting them would break the instruction/argument position
+            information ``InstructionTracePositionEmbedding`` derives from
+            them.
         probability: The fraction of non-padding tokens selected as masking
             candidates per sequence.
     """
@@ -43,10 +48,12 @@ class MaskedLMCollator:
         self,
         mask_token_id: int,
         vocab_size: int,
+        next_token_id: Optional[int] = None,
         probability: float = PROBABILITY,
     ):
         self.mask_token_id = mask_token_id
         self.vocab_size = vocab_size
+        self.next_token_id = next_token_id
         self.probability = probability
 
     def __call__(self, batch: List[dict]) -> dict:
@@ -63,8 +70,11 @@ class MaskedLMCollator:
         tokens = stack([tensor(item["tokens"]) for item in batch])
         mask = stack([tensor(item["mask"]) for item in batch])
 
-        # Select masking candidates from non-padding positions.
-        candidates = (rand(tokens.shape) < self.probability) & (mask == 1)
+        # Select masking candidates from non-padding, non-NEXT positions.
+        eligible = mask == 1
+        if self.next_token_id is not None:
+            eligible = eligible & (tokens != self.next_token_id)
+        candidates = (rand(tokens.shape) < self.probability) & eligible
 
         # Labels are the original token IDs at masked positions, -100 elsewhere.
         labels = full_like(tokens, -100)
