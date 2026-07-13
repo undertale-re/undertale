@@ -370,7 +370,6 @@ class InstructionTraceTransformerEncoderForDensity(LightningModule, Module):
         }
 
     def training_step(self, batch, index):
-        """"""
         mean, log_variance = self(batch["tokens"], batch["mask"])
         loss = self._nll(mean, log_variance, batch["labels"])
 
@@ -380,8 +379,6 @@ class InstructionTraceTransformerEncoderForDensity(LightningModule, Module):
         return loss
 
     def validation_step(self, batch, index):
-        """"""
-        # Single forward pass, reused for both the loss and the anomaly score.
         mean, log_variance = self(batch["tokens"], batch["mask"])
 
         loss = self._nll(mean, log_variance, batch["labels"])
