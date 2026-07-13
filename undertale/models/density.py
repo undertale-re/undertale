@@ -269,6 +269,29 @@ class InstructionTraceTransformerEncoderForDensity(LightningModule, Module):
 
         return self._score(tokens, mean, log_variance, mask)
 
+    def detect(
+        self, tokens: Tensor, mask: Optional[Tensor] = None, threshold: float = 0.0
+    ) -> Tensor:
+        """Flag anomalous positions by thresholding the per-token score.
+
+        Arguments:
+            tokens: Pre-tokenized input tensor, shaped ``(batch, sequence)``.
+            mask: Optional attention/padding mask tensor.
+            threshold: NLL threshold above which a position is flagged
+                anomalous. Calibrate this against a held-out, known-normal
+                dataset for the deployed model.
+
+        Returns:
+            A boolean tensor shaped ``(batch, sequence)``, True where a
+            position's score exceeds ``threshold``. Excluded positions
+            (padding, and optionally ``NEXT``) are always ``False``.
+        """
+
+        scores = self.score(tokens, mask)
+        valid = self._score_mask(tokens, mask)
+
+        return (scores > threshold) & valid
+
     def _nll(self, mean: Tensor, log_variance: Tensor, labels: Tensor) -> Tensor:
         """Gaussian negative log-likelihood over valid positions.
 
