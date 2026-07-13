@@ -13,7 +13,7 @@ evaluation infrastructure, and integrations with external products.
 
 - `undertale/` — installable library (schema, parsers, pipeline utilities, models)
   - `pipeline/` — per-format stage helpers (binary, parquet, dask, json, tarfile, zip, cpp)
-  - `models/` — transformer variants (maskedlm, classification, summarization, tuning)
+  - `models/` — transformer variants (maskedlm, classification, summarization, tuning, density)
   - `schema.py` — Pandera DataFrame schemas; all pipeline outputs must validate against one
   - `parsers.py` — `DatasetArgumentParser` / `ModelArgumentParser` for pipeline entry points
 - `pipelines/` — standalone runnable scripts (not part of the library)
