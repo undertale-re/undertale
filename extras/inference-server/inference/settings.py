@@ -66,6 +66,7 @@ class MaskedLMCheckpoint(Setting):
     key = "maskedlm-checkpoint"
     default = "{workspace}/maskedlm.ckpt"
 
+
 class FunctionNamingCheckpoint(Setting):
     key = "function-naming-checkpoint"
     default = "{workspace}/fnaming.ckpt"
