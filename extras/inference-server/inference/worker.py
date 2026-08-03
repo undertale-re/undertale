@@ -38,14 +38,14 @@ class Worker(multiprocessing.Process):
         )
         self.maskedlm.eval()
 
-        self.funtion_naming = InstructionTraceTransformerEncoderForSequenceSummarizationGPT2 = (
-            InstructionTraceTransformerEncoderForMaskedLM.load_from_checkpoint(
+        self.funtion_naming = (
+            InstructionTraceTransformerEncoderForSequenceSummarizationGPT2.load_from_checkpoint(
                 config["function-naming-checkpoint"]
             )
         )
         self.funtion_naming.eval()
 
-        self.language_tokenizer = GPT2Tokenizer.from_pretrained(model.LANGUAGE)
+        self.language_tokenizer = GPT2Tokenizer.from_pretrained(self.funtion_naming.LANGUAGE)
 
         logger.info("worker started (pid=%d)", os.getpid())
 

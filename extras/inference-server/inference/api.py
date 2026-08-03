@@ -161,6 +161,11 @@ def create_app() -> Flask:
                     f"GET {prefix}/maskedlm/completion/<id>/",
                     f"DELETE {prefix}/maskedlm/completion/<id>/",
                     f"POST {prefix}/maskedlm/completion/<id>/feedback/",
+                    f"GET {prefix}/fnaming/completion/",
+                    f"POST {prefix}/fnaming/completion/",
+                    f"GET {prefix}/fnaming/completion/<id>/",
+                    f"DELETE {prefix}/fnaming/completion/<id>/",
+                    f"POST {prefix}/fnaming/completion/<id>/feedback/",
                 ]
             }
         )
@@ -247,6 +252,111 @@ def create_app() -> Flask:
         completion = (
             g.session.query(Completion)
             .filter_by(id=completion_id, type=int(CompletionType.MaskedLM))
+            .first()
+        )
+        if completion is None:
+            abort(404)
+        if not user.admin and completion.user_id != user.id:
+            abort(404)  # 404 not 403, to avoid leaking existence
+
+        data = request.get_json(silent=True)
+        require_fields(data, "rating")
+
+        rating = data["rating"]
+        valid_ratings = [int(r) for r in CompletionRating]
+        if rating not in valid_ratings:
+            abort(400)
+
+        comments = data.get("comments")
+
+        completion.rating = rating
+        completion.comments = comments
+        g.session.commit()
+
+        return jsonify({"rating": completion.rating, "comments": completion.comments})
+
+    @application.route("/fnaming/completion/", methods=["GET"])
+    @jwt_required()
+    def list_namings():
+        user = current_user(g.session)
+        query = (
+            g.session.query(Completion)
+            .options(joinedload(Completion.user))
+            .filter_by(type=int(CompletionType.FunctionNaming))
+        )
+        if not user.admin:
+            query = query.filter_by(user_id=user.id)
+        completions = query.order_by(Completion.timestamp.desc()).all()
+        return jsonify([serialize_completion(c) for c in completions])
+
+    @application.route("/fnaming/completion/", methods=["POST"])
+    @jwt_required()
+    def name_function():
+        data = request.get_json(silent=True)
+        require_fields(data, "input")
+
+        user = current_user(g.session)
+
+        naming = Completion(
+            user=user,
+            type=int(CompletionType.FunctionNaming),
+            input=sanitize(data["input"]),
+            timestamp=datetime.now(UTC),
+            state=int(CompletionState.queued),
+        )
+        g.session.add(naming)
+        g.session.commit()
+
+        logger.info(f"created function naming {naming.id} for user {user.username}")
+
+        return jsonify(serialize_completion(naming)), 201
+
+    @application.route("/fnaming/completion/<int:completion_id>/", methods=["GET"])
+    @jwt_required()
+    def get_naming(completion_id: int):
+        user = current_user(g.session)
+        naming = (
+            g.session.query(Completion)
+            .options(joinedload(Completion.user))
+            .filter_by(id=completion_id, type=int(CompletionType.FunctionNaming))
+            .first()
+        )
+        if naming is None:
+            abort(404)
+        if not user.admin and naming.user_id != user.id:
+            abort(404)  # 404 not 403, to avoid leaking existence
+        return jsonify(serialize_completion(naming))
+
+    @application.route("/fnaming/completion/<int:completion_id>/", methods=["DELETE"])
+    @jwt_required()
+    def delete_naming(completion_id: int):
+        user = current_user(g.session)
+        naming = (
+            g.session.query(Completion)
+            .filter_by(id=completion_id, type=int(CompletionType.FunctionNaming))
+            .first()
+        )
+        if naming is None:
+            abort(404)
+        if not user.admin and naming.user_id != user.id:
+            abort(404)  # 404 not 403, to avoid leaking existence
+
+        g.session.delete(naming)
+        g.session.commit()
+
+        logger.info(f"deleted naming {completion_id}")
+
+        return "", 204
+
+    @application.route(
+        "/fnaming/completion/<int:completion_id>/feedback/", methods=["POST"]
+    )
+    @jwt_required()
+    def upsert_feedback_fnaming(completion_id: int):
+        user = current_user(g.session)
+        completion = (
+            g.session.query(Completion)
+            .filter_by(id=completion_id, type=int(CompletionType.FunctionNaming))
             .first()
         )
         if completion is None:
