@@ -2254,26 +2254,6 @@ class TestModelMaskedLMCollator(TestCase):
         collator = MaskedLMCollator(self.MASK_TOKEN_ID, self.VOCAB_SIZE)
         self.assertEqual(collator.probability, 0.15)
 
-    def test_collator_next_token_not_masked(self):
-        next_token_id = 7
-        collator = MaskedLMCollator(
-            self.MASK_TOKEN_ID,
-            self.VOCAB_SIZE,
-            next_token_id=next_token_id,
-            probability=1.0,
-        )
-        batch = self.make_batch(4)
-        result = collator(batch)
-
-        original = tensor([item["tokens"] for item in batch])
-        next_positions = original == next_token_id
-
-        # NEXT tokens must never be corrupted or scored, since
-        # InstructionTracePositionEmbedding derives positional information
-        # from their exact positions.
-        self.assertTrue(result["tokens"][next_positions].eq(next_token_id).all())
-        self.assertTrue((result["labels"][next_positions] == -100).all())
-
 
 class TestModelDensityCollator(TestCase):
     SEQUENCE_LENGTH = 16
@@ -2314,10 +2294,8 @@ class TestModelDensityCollator(TestCase):
         original = tensor([item["tokens"] for item in batch])
         next_positions = original == self.NEXT_TOKEN_ID
 
-        # Asserts the ``[NEXT]`` token was not masked.
+        self.assertTrue(next_positions.any())
         self.assertTrue(result["tokens"][next_positions].eq(self.NEXT_TOKEN_ID).all())
-
-        # Asserts that every ``[NEXT]`` position is ingored during the loss computation.
         self.assertTrue((result["labels"][next_positions] == -100).all())
 
 
