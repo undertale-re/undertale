@@ -39,13 +39,13 @@ class Worker(multiprocessing.Process):
         )
         self.maskedlm.eval()
 
-        self.funtion_naming = InstructionTraceTransformerEncoderForSequenceSummarizationGPT2.load_from_checkpoint(
+        self.function_naming = InstructionTraceTransformerEncoderForSequenceSummarizationGPT2.load_from_checkpoint(
             config["function-naming-checkpoint"]
         )
-        self.funtion_naming.eval()
+        self.function_naming.eval()
 
         self.language_tokenizer = GPT2Tokenizer.from_pretrained(
-            self.funtion_naming.LANGUAGE
+            self.function_naming.LANGUAGE
         )
 
         logger.info("worker started (pid=%d)", os.getpid())
@@ -133,7 +133,7 @@ class Worker(multiprocessing.Process):
         """Run function naming model inference.
 
         Arguments:
-            input: The input string containing [MASK] tokens.
+            input: The input string of disassembly.
 
         Returns:
             A predicted function name for the given disassembly tokens.
@@ -142,13 +142,13 @@ class Worker(multiprocessing.Process):
         from torch import no_grad, tensor
 
         encoded = self.tokenizer.encode(input)
-        tokens = tensor(encoded.ids).unsqueeze(0).to(self.funtion_naming.device)
+        tokens = tensor(encoded.ids).unsqueeze(0).to(self.function_naming.device)
         mask = (
-            tensor(encoded.attention_mask).unsqueeze(0).to(self.funtion_naming.device)
+            tensor(encoded.attention_mask).unsqueeze(0).to(self.function_naming.device)
         )
 
         with no_grad():
-            generated = self.funtion_naming.generate(tokens, mask)
+            generated = self.function_naming.generate(tokens, mask)
 
         summary = self.language_tokenizer.decode(
             generated[0].tolist(), skip_special_tokens=True
