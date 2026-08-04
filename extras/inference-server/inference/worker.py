@@ -16,8 +16,13 @@ class Worker(multiprocessing.Process):
     """Background process that consumes queued completions and runs inference."""
 
     def run(self):
+        from transformers import GPT2Tokenizer
+
         from undertale.models.maskedlm import (
             InstructionTraceTransformerEncoderForMaskedLM,
+        )
+        from undertale.models.summarization import (
+            InstructionTraceTransformerEncoderForSequenceSummarizationGPT2,
         )
         from undertale.models.tokenizer import load as load_tokenizer
 
@@ -33,6 +38,15 @@ class Worker(multiprocessing.Process):
             )
         )
         self.maskedlm.eval()
+
+        self.function_naming = InstructionTraceTransformerEncoderForSequenceSummarizationGPT2.load_from_checkpoint(
+            config["function-naming-checkpoint"]
+        )
+        self.function_naming.eval()
+
+        self.language_tokenizer = GPT2Tokenizer.from_pretrained(
+            self.function_naming.LANGUAGE
+        )
 
         logger.info("worker started (pid=%d)", os.getpid())
 
@@ -73,6 +87,10 @@ class Worker(multiprocessing.Process):
                     try:
                         if completion.type == int(CompletionType.MaskedLM):
                             completion.output = self.complete_maskedlm(completion.input)
+                        elif completion.type == int(CompletionType.FunctionNaming):
+                            completion.output = self.complete_function_naming(
+                                completion.input
+                            )
                         completion.state = int(CompletionState.complete)
                         logger.info("completed completion %d", completion.id)
                     except Exception as error:
@@ -110,3 +128,30 @@ class Worker(multiprocessing.Process):
         predicted = self.tokenizer.decode(filled.tolist(), skip_special_tokens=False)
 
         return predicted.replace(TOKEN_PAD, "").strip()
+
+    def complete_function_naming(self, input: str) -> str:
+        """Run function naming model inference.
+
+        Arguments:
+            input: The input string of disassembly.
+
+        Returns:
+            A predicted function name for the given disassembly tokens.
+        """
+
+        from torch import no_grad, tensor
+
+        encoded = self.tokenizer.encode(input)
+        tokens = tensor(encoded.ids).unsqueeze(0).to(self.function_naming.device)
+        mask = (
+            tensor(encoded.attention_mask).unsqueeze(0).to(self.function_naming.device)
+        )
+
+        with no_grad():
+            generated = self.function_naming.generate(tokens, mask)
+
+        summary = self.language_tokenizer.decode(
+            generated[0].tolist(), skip_special_tokens=True
+        )
+
+        return summary.strip()

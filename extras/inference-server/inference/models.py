@@ -54,6 +54,7 @@ class User(Model):
 
 class CompletionType(IntEnum):
     MaskedLM = 0
+    FunctionNaming = 1
 
 
 class CompletionState(IntEnum):
