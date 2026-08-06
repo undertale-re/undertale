@@ -19,11 +19,20 @@ class Submit(Command):
             required=True,
             help="username to submit the completion as",
         )
+        parser.add_argument(
+            "-t",
+            "--type",
+            required=True,
+            choices=list(CompletionType.__members__),
+            help="type of completion to submit",
+        )
         parser.add_argument("input", help="the input text to submit")
 
     def handle(self, arguments):
         settings = fetch_settings()
         engine = connect(settings["database"])
+
+        type = CompletionType[arguments.type]
 
         with Session(engine) as session:
             user = (
@@ -35,7 +44,7 @@ class Submit(Command):
 
             completion = Completion(
                 user=user,
-                type=int(CompletionType.MaskedLM),
+                type=int(type),
                 input=arguments.input,
                 timestamp=datetime.now(UTC),
                 state=int(CompletionState.queued),
@@ -45,6 +54,8 @@ class Submit(Command):
 
             username = completion.user.username
             timestamp = completion.timestamp.isoformat()
+            completiontype = CompletionType(completion.type).name
             print("Submitted:")
             print(f"  \033[1m{username}\033[0m  {completion.id}  {timestamp}")
+            print(f"    type:  {completiontype}")
             print(f"    input: {completion.input}")

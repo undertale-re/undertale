@@ -110,7 +110,8 @@ inference completions --input <substring>
 inference completions --limit <n>
 
 # Submit a completion from the CLI
-inference submit -u username "xor rax [MASK]"
+inference submit -u username -t MaskedLM "xor rax [MASK]"
+inference submit -u username -t FunctionNaming "push rbp\nmov rbp, rsp\n..."
 
 # Delete a completion
 inference delete 42
