@@ -54,8 +54,8 @@ class Submit(Command):
 
             username = completion.user.username
             timestamp = completion.timestamp.isoformat()
-            completiontype = CompletionType(completion.type).name
+            type_name = CompletionType(completion.type).name
             print("Submitted:")
             print(f"  \033[1m{username}\033[0m  {completion.id}  {timestamp}")
-            print(f"    type:  {completiontype}")
+            print(f"    type:  {type_name}")
             print(f"    input: {completion.input}")
