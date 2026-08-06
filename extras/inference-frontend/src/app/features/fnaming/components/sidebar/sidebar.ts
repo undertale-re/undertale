@@ -1,7 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../../core/services/auth.service';
-import { MaskedlmCompletionService } from '../../../../core/services/maskedlm-completion.service';
+import { FnamingCompletionService } from '../../../../core/services/fnaming-completion.service';
 import { Completion, stateBadgeClass, stateLabel } from '../../../../core/models/completion.model';
 import { formatForDisplay } from '../../../../core/utils/pretoken';
 
@@ -13,7 +13,7 @@ import { formatForDisplay } from '../../../../core/utils/pretoken';
 })
 export class Sidebar {
   protected readonly auth = inject(AuthService);
-  protected readonly completionService = inject(MaskedlmCompletionService);
+  protected readonly completionService = inject(FnamingCompletionService);
 
   protected search = signal('');
 

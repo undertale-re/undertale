@@ -7,7 +7,15 @@
 @if (isAuthenticated()) {
   <div class="d-flex flex-column app-shell">
     <nav class="navbar navbar-dark bg-dark px-3">
-      <span class="navbar-brand">Undertale</span>
+      <a routerLink="/" class="navbar-brand">Undertale</a>
+      <ul class="nav nav-pills flex-grow-1">
+        <li class="nav-item">
+          <a class="nav-link" routerLink="/maskedlm" routerLinkActive="active">Masked LM</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" routerLink="/fnaming" routerLinkActive="active">Function Naming</a>
+        </li>
+      </ul>
       <div class="d-flex align-items-center gap-2">
         <span class="text-light me-2"
           ><b>{{ auth.username() }}</b></span

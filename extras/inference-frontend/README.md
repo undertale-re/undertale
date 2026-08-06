@@ -36,9 +36,16 @@ nginx -s reload
 
 ## Usage
 
-Access the app via a web browser. Enter assembly with `[MASK]` tokens and
-submit to get model predictions. After a completion is returned, rate the
-response and leave optional comments.
+Access the app via a web browser and choose an inference type from the landing
+page:
+
+- **Masked LM** — enter assembly with `[MASK]` tokens and submit to get model
+  predictions for the masked tokens.
+- **Function Naming** — paste the disassembly of a function and submit to get
+  a predicted name for it.
+
+After a completion is returned, rate the response and leave optional
+comments.
 
 ![Completed inference with feedback](images/feedback.png)
 
