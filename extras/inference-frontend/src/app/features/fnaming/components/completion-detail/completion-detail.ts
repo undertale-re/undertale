@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { debounceTime } from 'rxjs/operators';
 import { AuthService } from '../../../../core/services/auth.service';
-import { MaskedlmCompletionService } from '../../../../core/services/maskedlm-completion.service';
+import { FnamingCompletionService } from '../../../../core/services/fnaming-completion.service';
 import { stateBadgeClass, stateLabel } from '../../../../core/models/completion.model';
 import { formatForDisplay } from '../../../../core/utils/pretoken';
 import { ConfirmModal } from '../../../../shared/components/confirm-modal/confirm-modal';
@@ -23,7 +23,7 @@ interface PendingFeedback {
 })
 export class CompletionDetail implements OnDestroy {
   protected readonly auth = inject(AuthService);
-  protected readonly completionService = inject(MaskedlmCompletionService);
+  protected readonly completionService = inject(FnamingCompletionService);
 
   protected readonly completion = computed(() => this.completionService.selected());
   protected readonly isAdmin = computed(() => this.auth.isAdmin());

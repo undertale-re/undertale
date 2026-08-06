@@ -1,7 +1,8 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from './core/services/auth.service';
-import { CompletionService } from './core/services/completion.service';
+import { MaskedlmCompletionService } from './core/services/maskedlm-completion.service';
+import { FnamingCompletionService } from './core/services/fnaming-completion.service';
 import { EulaService } from './core/services/eula.service';
 import { Login } from './features/login/login';
 import { EulaModal } from './shared/components/eula-modal/eula-modal';
@@ -10,13 +11,14 @@ import { version } from '../environments/version';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, Login, EulaModal, ConfirmModal],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, Login, EulaModal, ConfirmModal],
   templateUrl: './app.html',
   styleUrl: './app.css',
 })
 export class App {
   protected readonly auth = inject(AuthService);
-  private readonly completionService = inject(CompletionService);
+  private readonly maskedlmCompletion = inject(MaskedlmCompletionService);
+  private readonly fnamingCompletion = inject(FnamingCompletionService);
   private readonly eulaService = inject(EulaService);
 
   protected readonly version = version;
@@ -46,7 +48,8 @@ export class App {
 
   onLogoutConfirmed(): void {
     this.showLogoutConfirm.set(false);
-    this.completionService.reset();
+    this.maskedlmCompletion.reset();
+    this.fnamingCompletion.reset();
     this.auth.logout();
   }
 

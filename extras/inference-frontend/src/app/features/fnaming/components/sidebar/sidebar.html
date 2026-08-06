@@ -1,0 +1,40 @@
+<div class="d-flex flex-column h-100">
+  <div class="p-2 border-bottom">
+    <input
+      type="text"
+      class="form-control form-control-sm"
+      placeholder="Search completions..."
+      [ngModel]="search()"
+      (ngModelChange)="search.set($event)"
+    />
+  </div>
+
+  <div class="flex-grow-1 overflow-y-auto">
+    <button
+      class="sidebar-item w-100 text-start btn btn-light rounded-0 border-bottom d-flex align-items-center gap-2 new-item"
+      [class.active]="completionService.selected() === null"
+      (click)="selectNew()"
+    >
+      <i class="fa fa-plus text-primary"></i>
+      <span>New Completion</span>
+    </button>
+
+    @for (completion of filtered(); track completion.id) {
+      <button
+        class="sidebar-item w-100 text-start btn btn-light rounded-0 border-bottom"
+        [class.active]="isSelected(completion)"
+        (click)="select(completion)"
+      >
+        <div class="d-flex justify-content-between align-items-start gap-1 mb-1">
+          <span [class]="stateBadgeClass(completion.state)">{{
+            stateLabel(completion.state)
+          }}</span>
+          @if (isAdmin() && completion.username) {
+            <span class="badge bg-info text-dark">{{ completion.username }}</span>
+          }
+        </div>
+        <div class="sidebar-text text-truncate" [innerHTML]="highlight(completion.input)"></div>
+      </button>
+    }
+  </div>
+</div>

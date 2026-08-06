@@ -4,8 +4,8 @@ import { Subscription, interval } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
 import { Completion } from '../models/completion.model';
 
-@Injectable({ providedIn: 'root' })
-export class CompletionService {
+@Injectable()
+export abstract class CompletionServiceBase {
   private readonly http = inject(HttpClient);
 
   readonly completions = signal<Completion[]>([]);
@@ -14,7 +14,7 @@ export class CompletionService {
 
   private pollSubscription: Subscription | null = null;
 
-  constructor() {
+  protected constructor(private readonly basePath: string) {
     effect(() => {
       if (this.hasPending()) {
         this.startPolling();
@@ -27,7 +27,7 @@ export class CompletionService {
   private startPolling(): void {
     if (this.pollSubscription) return;
     this.pollSubscription = interval(3000)
-      .pipe(switchMap(() => this.http.get<Completion[]>('/api/maskedlm/completion/')))
+      .pipe(switchMap(() => this.http.get<Completion[]>(this.basePath)))
       .subscribe((completions) => {
         this.completions.set(completions);
         const currentSelected = this.selected();
@@ -44,20 +44,20 @@ export class CompletionService {
   }
 
   load(): void {
-    this.http.get<Completion[]>('/api/maskedlm/completion/').subscribe((completions) => {
+    this.http.get<Completion[]>(this.basePath).subscribe((completions) => {
       this.completions.set(completions);
     });
   }
 
   create(input: string): void {
-    this.http.post<Completion>('/api/maskedlm/completion/', { input }).subscribe((completion) => {
+    this.http.post<Completion>(this.basePath, { input }).subscribe((completion) => {
       this.completions.update((list) => [completion, ...list]);
       this.selected.set(completion);
     });
   }
 
   delete(id: number): void {
-    this.http.delete(`/api/maskedlm/completion/${id}/`).subscribe(() => {
+    this.http.delete(`${this.basePath}${id}/`).subscribe(() => {
       this.completions.update((list) => list.filter((c) => c.id !== id));
       if (this.selected()?.id === id) {
         this.selected.set(null);
@@ -66,14 +66,12 @@ export class CompletionService {
   }
 
   submitFeedback(id: number, rating: number, comments: string): void {
-    this.http
-      .post(`/api/maskedlm/completion/${id}/feedback/`, { rating, comments })
-      .subscribe(() => {
-        const patch = (c: Completion) => (c.id === id ? { ...c, rating, comments } : c);
-        this.completions.update((list) => list.map(patch));
-        const selected = this.selected();
-        if (selected?.id === id) this.selected.set({ ...selected, rating, comments });
-      });
+    this.http.post(`${this.basePath}${id}/feedback/`, { rating, comments }).subscribe(() => {
+      const patch = (c: Completion) => (c.id === id ? { ...c, rating, comments } : c);
+      this.completions.update((list) => list.map(patch));
+      const selected = this.selected();
+      if (selected?.id === id) this.selected.set({ ...selected, rating, comments });
+    });
   }
 
   reset(): void {

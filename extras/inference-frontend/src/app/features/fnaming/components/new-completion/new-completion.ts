@@ -1,6 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { MaskedlmCompletionService } from '../../../../core/services/maskedlm-completion.service';
+import { FnamingCompletionService } from '../../../../core/services/fnaming-completion.service';
 import { joinInstructionLines } from '../../../../core/utils/pretoken';
 import { AssemblyFormatModal } from '../../../../shared/components/assembly-format-modal/assembly-format-modal';
 
@@ -10,7 +10,7 @@ import { AssemblyFormatModal } from '../../../../shared/components/assembly-form
   templateUrl: './new-completion.html',
 })
 export class NewCompletion {
-  private readonly completionService = inject(MaskedlmCompletionService);
+  private readonly completionService = inject(FnamingCompletionService);
 
   protected input = signal('');
   protected submitting = signal(false);
