@@ -41,6 +41,10 @@ Migrate the database:
 inference migrate
 ```
 
+#### Authenticated Systemd Service
+
+Configure the settings to point to your LDAP instance for authentication.
+
 Install the API systemd service using the example as a reference:
 
 ```bash
@@ -63,9 +67,26 @@ cp examples/undertale-inference-worker.service /etc/systemd/system/
 systemctl enable --now undertale-inference-worker
 ```
 
+#### Unauthenticated Local Service
+
+Authentication may be disabled for simple, co-located inference service
+deployments (e.g., `authentication = False` in the configuration).
+
+Start the inference server bound to e.g., a Unix socket:
+
+```bash
+gunicorn --bind unix:./undertale-inference.sock inference.api:app
+```
+
+Start the inference worker(s):
+
+```bash
+inference worker --parallelism 2
+```
+
 ## Usage
 
-### Systemd Service
+### Authenticated Systemd Service
 
 Use `systemctl` to manage the services:
 
@@ -100,6 +121,7 @@ inference users
 inference users --sorted          # sort by completion count (descending)
 
 # Force authentication of a given user by username
+# (errors when authentication is disabled)
 inference authenticate username
 
 # List completions (default limit: 10)
@@ -140,12 +162,12 @@ conda env update -f environment.development.yml
 conda activate undertale
 ```
 
-You might also find the environment file `environment/development.env` useful
+You might also find the environment file `environments/development.env` useful
 for development purposes. This file sets environment variables for the project
 to a useful configuration for development. To activate it, run:
 
 ```bash
-source environment/development.env
+source environments/development.env
 ```
 
 ### Development Server

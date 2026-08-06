@@ -1,12 +1,13 @@
+import functools
 from datetime import UTC, datetime, timedelta
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional, ParamSpec, TypeVar
 
-from flask import Flask, abort, g, jsonify, request
+from flask import Flask, abort, current_app, g, jsonify, request
 from flask_jwt_extended import (
     JWTManager,
     create_access_token,
     get_jwt_identity,
-    jwt_required,
+    verify_jwt_in_request,
 )
 from ldap3 import AUTO_BIND_NONE, SIMPLE, Connection, Server
 from ldap3.core.exceptions import LDAPBindError, LDAPException
@@ -28,6 +29,26 @@ from .text import sanitize
 logger = get_logger(__name__)
 
 
+ANONYMOUS = "default"
+"""Username that all requests run as when authentication is disabled."""
+
+
+P = ParamSpec("P")
+T = TypeVar("T")
+
+
+def authenticated(function: Callable[P, T]) -> Callable[P, T]:
+    """Require a valid JWT, unless authentication is disabled."""
+
+    @functools.wraps(function)
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+        if current_app.config["AUTHENTICATION"]:
+            verify_jwt_in_request()
+        return function(*args, **kwargs)
+
+    return wrapper
+
+
 def require_fields(data: Optional[Dict], *fields: str) -> None:
     if data is None:
         abort(400)
@@ -38,6 +59,17 @@ def require_fields(data: Optional[Dict], *fields: str) -> None:
 
 
 def current_user(session: Session) -> User:
+    if not current_app.config["AUTHENTICATION"]:
+        user = session.query(User).filter_by(username=ANONYMOUS).first()
+        if user is None:
+            user = User(username=ANONYMOUS, admin=True)
+            session.add(user)
+            session.commit()
+        elif not user.admin:
+            user.admin = True
+            session.commit()
+        return user
+
     user = session.query(User).filter_by(username=get_jwt_identity()).first()
     if user is None:
         abort(401)
@@ -67,18 +99,25 @@ def create_app() -> Flask:
 
     settings = fetch_settings()
     application.config["ENGINE"] = connect(settings["database"])
-    application.config["JWT_SECRET_KEY"] = settings["jwtsecret"]
-    application.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=14)
-    application.config["LDAP_HOST"] = settings["ldaphost"]
-    application.config["LDAP_PORT"] = settings["ldapport"]
-    application.config["LDAP_DOMAIN"] = settings["ldapdomain"]
+    application.config["AUTHENTICATION"] = settings["authentication"]
 
-    if settings["jwtsecret"] == "secret":
+    if settings["authentication"]:
+        application.config["JWT_SECRET_KEY"] = settings["jwtsecret"]
+        application.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=14)
+        application.config["LDAP_HOST"] = settings["ldaphost"]
+        application.config["LDAP_PORT"] = settings["ldapport"]
+        application.config["LDAP_DOMAIN"] = settings["ldapdomain"]
+
+        if settings["jwtsecret"] == "secret":
+            logger.warning(
+                "JWTSecret is set to its default value; set a strong secret before deploying"
+            )
+
+        JWTManager(application)
+    else:
         logger.warning(
-            "JWTSecret is set to its default value; set a strong secret before deploying"
+            f"authentication is disabled; all requests run as admin user {ANONYMOUS!r}"
         )
-
-    JWTManager(application)
 
     @application.before_request
     def before_request():
@@ -108,6 +147,9 @@ def create_app() -> Flask:
 
     @application.route("/login/", methods=["POST"])
     def login():
+        if not application.config["AUTHENTICATION"]:
+            abort(404)
+
         data = request.get_json(silent=True)
         require_fields(data, "username", "password")
 
@@ -148,11 +190,12 @@ def create_app() -> Flask:
         )
 
     @application.route("/")
-    @jwt_required()
+    @authenticated
     def index():
         prefix = request.script_root.rstrip("/")
         return jsonify(
             {
+                "authentication": application.config["AUTHENTICATION"],
                 "endpoints": [
                     f"GET {prefix}/",
                     f"POST {prefix}/login/",
@@ -166,12 +209,12 @@ def create_app() -> Flask:
                     f"GET {prefix}/fnaming/completion/<id>/",
                     f"DELETE {prefix}/fnaming/completion/<id>/",
                     f"POST {prefix}/fnaming/completion/<id>/feedback/",
-                ]
+                ],
             }
         )
 
     @application.route("/maskedlm/completion/", methods=["GET"])
-    @jwt_required()
+    @authenticated
     def list_completions():
         user = current_user(g.session)
         query = (
@@ -185,7 +228,7 @@ def create_app() -> Flask:
         return jsonify([serialize_completion(c) for c in completions])
 
     @application.route("/maskedlm/completion/", methods=["POST"])
-    @jwt_required()
+    @authenticated
     def create_completion():
         data = request.get_json(silent=True)
         require_fields(data, "input")
@@ -207,7 +250,7 @@ def create_app() -> Flask:
         return jsonify(serialize_completion(completion)), 201
 
     @application.route("/maskedlm/completion/<int:completion_id>/", methods=["GET"])
-    @jwt_required()
+    @authenticated
     def get_completion(completion_id: int):
         user = current_user(g.session)
         completion = (
@@ -223,7 +266,7 @@ def create_app() -> Flask:
         return jsonify(serialize_completion(completion))
 
     @application.route("/maskedlm/completion/<int:completion_id>/", methods=["DELETE"])
-    @jwt_required()
+    @authenticated
     def delete_completion(completion_id: int):
         user = current_user(g.session)
         completion = (
@@ -246,7 +289,7 @@ def create_app() -> Flask:
     @application.route(
         "/maskedlm/completion/<int:completion_id>/feedback/", methods=["POST"]
     )
-    @jwt_required()
+    @authenticated
     def upsert_feedback(completion_id: int):
         user = current_user(g.session)
         completion = (
@@ -276,7 +319,7 @@ def create_app() -> Flask:
         return jsonify({"rating": completion.rating, "comments": completion.comments})
 
     @application.route("/fnaming/completion/", methods=["GET"])
-    @jwt_required()
+    @authenticated
     def list_namings():
         user = current_user(g.session)
         query = (
@@ -290,7 +333,7 @@ def create_app() -> Flask:
         return jsonify([serialize_completion(c) for c in completions])
 
     @application.route("/fnaming/completion/", methods=["POST"])
-    @jwt_required()
+    @authenticated
     def name_function():
         data = request.get_json(silent=True)
         require_fields(data, "input")
@@ -312,7 +355,7 @@ def create_app() -> Flask:
         return jsonify(serialize_completion(naming)), 201
 
     @application.route("/fnaming/completion/<int:completion_id>/", methods=["GET"])
-    @jwt_required()
+    @authenticated
     def get_naming(completion_id: int):
         user = current_user(g.session)
         naming = (
@@ -328,7 +371,7 @@ def create_app() -> Flask:
         return jsonify(serialize_completion(naming))
 
     @application.route("/fnaming/completion/<int:completion_id>/", methods=["DELETE"])
-    @jwt_required()
+    @authenticated
     def delete_naming(completion_id: int):
         user = current_user(g.session)
         naming = (
@@ -351,7 +394,7 @@ def create_app() -> Flask:
     @application.route(
         "/fnaming/completion/<int:completion_id>/feedback/", methods=["POST"]
     )
-    @jwt_required()
+    @authenticated
     def upsert_feedback_fnaming(completion_id: int):
         user = current_user(g.session)
         completion = (
