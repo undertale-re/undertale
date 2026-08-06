@@ -3,7 +3,14 @@ from datetime import date
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from ..models import Completion, CompletionRating, CompletionState, User, connect
+from ..models import (
+    Completion,
+    CompletionRating,
+    CompletionState,
+    CompletionType,
+    User,
+    connect,
+)
 from ..settings import fetch as fetch_settings
 from .base import Command
 
@@ -51,11 +58,12 @@ class Completions(Command):
 
             print("Completions:")
             for completion in query.all():
+                type_name = CompletionType(completion.type).name
                 state = CompletionState(completion.state).name
                 username = completion.user.username
                 timestamp = completion.timestamp.isoformat()
                 print(
-                    f"  \033[1m{username}\033[0m  {completion.id}  {timestamp}  [{state}]"
+                    f"  \033[1m{username}\033[0m  {completion.id}  {timestamp}  [{type_name}] [{state}]"
                 )
                 print(f"    input:  {completion.input}")
                 print(f"    output: {completion.output}")
