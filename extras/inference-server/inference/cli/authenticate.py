@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 
+from ..exceptions import CommandError
 from ..models import User, connect
 from ..settings import fetch as fetch_settings
 from .base import Command
@@ -17,6 +18,12 @@ class Authenticate(Command):
         from flask_jwt_extended import JWTManager, create_access_token
 
         settings = fetch_settings()
+
+        if not settings["authentication"]:
+            raise CommandError(
+                "authentication is disabled; tokens are not required or supported"
+            )
+
         engine = connect(settings["database"])
 
         with Session(engine) as session:

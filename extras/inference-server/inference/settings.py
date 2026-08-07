@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from configparser import ConfigParser, NoOptionError
 from os.path import exists
 from secrets import token_hex
-from typing import Dict
+from typing import Any, Dict, Optional
 
 from .exceptions import ConfigurationError
 from .logging import get_logger
@@ -31,6 +31,12 @@ def get_settings_path() -> str:
 
 
 class Setting(ABC):
+    required: bool = True
+    """Whether this setting must be present in the settings file."""
+
+    fallback: Optional[str] = None
+    """The raw value assumed when an optional setting is absent."""
+
     @property
     @abstractmethod
     def key(self) -> str:
@@ -72,19 +78,38 @@ class FunctionNamingCheckpoint(Setting):
     default = "{workspace}/fnaming.ckpt"
 
 
+class Authentication(Setting):
+    key = "authentication"
+    default = "yes"
+    required = False
+    fallback = "yes"
+
+    def parse(self, value: str) -> bool:
+        states = ConfigParser.BOOLEAN_STATES
+        normalized = value.strip().lower()
+        if normalized not in states:
+            raise ConfigurationError(
+                f"invalid boolean value for 'authentication': {value!r}"
+            )
+        return states[normalized]
+
+
 class JWTSecret(Setting):
     key = "jwtsecret"
     default = token_hex(32)
+    required = False
 
 
 class LDAPHost(Setting):
     key = "ldaphost"
     default = "ad.example.com"
+    required = False
 
 
 class LDAPPort(Setting):
     key = "ldapport"
     default = "636"
+    required = False
 
     def parse(self, value: str) -> int:
         return int(value)
@@ -93,6 +118,7 @@ class LDAPPort(Setting):
 class LDAPDomain(Setting):
     key = "ldapdomain"
     default = "example.com"
+    required = False
 
 
 def initialize() -> None:
@@ -115,7 +141,7 @@ def initialize() -> None:
     logger.info(f"wrote initial configuration file to {path}")
 
 
-def fetch() -> Dict[str, str]:
+def fetch() -> Dict[str, Any]:
     """Fetch the current settings.
 
     Returns:
@@ -135,14 +161,25 @@ def fetch() -> Dict[str, str]:
             f"settings file {path} missing section {SETTINGS_SECTION!r}"
         )
 
-    settings = {}
+    settings: Dict[str, Any] = {}
     for setting in Setting.__subclasses__():
         s = setting()  # type: ignore
 
         try:
-            settings[s.key] = s.parse(parser.get(SETTINGS_SECTION, s.key))
+            value: Optional[str] = parser.get(SETTINGS_SECTION, s.key)
         except NoOptionError as e:
-            raise ConfigurationError(str(e))
+            if s.required:
+                raise ConfigurationError(str(e))
+            value = s.fallback
+
+        settings[s.key] = s.parse(value) if value is not None else None
+
+    if settings["authentication"]:
+        for key in ("jwtsecret", "ldaphost", "ldapport", "ldapdomain"):
+            if settings[key] is None:
+                raise ConfigurationError(
+                    f"setting {key!r} is required when authentication is enabled"
+                )
 
     return settings
 
