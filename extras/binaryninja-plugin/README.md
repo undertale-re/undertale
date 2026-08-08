@@ -53,9 +53,7 @@ This configuration is saved in Binary Ninja's user settings and persists across 
 ## Development
 
 > [!NOTE]
-> `undertale_function_namer/_disassembly.py` is a byte-for-byte copy of
-> [`undertale/pipeline/disassembly.py`](../../undertale/pipeline/disassembly.py),
-> duplicated here so the plugin has no dependency on the rest of Undertale's
-> (much heavier) dependency set. If you change one, copy it over the other —
-> `tests/unit.py` (`TestPipelineDisassemblyCodeConsistency`) checks that they
-> match.
+> To keep the plugin independent of Undertale's much heavier dependency set, the disassembly code is duplicated here. `undertale_function_namer/_disassembly.py` is a byte-for-byte copy of [`undertale/pipeline/disassembly.py`](https://github.com/undertale-re/undertale/blob/binaryninja-plugin/undertale/pipeline/disassembly.py).
+>
+> If either copy changes, update the other as well. `tests/unit.py` (`TestPipelineDisassemblyCodeConsistency`) verifies that the two remain identical.
+
