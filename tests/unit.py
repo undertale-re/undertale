@@ -1517,7 +1517,11 @@ class TestPipelineDisassemblyCodeConsistency(TestCase):
         repository_root = dirname(dirname(__file__))
         canonical = join(repository_root, "undertale", "pipeline", "disassembly.py")
         shared = join(
-            repository_root, "extras", "binaryninja-plugin", "_disassembly.py"
+            repository_root,
+            "extras",
+            "binaryninja-plugin",
+            "undertale_function_namer",
+            "_disassembly.py",
         )
 
         with open(canonical) as f:
@@ -1528,9 +1532,9 @@ class TestPipelineDisassemblyCodeConsistency(TestCase):
         self.assertEqual(
             canonical_source,
             shared_source,
-            "extras/binaryninja-plugin/_disassembly.py has drifted from "
-            "undertale/pipeline/disassembly.py - copy the canonical file "
-            "over the shared one to resync.",
+            "extras/binaryninja-plugin/undertale_function_namer/_disassembly.py "
+            "has drifted from undertale/pipeline/disassembly.py - copy the "
+            "canonical file over the shared one to resync.",
         )
 
 
