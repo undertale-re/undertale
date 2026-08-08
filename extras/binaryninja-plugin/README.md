@@ -1,4 +1,4 @@
-# Undertale Function Namer
+# Undertale: Function Namer
 
 A Binary Ninja plugin that renames a function by sending its disassembly to
 an [Undertale Inference Server](../inference-server) and applying the
