@@ -68,7 +68,7 @@ as the server — Unix domain sockets aren't reachable over the network.
 ## Development
 
 > [!NOTE]
-> To keep the plugin independent of Undertale's much heavier dependency set, the disassembly code is duplicated here. `undertale_function_namer/_disassembly.py` is a byte-for-byte copy of [`undertale/pipeline/disassembly.py`](https://github.com/undertale-re/undertale/blob/binaryninja-plugin/undertale/pipeline/disassembly.py).
+> To keep the plugin independent of Undertale's much heavier dependency set, the disassembly code is duplicated here. `undertale_function_namer/utils/disassembly.py` is a byte-for-byte copy of [`undertale/pipeline/disassembly.py`](https://github.com/undertale-re/undertale/blob/binaryninja-plugin/undertale/pipeline/disassembly.py).
 >
 > If either copy changes, update the other as well. `tests/unit.py` (`TestPipelineDisassemblyCodeConsistency`) verifies that the two remain identical.
 

@@ -77,6 +77,41 @@ def _open_connection(connection: Connection) -> http.client.HTTPConnection:
     )
 
 
+class AuthenticationRequired(RuntimeError):
+    """Raised when the inference server requires authentication.
+
+    This plugin does not yet support authenticating with the inference
+    server, so this is a reason to stop rather than an error to surface as a
+    failure.
+    """
+
+
+def _check_authentication(conn: http.client.HTTPConnection) -> None:
+    """Confirm the inference server does not require authentication.
+
+    Uses the given, already-open connection. The root endpoint itself
+    requires a valid JWT when authentication is enabled, so an
+    unauthenticated request to it is rejected with a 401 in that case;
+    otherwise it reports "authentication": false in its JSON body.
+
+    Raises AuthenticationRequired if the server requires authentication.
+    """
+    conn.request("GET", "/")
+    response = conn.getresponse()
+    raw = response.read()
+
+    if response.status == 401:
+        raise AuthenticationRequired(
+            "Inference server requires authentication, which this plugin does not yet support"
+        )
+
+    info = json.loads(raw.decode("utf-8")) if raw else {}
+    if info.get("authentication"):
+        raise AuthenticationRequired(
+            "Inference server requires authentication, which this plugin does not yet support"
+        )
+
+
 def request(
     conn: http.client.HTTPConnection,
     method: str,
@@ -125,6 +160,7 @@ def request_name(connection: Connection, disassembly: str) -> str:
     """
     conn = _open_connection(connection)
     try:
+        _check_authentication(conn)
         created = request(conn, "POST", "/fnaming/completion/", {"input": disassembly})
         completion_id = created["id"]
 
@@ -182,6 +218,8 @@ class NameFunctionTask(BackgroundTaskThread):
                 return
             name = request_name(self.connection, disassembly)
             rename(self.bv, self.func, name)
+        except AuthenticationRequired as exc:
+            log_info(str(exc))
         except Exception as exc:  # noqa: BLE001
             log_error(f"Naming failed for {self.func.name}: {exc}")
 
