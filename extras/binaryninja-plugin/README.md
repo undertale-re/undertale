@@ -51,6 +51,15 @@ Which one to pick depends on how the [inference server](../inference-server) is 
 
 This deployment uses NGINX as a frontend for Gunicorn, with LDAP authentication. Configure the plugin to use the TCP option and point it to the endpoint exposed by NGINX.
 
+The first time the plugin talks to an authenticated server, it prompts for your LDAP username and password, logs in, and caches the resulting token in Binary Ninja's user settings so you aren't prompted again until the token is rejected (e.g. it expires) or you reconfigure the connection.
+
+> [!WARNING]
+> **Credential and token handling is not hardened yet:**
+> - The password prompt is a plain `TextLineField` — Binary Ninja's form API has no masked/password field, so your password is echoed in plaintext as you type it.
+> - The login token is stored **unencrypted** in Binary Ninja's user settings file (`settings.json` in the user directory), the same place the plugin caches your connection info. Anyone with read access to that file (or that user account) can read the token and use it to call the inference server as you until it expires.
+> - Tokens are long-lived (14 days server-side, by default) and there is no dedicated "log out" action — the only ways to discard a cached token are **Undertale > Reconfigure Inference Server Connection**, or manually clearing `undertale.inferenceServerToken` from Binary Ninja's settings.
+> - There is no token refresh: once a token expires or is revoked server-side, the plugin re-prompts for credentials on the next request.
+
 ### Unauthenticated Local Service
 
 This deployment runs Gunicorn directly, with no NGINX and no authentication,

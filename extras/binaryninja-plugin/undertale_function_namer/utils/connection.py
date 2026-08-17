@@ -34,6 +34,7 @@ from binaryninja.enums import SettingsScope
 SETTINGS_GROUP = "undertale"
 SETTINGS_KEY = "undertale.inferenceServerConnection"
 SETTINGS_KEY_POLL_TIMEOUT = "undertale.inferencePollTimeout"
+SETTINGS_KEY_TOKEN = "undertale.inferenceServerToken"
 RECONFIGURE_COMMAND_NAME = "Undertale\\Reconfigure Inference Server Connection"
 RECONFIGURE_POLL_TIMEOUT_COMMAND_NAME = (
     "Undertale\\Reconfigure Inference Completion Poll Timeout"
@@ -43,9 +44,11 @@ DEFAULT_POLL_TIMEOUT = 60
 
 CONNECTION_FORM_TITLE = "Inference Server Connection"
 POLL_TIMEOUT_FORM_TITLE = "Inference Completion Poll Timeout"
+CREDENTIALS_FORM_TITLE = "Inference Server Credentials"
 CONNECTION_KIND_CHOICES = ["TCP (host:port)", "Unix Domain Socket"]
 CONNECTION_KIND_TCP, CONNECTION_KIND_UNIX = range(len(CONNECTION_KIND_CHOICES))
 CONNECTION_ATTR = "_undertale_inference_connection"
+TOKEN_ATTR = "_undertale_inference_token"
 
 INFERENCE_DEFAULT_HOST = "127.0.0.1"
 INFERENCE_DEFAULT_PORT = "5000"
@@ -97,6 +100,23 @@ def _register_settings() -> None:
             }
         ),
     )
+    settings.register_setting(
+        SETTINGS_KEY_TOKEN,
+        json.dumps(
+            {
+                "title": "Inference Server Token",
+                "type": "string",
+                "isSerialized": True,
+                "default": "",
+                "ignore": ["SettingsProjectScope", "SettingsResourceScope"],
+                "description": (
+                    "Cached authentication token (JWT) for the Inference "
+                    "Server, obtained by logging in. Cleared by "
+                    f"{RECONFIGURE_COMMAND_NAME!r}."
+                ),
+            }
+        ),
+    )
 
 
 def _load_connection() -> Optional[Connection]:
@@ -143,14 +163,18 @@ def _validate_unix_socket_path(path: str) -> bool:
     return True
 
 
-def _run_form(fields: List[Any], title: str = CONNECTION_FORM_TITLE) -> bool:
+def _run_form(
+    fields: List[Any],
+    title: str = CONNECTION_FORM_TITLE,
+    cancel_message: str = "Operation cancelled: Inference server connection was not configured.",
+) -> bool:
     """Run a Binary Ninja form.
 
     It logs and returns False if the user cancels it."""
     if get_form_input(fields, title):
         return True
 
-    log_error("Operation cancelled: Inference server connection was not configured.")
+    log_error(cancel_message)
     return False
 
 
@@ -211,6 +235,32 @@ def _prompt_for_connection() -> Optional[Connection]:
     return _prompt_unix()
 
 
+def prompt_credentials() -> Optional[Dict[str, str]]:
+    """Ask the user for their inference server username and password.
+
+    NOTE: Binary Ninja's form API has no masked/password field, so the
+    password is entered and displayed as plain text.
+
+    Returns None if the user cancels or leaves either field blank.
+    """
+    username_field = TextLineField("Username")
+    password_field = TextLineField("Password")
+
+    if not _run_form(
+        [username_field, password_field],
+        CREDENTIALS_FORM_TITLE,
+        cancel_message="Operation cancelled: no credentials provided.",
+    ):
+        return None
+
+    username = (username_field.result or "").strip()
+    password = password_field.result or ""
+    if not username or not password:
+        log_error("Username and password are both required")
+        return None
+    return {"username": username, "password": password}
+
+
 def _save_connection(connection: Connection) -> None:
     """Persist the connection so it survives closing Binary Ninja."""
     Settings().set_string(
@@ -248,6 +298,39 @@ def get_connection() -> Optional[Connection]:
     log_info(f"Undertale's Inference Server connection configured: {connection}")
 
     return connection
+
+
+def get_token() -> Optional[str]:
+    """Return the cached authentication token for the Inference Server, if
+    one has been obtained by logging in.
+
+    First it will try the in-process cache if present, else the persisted
+    setting if present, else None.
+    """
+    token = getattr(binaryninja, TOKEN_ATTR, None)
+    if token is not None:
+        return token
+
+    token = Settings().get_string(SETTINGS_KEY_TOKEN) or None
+    if token is not None:
+        setattr(binaryninja, TOKEN_ATTR, token)
+
+    return token
+
+
+def save_token(token: str) -> None:
+    """Cache and persist an authentication token obtained by logging in."""
+    setattr(binaryninja, TOKEN_ATTR, token)
+    Settings().set_string(
+        SETTINGS_KEY_TOKEN, token, scope=SettingsScope.SettingsUserScope
+    )
+
+
+def clear_token() -> None:
+    """Discard the cached and persisted authentication token."""
+    if hasattr(binaryninja, TOKEN_ATTR):
+        delattr(binaryninja, TOKEN_ATTR)
+    Settings().reset(SETTINGS_KEY_TOKEN, scope=SettingsScope.SettingsUserScope)
 
 
 def _prompt_poll_timeout() -> Optional[int]:
@@ -302,6 +385,7 @@ def reconfigure_connection(bv: BinaryView) -> None:
         delattr(binaryninja, CONNECTION_ATTR)
 
     _clear_saved_connection()
+    clear_token()
     get_connection()
 
 

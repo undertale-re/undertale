@@ -36,11 +36,15 @@ from .utils import (
     RECONFIGURE_COMMAND_NAME,
     RECONFIGURE_POLL_TIMEOUT_COMMAND_NAME,
     Connection,
+    clear_token,
     get_connection,
     get_poll_timeout,
+    get_token,
     pretokenize_disassembly,
+    prompt_credentials,
     reconfigure_connection,
     reconfigure_poll_timeout,
+    save_token,
 )
 
 FNAMING_COMMAND_NAME = "Undertale\\Infer and Rename Function"
@@ -78,38 +82,15 @@ def _open_connection(connection: Connection) -> http.client.HTTPConnection:
 
 
 class AuthenticationRequired(RuntimeError):
-    """Raised when the inference server requires authentication.
+    """Raised when the inference server requires authentication and the user
+    declined to provide credentials for it.
 
-    This plugin does not yet support authenticating with the inference
-    server, so this is a reason to stop rather than an error to surface as a
-    failure.
+    This is a reason to stop rather than an error to surface as a failure.
     """
 
 
-def _check_authentication(conn: http.client.HTTPConnection) -> None:
-    """Confirm the inference server does not require authentication.
-
-    Uses the given, already-open connection. The root endpoint itself
-    requires a valid JWT when authentication is enabled, so an
-    unauthenticated request to it is rejected with a 401 in that case;
-    otherwise it reports "authentication": false in its JSON body.
-
-    Raises AuthenticationRequired if the server requires authentication.
-    """
-    conn.request("GET", "/")
-    response = conn.getresponse()
-    raw = response.read()
-
-    if response.status == 401:
-        raise AuthenticationRequired(
-            "Inference server requires authentication, which this plugin does not yet support"
-        )
-
-    info = json.loads(raw.decode("utf-8")) if raw else {}
-    if info.get("authentication"):
-        raise AuthenticationRequired(
-            "Inference server requires authentication, which this plugin does not yet support"
-        )
+class Unauthorized(RuntimeError):
+    """Raised when the inference server rejects a request with 401."""
 
 
 def request(
@@ -117,11 +98,14 @@ def request(
     method: str,
     path: str,
     body: Optional[Dict[str, Any]] = None,
+    token: Optional[str] = None,
 ) -> Dict[str, Any]:
     """One JSON request/response against the inference server API, over an
     already-open connection."""
     data = json.dumps(body).encode("utf-8") if body is not None else None
     headers = {"Content-Type": "application/json"} if data else {}
+    if token is not None:
+        headers["Authorization"] = f"Bearer {token}"
     conn.request(method, path, body=data, headers=headers)
     response = conn.getresponse()
     raw = response.read()
@@ -131,9 +115,55 @@ def request(
             error = json.loads(raw.decode("utf-8")).get("error", raw)
         except ValueError:
             error = raw.decode("utf-8", "replace")
+        if response.status == 401:
+            raise Unauthorized(f"{method} {path} -> 401: {error}")
         raise RuntimeError(f"{method} {path} -> {response.status}: {error}")
 
     return json.loads(raw.decode("utf-8")) if raw else {}
+
+
+def _login(conn: http.client.HTTPConnection) -> str:
+    """Prompt for credentials and log in to the inference server.
+
+    Persists the resulting token so future requests skip the prompt until
+    it's rejected or the connection is reconfigured.
+
+    Raises AuthenticationRequired if the user cancels the credentials
+    prompt.
+    """
+    credentials = prompt_credentials()
+    if credentials is None:
+        raise AuthenticationRequired("Login cancelled: no credentials provided")
+
+    response = request(conn, "POST", "/login/", credentials)
+    token = response["token"]
+    save_token(token)
+    log_info("Logged in to the Undertale Inference Server")
+    return token
+
+
+def _authenticate(conn: http.client.HTTPConnection) -> Optional[str]:
+    """Ensure requests on this connection are authenticated, if the
+    inference server requires it.
+
+    Uses the given, already-open connection. Tries a previously saved token
+    first; if there isn't one, or the server rejects it, prompts for
+    credentials and logs in.
+
+    Returns the bearer token to attach to subsequent requests, or None if
+    the server does not require authentication.
+    """
+    token = get_token()
+    try:
+        response = request(conn, "GET", "/", token=token)
+    except Unauthorized:
+        if token is not None:
+            clear_token()
+        return _login(conn)
+
+    if not response.get("authentication"):
+        return None
+    return token
 
 
 def function_disassembly(func: Function) -> str:
@@ -160,14 +190,18 @@ def request_name(connection: Connection, disassembly: str) -> str:
     """
     conn = _open_connection(connection)
     try:
-        _check_authentication(conn)
-        created = request(conn, "POST", "/fnaming/completion/", {"input": disassembly})
+        token = _authenticate(conn)
+        created = request(
+            conn, "POST", "/fnaming/completion/", {"input": disassembly}, token=token
+        )
         completion_id = created["id"]
 
         poll_timeout = get_poll_timeout()
         deadline = time.monotonic() + poll_timeout
         while True:
-            completion = request(conn, "GET", f"/fnaming/completion/{completion_id}/")
+            completion = request(
+                conn, "GET", f"/fnaming/completion/{completion_id}/", token=token
+            )
             if completion["completed"]:
                 if not completion["output"]:
                     raise RuntimeError(
