@@ -31,14 +31,13 @@ from binaryninja import (
     log_error,
     log_info,
 )
-
-from ._connection import (
+from utils.connection import (
     RECONFIGURE_COMMAND_NAME,
     Connection,
     get_connection,
     reconfigure_connection,
 )
-from ._disassembly import pretokenize_disassembly
+from utils.disassembly import pretokenize_disassembly
 
 FNAMING_COMMAND_NAME = "Undertale\\Infer and Rename Function"
 
