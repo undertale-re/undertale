@@ -33,9 +33,16 @@ from binaryninja.enums import SettingsScope
 
 SETTINGS_GROUP = "undertale"
 SETTINGS_KEY = "undertale.inferenceServerConnection"
+SETTINGS_KEY_POLL_TIMEOUT = "undertale.inferencePollTimeout"
 RECONFIGURE_COMMAND_NAME = "Undertale\\Reconfigure Inference Server Connection"
+RECONFIGURE_POLL_TIMEOUT_COMMAND_NAME = (
+    "Undertale\\Reconfigure Inference Completion Poll Timeout"
+)
+
+DEFAULT_POLL_TIMEOUT = 60
 
 CONNECTION_FORM_TITLE = "Inference Server Connection"
+POLL_TIMEOUT_FORM_TITLE = "Inference Completion Poll Timeout"
 CONNECTION_KIND_CHOICES = ["TCP (host:port)", "Unix Domain Socket"]
 CONNECTION_KIND_TCP, CONNECTION_KIND_UNIX = range(len(CONNECTION_KIND_CHOICES))
 CONNECTION_ATTR = "_undertale_inference_connection"
@@ -70,6 +77,22 @@ def _register_settings() -> None:
                     "Cached Inference Server Connection (JSON), configured "
                     "via the plugin's connection dialog. Cleared by "
                     f"{RECONFIGURE_COMMAND_NAME!r}."
+                ),
+            }
+        ),
+    )
+    settings.register_setting(
+        SETTINGS_KEY_POLL_TIMEOUT,
+        json.dumps(
+            {
+                "title": "Inference Completion Poll Timeout",
+                "type": "number",
+                "default": DEFAULT_POLL_TIMEOUT,
+                "minValue": 1,
+                "description": (
+                    "Seconds to wait for the Inference Server to finish "
+                    "naming a function before giving up. Reconfigurable via "
+                    f"{RECONFIGURE_POLL_TIMEOUT_COMMAND_NAME!r}."
                 ),
             }
         ),
@@ -225,6 +248,48 @@ def get_connection() -> Optional[Connection]:
     log_info(f"Undertale's Inference Server connection configured: {connection}")
 
     return connection
+
+
+def _prompt_poll_timeout() -> Optional[int]:
+    """Ask the user for a new Inference Completion Poll Timeout, in seconds.
+
+    Returns None if the user cancels or gives an invalid answer.
+    """
+    timeout_field = TextLineField("Poll Timeout (seconds)", str(DEFAULT_POLL_TIMEOUT))
+
+    if not get_form_input([timeout_field], POLL_TIMEOUT_FORM_TITLE):
+        log_error(
+            "Operation cancelled: Inference Completion Poll Timeout was not configured."
+        )
+        return None
+
+    timeout = (timeout_field.result or "").strip()
+    if not timeout.isdigit() or int(timeout) < 1:
+        log_error(f"Invalid poll timeout: {timeout!r}")
+        return None
+    return int(timeout)
+
+
+def reconfigure_poll_timeout(bv: BinaryView) -> None:
+    """Reconfigures the Inference Completion Poll Timeout.
+
+    Prompts for a new timeout value and persists it, replacing the current
+    one.
+    """
+    timeout = _prompt_poll_timeout()
+    if timeout is None:
+        return
+
+    Settings().set_integer(
+        SETTINGS_KEY_POLL_TIMEOUT, timeout, scope=SettingsScope.SettingsUserScope
+    )
+    log_info(f"Undertale's Inference Completion Poll Timeout configured: {timeout}s")
+
+
+def get_poll_timeout() -> int:
+    """Return the configured timeout, in seconds, to wait for the Inference
+    Server to finish naming a function."""
+    return Settings().get_integer(SETTINGS_KEY_POLL_TIMEOUT)
 
 
 def reconfigure_connection(bv: BinaryView) -> None:

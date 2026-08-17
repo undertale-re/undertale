@@ -43,6 +43,8 @@ On first use, the plugin prompts you to configure the inference server connectio
 
 This configuration is saved in Binary Ninja's user settings and persists across restarts. To update it, select **Undertale > Reconfigure Inference Server Connection**. This clears the saved connection and immediately prompts you to configure a new one.
 
+The plugin also exposes an **Inference Completion Poll Timeout** setting (default 60 seconds), which controls how long it waits for the inference server to finish naming a function before giving up. To update it, select **Undertale > Reconfigure Inference Completion Poll Timeout**.
+
 Which one to pick depends on how the [inference server](../inference-server) is deployed:
 
 ### Authenticated Systemd Service

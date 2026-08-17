@@ -34,17 +34,19 @@ from binaryninja import (
 
 from .utils import (
     RECONFIGURE_COMMAND_NAME,
+    RECONFIGURE_POLL_TIMEOUT_COMMAND_NAME,
     Connection,
     get_connection,
+    get_poll_timeout,
     pretokenize_disassembly,
     reconfigure_connection,
+    reconfigure_poll_timeout,
 )
 
 FNAMING_COMMAND_NAME = "Undertale\\Infer and Rename Function"
 
 INFERENCE_CONNECT_TIMEOUT = 10
 INFERENCE_POLL_INTERVAL = 1
-INFERENCE_POLL_TIMEOUT = 60
 
 
 class UnixHTTPConnection(http.client.HTTPConnection):
@@ -126,7 +128,8 @@ def request_name(connection: Connection, disassembly: str) -> str:
         created = request(conn, "POST", "/fnaming/completion/", {"input": disassembly})
         completion_id = created["id"]
 
-        deadline = time.monotonic() + INFERENCE_POLL_TIMEOUT
+        poll_timeout = get_poll_timeout()
+        deadline = time.monotonic() + poll_timeout
         while True:
             completion = request(conn, "GET", f"/fnaming/completion/{completion_id}/")
             if completion["completed"]:
@@ -137,7 +140,7 @@ def request_name(connection: Connection, disassembly: str) -> str:
                 return completion["output"].strip()
             if time.monotonic() > deadline:
                 raise RuntimeError(
-                    f"Completion {completion_id} did not finish within {INFERENCE_POLL_TIMEOUT}s"
+                    f"Completion {completion_id} did not finish within {poll_timeout}s"
                 )
             time.sleep(INFERENCE_POLL_INTERVAL)
     finally:
@@ -200,4 +203,9 @@ PluginCommand.register(
     RECONFIGURE_COMMAND_NAME,
     "Discard the saved Inference Server connection and prompt for a new one",
     reconfigure_connection,
+)
+PluginCommand.register(
+    RECONFIGURE_POLL_TIMEOUT_COMMAND_NAME,
+    "Prompt for a new Inference Completion Poll Timeout",
+    reconfigure_poll_timeout,
 )
