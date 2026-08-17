@@ -5,7 +5,7 @@ Rename functions by performing inference on disassembly using the Undertale-trai
 The plugin's workflow consists of the following steps
     1. After the user selects a function in Binary Ninja
     2. The plugin reads the function's disassembly and pretokenizes it into the
-        form the model was trained on (see _disassembly.py)
+        form the model was trained on (see utils/disassembly.py)
     3. The pretokenized disassembly is sent to the inference server for analysis
     4. The plugin will poll the inference server for the function name prediction
     5. Finally, the predicted name will be applied to the function
