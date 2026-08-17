@@ -36,13 +36,26 @@ Then restart Binary Ninja to register the plugin.
 
 ## Configuration
 
-On first use, the plugin prompts you to configure the inference server connection. The connection can be specified as either:
+On first use, the plugin prompts you to configure the inference server connection, as either:
 
 * a TCP address (`host:port`), or
 * a Unix domain socket path
 
 This configuration is saved in Binary Ninja's user settings and persists across restarts. To update it, select **Undertale > Reconfigure Inference Server Connection**. This clears the saved connection and immediately prompts you to configure a new one.
 
+Which one to pick depends on how the [inference server](../inference-server) is deployed:
+
+### Authenticated Systemd Service
+
+This deployment uses NGINX as a frontend for Gunicorn, with LDAP authentication. Configure the plugin to use the TCP option and point it to the endpoint exposed by NGINX.
+
+### Unauthenticated Local Service
+
+This deployment runs Gunicorn directly, with no NGINX and no authentication,
+for simple co-located setups. Configure the plugin with the Unix domain
+socket option, pointed at the same path passed to gunicorn's `--bind
+unix:...` flag. This only works when Binary Ninja runs on the same machine
+as the server — Unix domain sockets aren't reachable over the network.
 
 ## Requirements
 

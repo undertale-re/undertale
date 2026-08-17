@@ -31,13 +31,14 @@ from binaryninja import (
     log_error,
     log_info,
 )
-from utils.connection import (
+
+from .utils import (
     RECONFIGURE_COMMAND_NAME,
     Connection,
     get_connection,
+    pretokenize_disassembly,
     reconfigure_connection,
 )
-from utils.disassembly import pretokenize_disassembly
 
 FNAMING_COMMAND_NAME = "Undertale\\Infer and Rename Function"
 
@@ -88,12 +89,14 @@ def request(
     response = conn.getresponse()
     raw = response.read()
 
-    parsed = json.loads(raw.decode("utf-8")) if raw else {}
     if response.status >= 400:
-        raise RuntimeError(
-            f"{method} {path} -> {response.status}: {parsed.get('error', raw)}"
-        )
-    return parsed
+        try:
+            error = json.loads(raw.decode("utf-8")).get("error", raw)
+        except ValueError:
+            error = raw.decode("utf-8", "replace")
+        raise RuntimeError(f"{method} {path} -> {response.status}: {error}")
+
+    return json.loads(raw.decode("utf-8")) if raw else {}
 
 
 def function_disassembly(func: Function) -> str:
@@ -177,7 +180,7 @@ class NameFunctionTask(BackgroundTaskThread):
             name = request_name(self.connection, disassembly)
             rename(self.bv, self.func, name)
         except Exception as exc:  # noqa: BLE001
-            log_error(f"naming failed for {self.func.name}: {exc}")
+            log_error(f"Naming failed for {self.func.name}: {exc}")
 
 
 def name_function(bv: BinaryView, func: Function) -> None:

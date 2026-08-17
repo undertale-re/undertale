@@ -241,10 +241,3 @@ def reconfigure_connection(bv: BinaryView) -> None:
 
 
 _register_settings()
-
-__all__ = [
-    "Connection",
-    "RECONFIGURE_COMMAND_NAME",
-    "get_connection",
-    "reconfigure_connection",
-]
