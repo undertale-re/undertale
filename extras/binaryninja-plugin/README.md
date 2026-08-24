@@ -55,7 +55,6 @@ The first time the plugin talks to an authenticated server, it prompts for your 
 
 > [!WARNING]
 > **Credential and token handling is not hardened yet:**
-> - The password prompt is a plain `TextLineField` — Binary Ninja's form API has no masked/password field, so your password is echoed in plaintext as you type it.
 > - The login token is stored **unencrypted** in Binary Ninja's user settings file (`settings.json` in the user directory), the same place the plugin caches your connection info. Anyone with read access to that file (or that user account) can read the token and use it to call the inference server as you until it expires.
 > - Tokens are long-lived (14 days server-side, by default) and there is no dedicated "log out" action — the only ways to discard a cached token are **Undertale > Reconfigure Inference Server Connection**, or manually clearing `undertale.inferenceServerToken` from Binary Ninja's settings.
 > - There is no token refresh: once a token expires or is revoked server-side, the plugin re-prompts for credentials on the next request.

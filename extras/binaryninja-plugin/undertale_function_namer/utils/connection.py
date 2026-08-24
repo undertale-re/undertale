@@ -25,6 +25,7 @@ from binaryninja import (
     ChoiceField,
     Settings,
     TextLineField,
+    execute_on_main_thread_and_wait,
     get_form_input,
     log_error,
     log_info,
@@ -238,23 +239,40 @@ def _prompt_for_connection() -> Optional[Connection]:
 def prompt_credentials() -> Optional[Dict[str, str]]:
     """Ask the user for their inference server username and password.
 
-    NOTE: Binary Ninja's form API has no masked/password field, so the
-    password is entered and displayed as plain text.
+    Uses Qt dialogs with a masked password field. The dialogs run on the UI
+    thread because this is called from a background task.
 
     Returns None if the user cancels or leaves either field blank.
     """
-    username_field = TextLineField("Username")
-    password_field = TextLineField("Password")
+    from binaryninjaui import UIContext
+    from PySide6.QtWidgets import QInputDialog, QLineEdit
 
-    if not _run_form(
-        [username_field, password_field],
-        CREDENTIALS_FORM_TITLE,
-        cancel_message="Operation cancelled: no credentials provided.",
-    ):
+    captured: Dict[str, str] = {}
+
+    def prompt() -> None:
+        context = UIContext.activeContext()
+        if context is None:
+            return
+        parent = context.mainWindow()
+        username, ok = QInputDialog.getText(
+            parent, CREDENTIALS_FORM_TITLE, "Username:", QLineEdit.Normal
+        )
+        if not ok:
+            return
+        password, ok = QInputDialog.getText(
+            parent, CREDENTIALS_FORM_TITLE, "Password:", QLineEdit.Password
+        )
+        if not ok:
+            return
+        captured["username"] = username
+        captured["password"] = password
+
+    execute_on_main_thread_and_wait(prompt)
+
+    if not captured:  # user cancelled either dialog
         return None
-
-    username = (username_field.result or "").strip()
-    password = password_field.result or ""
+    username = captured["username"].strip()
+    password = captured["password"]
     if not username or not password:
         log_error("Username and password are both required")
         return None
