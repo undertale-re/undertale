@@ -1,4 +1,4 @@
-"""Undertale Function Namer Plugin
+"""Undertale: Binary Ninja Plugin
 
 Rename functions by performing inference on disassembly using the Undertale-trained model.
 
@@ -108,6 +108,7 @@ def request(
         headers["Authorization"] = f"Bearer {token}"
     conn.request(method, path, body=data, headers=headers)
     response = conn.getresponse()
+
     raw = response.read()
 
     if response.status >= 400:
@@ -138,7 +139,9 @@ def _login(conn: http.client.HTTPConnection) -> str:
     response = request(conn, "POST", "/login/", credentials)
     token = response["token"]
     save_token(token)
+
     log_info("Logged in to the Undertale Inference Server")
+
     return token
 
 
@@ -154,16 +157,24 @@ def _authenticate(conn: http.client.HTTPConnection) -> Optional[str]:
     the server does not require authentication.
     """
     token = get_token()
-    try:
-        response = request(conn, "GET", "/", token=token)
-    except Unauthorized:
+
+    headers = {"Authorization": f"Bearer {token}"} if token is not None else {}
+    conn.request("GET", "/", headers=headers)
+    response = conn.getresponse()
+    raw = response.read()
+
+    if response.status == 200:
+        body = json.loads(raw.decode("utf-8")) if raw else {}
+        if not body.get("authentication"):
+            return None
+        return token
+
+    if response.status == 401:
         if token is not None:
             clear_token()
         return _login(conn)
 
-    if not response.get("authentication"):
-        return None
-    return token
+    raise RuntimeError(f"GET / -> {response.status}")
 
 
 def function_disassembly(func: Function) -> str:
@@ -259,7 +270,7 @@ class NameFunctionTask(BackgroundTaskThread):
 
 
 def name_function(bv: BinaryView, func: Function) -> None:
-    """The real entry point."""
+    """The real plugin entry point."""
     connection = get_connection()
     if connection is None:
         return

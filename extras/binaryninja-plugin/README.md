@@ -51,7 +51,7 @@ Which one to pick depends on how the [inference server](../inference-server) is 
 
 This deployment uses NGINX as a frontend for Gunicorn, with LDAP authentication. Configure the plugin to use the TCP option and point it to the endpoint exposed by NGINX.
 
-The first time the plugin talks to an authenticated server, it prompts for your LDAP username and password, logs in, and caches the resulting token in Binary Ninja's user settings so you aren't prompted again until the token is rejected (e.g. it expires) or you reconfigure the connection.
+The first time the plugin talks to an authenticated server, it prompts for your LDAP username and password, logs in, and caches the resulting token in Binary Ninja's user settings (usually at `~/.binaryninja/settings.json`) so you aren't prompted again until the token is rejected (e.g. it expires) or you reconfigure the connection.
 
 > [!WARNING]
 > **Credential and token handling is not hardened yet:**
