@@ -31,6 +31,8 @@ from binaryninja import (
     log_info,
 )
 from binaryninja.enums import SettingsScope
+from binaryninjaui import UIContext
+from PySide6.QtWidgets import QInputDialog, QLineEdit
 
 SETTINGS_GROUP = "undertale"
 SETTINGS_KEY = "undertale.inferenceServerConnection"
@@ -244,9 +246,6 @@ def prompt_credentials() -> Optional[Dict[str, str]]:
 
     Returns None if the user cancels or leaves either field blank.
     """
-    from binaryninjaui import UIContext
-    from PySide6.QtWidgets import QInputDialog, QLineEdit
-
     captured: Dict[str, str] = {}
 
     def prompt() -> None:
