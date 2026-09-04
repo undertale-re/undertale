@@ -18,6 +18,12 @@ predicted name.
 Naming runs in the background, so Binary Ninja stays responsive while
 waiting on the inference server.
 
+## Requirements
+
+- Binary Ninja build 4000 or newer, with Python 3 scripting enabled.
+- Network or filesystem access to a running Undertale Inference Server (see
+  [`extras/inference-server`](../inference-server)).
+
 ## Installation
 
 The installable plugin lives in
@@ -26,10 +32,10 @@ that directory into Binary Ninja's user plugin folder:
 
 ```bash
 # In Linux
-ln -s "/path/to/undertale" ~/.binaryninja/plugins/undertale
+ln -s "/path/to/binaryninja-plugin/undertale" ~/.binaryninja/plugins/undertale
 
 # In macOS
-ln -s "/path/to/undertale" ~/Library/Application\ Support/Binary\ Ninja/plugins/undertale  # macOS
+ln -s "/path/to/binaryninja-plugin/undertale" ~/Library/Application\ Support/Binary\ Ninja/plugins/undertale
 ```
 
 Then restart Binary Ninja to register the plugin.
@@ -75,23 +81,17 @@ socket option, pointed at the same path passed to gunicorn's `--bind
 unix:...` flag. This only works when Binary Ninja runs on the same machine
 as the server — Unix domain sockets aren't reachable over the network.
 
-## Requirements
-
-- Binary Ninja build 4000 or newer, with Python 3 scripting enabled.
-- Network or filesystem access to a running Undertale Inference Server (see
-  [`extras/inference-server`](../inference-server)).
-
 ## Development
 
 > [!NOTE]
-> To keep the plugin independent of Undertale's much heavier dependency set, the disassembly code is duplicated here. `undertale/utils/disassembly.py` is a byte-for-byte copy of [`undertale/pipeline/disassembly.py`](https://github.com/undertale-re/undertale/blob/binaryninja-plugin/undertale/pipeline/disassembly.py).
+> To keep the plugin independent of Undertale's much heavier dependency set, the disassembly code is duplicated here. `binaryninja-plugin/undertale/utils/disassembly.py` is a byte-for-byte copy of `undertale/pipeline/disassembly.py`.
 >
 > If either copy changes, update the other as well. `tests/unit.py` (`TestPipelineDisassemblyCodeConsistency`) verifies that the two remain identical.
 
 ### Conventions
 
 - **Surface user-facing failures through `alert_user`.** Use
-  `undertale/utils/notify.py:alert_user` rather than calling `log_error`,
+  `binaryninja-plugin/undertale/utils/notify.py:alert_user` rather than calling `log_error`,
   `log_alert`, or `show_message_box` directly. It both logs the message and pops
   a focus-stealing modal marshaled onto the UI thread — necessary because naming
   runs in a background thread, where a modal raised directly would silently fail
