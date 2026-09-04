@@ -36,6 +36,7 @@ from .utils import (
     CONFIGURE_COMMAND_NAME,
     CONFIGURE_MENU_PATH,
     Connection,
+    alert_user,
     clear_token,
     configure_plugin,
     get_connection,
@@ -268,41 +269,41 @@ class NameFunctionTask(BackgroundTaskThread):
         try:
             disassembly = function_disassembly(self.func)
             if not disassembly:
-                log_error(f"No disassembly available for {self.func.name}")
+                alert_user(f"No disassembly available for {self.func.name}")
                 return
             name = request_name(self.connection, disassembly)
             rename(self.bv, self.func, name)
         except AuthenticationRequired as exc:
             log_info(str(exc))
         except ConnectionRefusedError:
-            log_error(
+            alert_user(
                 f"Could not reach the Undertale Inference Server at {endpoint}: "
-                "connection refused. Make sure the server is running and "
-                "listening there. If the address is wrong, run "
-                f"'{CONFIGURE_MENU_PATH}'."
+                "connection refused.\n\nMake sure the server is running and "
+                "listening there.\n\nIf the address is wrong, run "
+                f"{CONFIGURE_MENU_PATH}."
             )
         except FileNotFoundError:
-            log_error(
+            alert_user(
                 f"Could not reach the Undertale Inference Server at {endpoint}: "
-                "the socket file does not exist. The server may not be running, "
-                "or the socket path is wrong. Start the server or run "
-                f"'{CONFIGURE_MENU_PATH}'."
+                "the socket file does not exist.\n\nThe server may not be running, "
+                "or the socket path is wrong.\n\nStart the server or run "
+                f"{CONFIGURE_MENU_PATH}."
             )
         except (TimeoutError, socket.timeout):
-            log_error(
+            alert_user(
                 f"Timed out after {INFERENCE_CONNECT_TIMEOUT}s connecting to the "
-                f"Undertale Inference Server at {endpoint}. Check that the server "
+                f"Undertale Inference Server at {endpoint}.\n\nCheck that the server "
                 "is reachable and not overloaded, or reconfigure the connection "
-                f"via '{CONFIGURE_MENU_PATH}'."
+                f"via {CONFIGURE_MENU_PATH}."
             )
         except OSError as exc:
-            log_error(
+            alert_user(
                 f"Network error talking to the Undertale Inference Server at "
-                f"{endpoint}: {exc}. Verify the connection, and reconfigure it "
-                f"via '{CONFIGURE_MENU_PATH}' if needed."
+                f"{endpoint}: {exc}.\n\nVerify the connection, and reconfigure it "
+                f"via {CONFIGURE_MENU_PATH} if needed."
             )
         except Exception as exc:  # noqa: BLE001
-            log_error(
+            alert_user(
                 f"Naming failed for {self.func.name} (server at {endpoint}): {exc}"
             )
 

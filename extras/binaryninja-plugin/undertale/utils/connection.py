@@ -29,10 +29,13 @@ from binaryninja import (
     get_form_input,
     log_error,
     log_info,
+    log_warn,
 )
 from binaryninja.enums import SettingsScope
 from binaryninjaui import UIContext
 from PySide6.QtWidgets import QInputDialog, QLineEdit
+
+from .notify import alert_user
 
 SETTINGS_GROUP = "undertale"
 SETTINGS_KEY = "undertale.inferenceServerConnection"
@@ -149,17 +152,17 @@ def _validate_unix_socket_path(path: str) -> bool:
     Logs an error and returns False if any of these checks fail.
     """
     if not os.path.exists(path):
-        log_error(
-            f"Unix domain socket does not exist: {path!r}. The Inference Server "
-            "may not be running, or the path is wrong. Start the server, then "
-            f"re-run '{CONFIGURE_MENU_PATH}' and enter the correct socket path."
+        alert_user(
+            f"Unix domain socket does not exist: {path!r}.\n\nThe Inference Server "
+            "may not be running, or the path is wrong.\n\nStart the server, then "
+            f"re-run {CONFIGURE_MENU_PATH} and enter the correct socket path."
         )
         return False
 
     if not stat.S_ISSOCK(os.stat(path).st_mode):
-        log_error(
-            f"Not a Unix domain socket: {path!r}. This path points to a regular "
-            f"file or directory, not a socket. Re-run '{CONFIGURE_MENU_PATH}' "
+        alert_user(
+            f"Not a Unix domain socket: {path!r}.\n\nThis path points to a regular "
+            f"file or directory.\n\nRe-run {CONFIGURE_MENU_PATH} "
             "and enter the Inference Server's socket path."
         )
         return False
@@ -169,11 +172,11 @@ def _validate_unix_socket_path(path: str) -> bool:
             connection.settimeout(UNIX_SOCKET_VALIDATION_TIMEOUT)
             connection.connect(path)
     except OSError as error:
-        log_error(
-            f"Unable to connect to Unix domain socket {path!r}: {error}. The "
+        alert_user(
+            f"Unable to connect to Unix domain socket {path!r}: {error}.\n\nThe "
             "socket file exists but nothing is accepting connections there — the "
-            "Inference Server is likely not running. Start it, then re-run "
-            f"'{CONFIGURE_MENU_PATH}'."
+            "Inference Server is likely not running.\n\nStart it, then re-run "
+            f"{CONFIGURE_MENU_PATH}."
         )
         return False
 
@@ -191,7 +194,7 @@ def _run_form(
     if get_form_input(fields, title):
         return True
 
-    log_error(cancel_message)
+    log_warn(cancel_message)
     return False
 
 
@@ -201,9 +204,9 @@ def _build_tcp(host: str, port: str) -> Optional[Connection]:
     Logs an error and returns None if either is invalid.
     """
     if not host or not port.isdigit():
-        log_error(
-            f"Invalid host:port: {host!r}:{port!r}. Re-run "
-            f"'{CONFIGURE_MENU_PATH}' and enter a hostname or IP address (e.g. "
+        alert_user(
+            f"Invalid host:port: {host!r}:{port!r}.\n\nRe-run "
+            f"{CONFIGURE_MENU_PATH} and enter a hostname or IP address (e.g. "
             "127.0.0.1) for Host, and a numeric port (e.g. 5000) for Port."
         )
         return None
@@ -216,8 +219,8 @@ def _build_unix(path: str) -> Optional[Connection]:
     Logs an error and returns None if the path is empty or unusable.
     """
     if not path:
-        log_error(
-            f"No path given. Re-run '{CONFIGURE_MENU_PATH}' and enter the "
+        alert_user(
+            f"No path given.\n\nRe-run {CONFIGURE_MENU_PATH} and enter the "
             "Inference Server's Unix domain socket path."
         )
         return None
@@ -232,9 +235,9 @@ def _parse_timeout(timeout: str) -> Optional[int]:
     Logs an error and returns None if it is not a whole number of at least 1.
     """
     if not timeout.isdigit() or int(timeout) < 1:
-        log_error(
-            f"Invalid poll timeout: {timeout!r}. Enter a whole number of "
-            f"seconds (1 or greater). Re-run '{CONFIGURE_MENU_PATH}' to try again."
+        alert_user(
+            f"Invalid poll timeout: {timeout!r}.\n\nEnter a whole number of "
+            f"seconds (1 or greater).\n\nRe-run {CONFIGURE_MENU_PATH} to try again."
         )
         return None
     return int(timeout)
@@ -323,7 +326,7 @@ def prompt_credentials() -> Optional[Dict[str, str]]:
     username = captured["username"].strip()
     password = captured["password"]
     if not username or not password:
-        log_error("Username and password are both required")
+        alert_user("Username and password are both required")
         return None
     return {"username": username, "password": password}
 
@@ -443,7 +446,7 @@ def configure_plugin(bv: BinaryView) -> None:
         fields.append(clear_token_field)
 
     if not get_form_input(fields, CONFIGURE_FORM_TITLE):
-        log_error("Operation cancelled: the Undertale plugin was not configured.")
+        log_warn("Operation cancelled: the Undertale plugin was not configured.")
         return
 
     timeout = _parse_timeout((timeout_field.result or "").strip())

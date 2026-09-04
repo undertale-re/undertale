@@ -88,3 +88,19 @@ as the server — Unix domain sockets aren't reachable over the network.
 >
 > If either copy changes, update the other as well. `tests/unit.py` (`TestPipelineDisassemblyCodeConsistency`) verifies that the two remain identical.
 
+### Conventions
+
+- **Surface user-facing failures through `alert_user`.** Use
+  `undertale/utils/notify.py:alert_user` rather than calling `log_error`,
+  `log_alert`, or `show_message_box` directly. It both logs the message and pops
+  a focus-stealing modal marshaled onto the UI thread — necessary because naming
+  runs in a background thread, where a modal raised directly would silently fail
+  to appear. Reserve it for failures the user should act on; keep `log_info` for
+  successes and notices, and `log_warn` for user cancellations.
+
+- **Write alert messages as blank-line-separated sentences.** Separate each
+  sentence with a blank line (`\n\n`). The modal renders each chunk as its own
+  paragraph, while `alert_user` collapses the blank lines back to single spaces
+  for the one-line log entry — e.g. `"Invalid host:port.\n\nRe-run Configure
+  Plugin and enter a numeric port."`.
+

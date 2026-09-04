@@ -11,11 +11,13 @@ from .connection import (
     save_token,
 )
 from .disassembly import pretokenize_disassembly
+from .notify import alert_user
 
 __all__ = [
     "CONFIGURE_COMMAND_NAME",
     "CONFIGURE_MENU_PATH",
     "Connection",
+    "alert_user",
     "clear_token",
     "configure_plugin",
     "get_connection",
