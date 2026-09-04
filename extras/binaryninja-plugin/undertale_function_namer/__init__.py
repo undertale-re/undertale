@@ -47,7 +47,7 @@ from .utils import (
     save_token,
 )
 
-FNAMING_COMMAND_NAME = "Undertale\\Infer and Rename Function"
+FNAMING_COMMAND_NAME = "Undertale\\Generate Function Name"
 
 INFERENCE_CONNECT_TIMEOUT = 10
 INFERENCE_POLL_INTERVAL = 1

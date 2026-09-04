@@ -6,8 +6,8 @@ predicted name.
 
 ## Workflow
 
-1. Select a function in Binary Ninja and run **Undertale > Infer and Rename
-   Function** (right-click in the disassembly/IL view, or the Tools menu).
+1. Select a function in Binary Ninja and run **Undertale > Generate Function
+   Name** (right-click in the disassembly/IL view, or the Tools menu).
 2. The plugin reads the function's disassembly and pretokenizes it into the
    form the model was trained on.
 3. The pretokenized disassembly is sent to the inference server for analysis.
