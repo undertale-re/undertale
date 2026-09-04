@@ -42,6 +42,9 @@ RECONFIGURE_COMMAND_NAME = "Undertale\\Reconfigure Inference Server Connection"
 RECONFIGURE_POLL_TIMEOUT_COMMAND_NAME = (
     "Undertale\\Reconfigure Inference Completion Poll Timeout"
 )
+RECONFIGURE_MENU_PATH = RECONFIGURE_COMMAND_NAME.replace(
+    "\\", " > "
+)  # used for logging
 
 DEFAULT_POLL_TIMEOUT = 60
 
@@ -148,11 +151,19 @@ def _validate_unix_socket_path(path: str) -> bool:
     Logs an error and returns False if any of these checks fail.
     """
     if not os.path.exists(path):
-        log_error(f"Unix domain socket does not exist: {path!r}")
+        log_error(
+            f"Unix domain socket does not exist: {path!r}. The Inference Server "
+            "may not be running, or the path is wrong. Start the server, then "
+            f"re-run '{RECONFIGURE_MENU_PATH}' and enter the correct socket path."
+        )
         return False
 
     if not stat.S_ISSOCK(os.stat(path).st_mode):
-        log_error(f"Not a Unix domain socket: {path!r}")
+        log_error(
+            f"Not a Unix domain socket: {path!r}. This path points to a regular "
+            f"file or directory, not a socket. Re-run '{RECONFIGURE_MENU_PATH}' "
+            "and enter the Inference Server's socket path."
+        )
         return False
 
     try:
@@ -160,7 +171,12 @@ def _validate_unix_socket_path(path: str) -> bool:
             connection.settimeout(UNIX_SOCKET_VALIDATION_TIMEOUT)
             connection.connect(path)
     except OSError as error:
-        log_error(f"Unable to connect to Unix domain socket {path!r}: {error}")
+        log_error(
+            f"Unable to connect to Unix domain socket {path!r}: {error}. The "
+            "socket file exists but nothing is accepting connections there — the "
+            "Inference Server is likely not running. Start it, then re-run "
+            f"'{RECONFIGURE_MENU_PATH}'."
+        )
         return False
 
     return True
@@ -195,7 +211,11 @@ def _prompt_tcp() -> Optional[Connection]:
     host = (host_field.result or "").strip()
     port = (port_field.result or "").strip()
     if not host or not port.isdigit():
-        log_error(f"Invalid host:port: {host!r}:{port!r}")
+        log_error(
+            f"Invalid host:port: {host!r}:{port!r}. Re-run "
+            f"'{RECONFIGURE_MENU_PATH}' and enter a hostname or IP address (e.g. "
+            "127.0.0.1) for Host, and a numeric port (e.g. 5000) for Port."
+        )
         return None
     return {"kind": "tcp", "host": host, "port": int(port)}
 
@@ -212,7 +232,10 @@ def _prompt_unix() -> Optional[Connection]:
 
     path = (path_field.result or "").strip()
     if not path:
-        log_error("No path given")
+        log_error(
+            f"No path given. Re-run '{RECONFIGURE_MENU_PATH}' and enter the "
+            "Inference Server's Unix domain socket path."
+        )
         return None
     if not _validate_unix_socket_path(path):
         return None

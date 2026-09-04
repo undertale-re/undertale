@@ -34,6 +34,7 @@ from binaryninja import (
 
 from .utils import (
     RECONFIGURE_COMMAND_NAME,
+    RECONFIGURE_MENU_PATH,
     RECONFIGURE_POLL_TIMEOUT_COMMAND_NAME,
     Connection,
     clear_token,
@@ -79,6 +80,15 @@ def _open_connection(connection: Connection) -> http.client.HTTPConnection:
     return http.client.HTTPConnection(
         connection["host"], connection["port"], timeout=INFERENCE_CONNECT_TIMEOUT
     )
+
+
+def _describe_connection(connection: Connection) -> str:
+    """User friendly descriptions of the configured Inference Server endpoint,
+    for error messages.
+    """
+    if connection["kind"] == "unix":
+        return f"the Unix domain socket {connection['path']!r}"
+    return f"{connection['host']}:{connection['port']} (TCP)"
 
 
 class AuthenticationRequired(RuntimeError):
@@ -256,6 +266,7 @@ class NameFunctionTask(BackgroundTaskThread):
         self.connection = connection
 
     def run(self) -> None:
+        endpoint = _describe_connection(self.connection)
         try:
             disassembly = function_disassembly(self.func)
             if not disassembly:
@@ -265,8 +276,37 @@ class NameFunctionTask(BackgroundTaskThread):
             rename(self.bv, self.func, name)
         except AuthenticationRequired as exc:
             log_info(str(exc))
+        except ConnectionRefusedError:
+            log_error(
+                f"Could not reach the Undertale Inference Server at {endpoint}: "
+                "connection refused. Make sure the server is running and "
+                "listening there. If the address is wrong, run "
+                f"'{RECONFIGURE_MENU_PATH}'."
+            )
+        except FileNotFoundError:
+            log_error(
+                f"Could not reach the Undertale Inference Server at {endpoint}: "
+                "the socket file does not exist. The server may not be running, "
+                "or the socket path is wrong. Start the server or run "
+                f"'{RECONFIGURE_MENU_PATH}'."
+            )
+        except (TimeoutError, socket.timeout):
+            log_error(
+                f"Timed out after {INFERENCE_CONNECT_TIMEOUT}s connecting to the "
+                f"Undertale Inference Server at {endpoint}. Check that the server "
+                "is reachable and not overloaded, or reconfigure the connection "
+                f"via '{RECONFIGURE_MENU_PATH}'."
+            )
+        except OSError as exc:
+            log_error(
+                f"Network error talking to the Undertale Inference Server at "
+                f"{endpoint}: {exc}. Verify the connection, and reconfigure it "
+                f"via '{RECONFIGURE_MENU_PATH}' if needed."
+            )
         except Exception as exc:  # noqa: BLE001
-            log_error(f"Naming failed for {self.func.name}: {exc}")
+            log_error(
+                f"Naming failed for {self.func.name} (server at {endpoint}): {exc}"
+            )
 
 
 def name_function(bv: BinaryView, func: Function) -> None:

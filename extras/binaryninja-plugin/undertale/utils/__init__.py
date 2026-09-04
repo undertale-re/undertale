@@ -1,5 +1,6 @@
 from .connection import (
     RECONFIGURE_COMMAND_NAME,
+    RECONFIGURE_MENU_PATH,
     RECONFIGURE_POLL_TIMEOUT_COMMAND_NAME,
     Connection,
     clear_token,
@@ -15,6 +16,7 @@ from .disassembly import pretokenize_disassembly
 
 __all__ = [
     "RECONFIGURE_COMMAND_NAME",
+    "RECONFIGURE_MENU_PATH",
     "RECONFIGURE_POLL_TIMEOUT_COMMAND_NAME",
     "Connection",
     "clear_token",
