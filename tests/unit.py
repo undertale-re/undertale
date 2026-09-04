@@ -1520,7 +1520,7 @@ class TestPipelineDisassemblyCodeConsistency(TestCase):
             repository_root,
             "extras",
             "binaryninja-plugin",
-            "undertale_function_namer",
+            "undertale",
             "utils",
             "disassembly.py",
         )
@@ -1533,7 +1533,7 @@ class TestPipelineDisassemblyCodeConsistency(TestCase):
         self.assertEqual(
             canonical_source,
             shared_source,
-            "extras/binaryninja-plugin/undertale_function_namer/utils/disassembly.py "
+            "extras/binaryninja-plugin/undertale/utils/disassembly.py "
             "has drifted from undertale/pipeline/disassembly.py - copy the "
             "canonical file over the shared one to resync.",
         )

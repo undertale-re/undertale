@@ -5,7 +5,7 @@ immediates space-separated; punctuation and formatting tokens dropped).
 This module has no dependencies beyond Binary Ninja's own API, this makes it
 safe to incorporate directly into contexts that cannot depend on the rest of
 Undertale's (much heavier) dependency set. As an example, the Binary Ninja
-plugin at extras/binaryninja-plugin/undertale_function_namer/utils/disassembly.py
+plugin at extras/binaryninja-plugin/undertale/utils/disassembly.py
 keeps a byte-for-byte copy
 of this file for exactly that reason. If you change this file, update that copy
 too (tests/unit.py checks that they match).

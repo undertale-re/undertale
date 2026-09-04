@@ -21,15 +21,15 @@ waiting on the inference server.
 ## Installation
 
 The installable plugin lives in
-[`undertale_function_namer/`](undertale_function_namer). Symlink (or copy)
+[`undertale/`](undertale). Symlink (or copy)
 that directory into Binary Ninja's user plugin folder:
 
 ```bash
 # In Linux
-ln -s "/path/to/undertale_function_namer" ~/.binaryninja/plugins/undertale_function_namer
+ln -s "/path/to/undertale" ~/.binaryninja/plugins/undertale
 
 # In macOS
-ln -s "/path/to/undertale_function_namer" ~/Library/Application\ Support/Binary\ Ninja/plugins/undertale_function_namer  # macOS
+ln -s "/path/to/undertale" ~/Library/Application\ Support/Binary\ Ninja/plugins/undertale  # macOS
 ```
 
 Then restart Binary Ninja to register the plugin.
@@ -76,7 +76,7 @@ as the server — Unix domain sockets aren't reachable over the network.
 ## Development
 
 > [!NOTE]
-> To keep the plugin independent of Undertale's much heavier dependency set, the disassembly code is duplicated here. `undertale_function_namer/utils/disassembly.py` is a byte-for-byte copy of [`undertale/pipeline/disassembly.py`](https://github.com/undertale-re/undertale/blob/binaryninja-plugin/undertale/pipeline/disassembly.py).
+> To keep the plugin independent of Undertale's much heavier dependency set, the disassembly code is duplicated here. `undertale/utils/disassembly.py` is a byte-for-byte copy of [`undertale/pipeline/disassembly.py`](https://github.com/undertale-re/undertale/blob/binaryninja-plugin/undertale/pipeline/disassembly.py).
 >
 > If either copy changes, update the other as well. `tests/unit.py` (`TestPipelineDisassemblyCodeConsistency`) verifies that the two remain identical.
 
