@@ -1,0 +1,25 @@
+{
+  "pluginmetadataversion": 1,
+  "name": "Undertale",
+  "type": [
+    "ui",
+    "helper"
+  ],
+  "api": [
+    "python3"
+  ],
+  "description": "Undertale plugin for Binary Ninja. Currently: right-click a function to name it via the Undertale Inference Server.",
+  "longdescription": "Binary Ninja integration for the Undertale Inference Server. The current action reads the selected function's disassembly, sends it to the server's function-naming API, and renames the function to the predicted name. On first use, prompts once for the Inference Server connection (a TCP host:port, or the path to a Unix domain socket) and reuses it for subsequent requests.",
+  "license": {
+    "name": "MIT License",
+    "text": "\u00a9 2023 Massachusetts Institute of Technology\n\nPermission is hereby granted, free of charge, to any person obtaining a copy of\nthis software and associated documentation files (the \"Software\"), to deal in\nthe Software without restriction, including without limitation the rights to\nuse, copy, modify, merge, publish, distribute, sublicense, and/or sell copies\nof the Software, and to permit persons to whom the Software is furnished to do\nso, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n"
+  },
+  "platforms": [
+    "Darwin",
+    "Linux"
+  ],
+  "dependencies": {},
+  "author": "Massachusetts Institute of Technology (MIT)",
+  "version": "0.1.0",
+  "minimumbinaryninjaversion": 4000
+}

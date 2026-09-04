@@ -1,6 +1,7 @@
 *.swp
 *.pyc
 *.json
+!extras/binaryninja-plugin/undertale/plugin.json
 *.jsonl
 *.parquet
 *.out
