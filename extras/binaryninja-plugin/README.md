@@ -41,9 +41,17 @@ On first use, the plugin prompts you to configure the inference server connectio
 * a TCP address (`host:port`), or
 * a Unix domain socket path
 
-This configuration is saved in Binary Ninja's user settings and persists across restarts. To update it, select **Undertale > Reconfigure Inference Server Connection**. This clears the saved connection and immediately prompts you to configure a new one.
+This configuration is saved in Binary Ninja's user settings and persists across restarts.
 
-The plugin also exposes an **Inference Completion Poll Timeout** setting (default 60 seconds), which controls how long it waits for the inference server to finish naming a function before giving up. To update it, select **Undertale > Reconfigure Inference Completion Poll Timeout**.
+To change any of the plugin's settings later, select **Undertale > Configure Plugin**. This opens a single form where you can:
+
+* re-pick or edit the connection (TCP host/port or Unix socket path),
+* set the **Inference Completion Poll Timeout** (default 60 seconds), which controls how long the plugin waits for the inference server to finish naming a function before giving up, and
+* clear the saved login token (shown only when one is cached — see below).
+
+Nothing is saved unless every field validates, so cancelling or entering an invalid value leaves your existing configuration untouched. Changing the connection to a different server also discards any saved login token, so stale credentials never carry over.
+
+All of these values are also editable directly in Binary Ninja's Settings under the **Undertale** group.
 
 Which one to pick depends on how the [inference server](../inference-server) is deployed:
 
@@ -51,12 +59,12 @@ Which one to pick depends on how the [inference server](../inference-server) is 
 
 This deployment uses NGINX as a frontend for Gunicorn, with LDAP authentication. Configure the plugin to use the TCP option and point it to the endpoint exposed by NGINX.
 
-The first time the plugin talks to an authenticated server, it prompts for your LDAP username and password, logs in, and caches the resulting token in Binary Ninja's user settings (usually at `~/.binaryninja/settings.json`) so you aren't prompted again until the token is rejected (e.g. it expires) or you reconfigure the connection.
+The first time the plugin talks to an authenticated server, it prompts for your LDAP username and password, logs in, and caches the resulting token in Binary Ninja's user settings (usually at `~/.binaryninja/settings.json`) so you aren't prompted again until the token is rejected (e.g. it expires) or you clear it via **Undertale > Configure Plugin**.
 
 > [!WARNING]
 > **Credential and token handling is not hardened yet:**
 > - The login token is stored **unencrypted** in Binary Ninja's user settings file (`settings.json` in the user directory), the same place the plugin caches your connection info. Anyone with read access to that file (or that user account) can read the token and use it to call the inference server as you until it expires.
-> - Tokens are long-lived (14 days server-side, by default) and there is no dedicated "log out" action — the only ways to discard a cached token are **Undertale > Reconfigure Inference Server Connection**, or manually clearing `undertale.inferenceServerToken` from Binary Ninja's settings.
+> - Tokens are long-lived. To discard a cached token, use the "clear saved login token" option in **Undertale > Configure Plugin** (it also clears automatically when you switch to a different server), or manually clear `undertale.inferenceServerToken` from Binary Ninja's settings.
 > - There is no token refresh: once a token expires or is revoked server-side, the plugin re-prompts for credentials on the next request.
 
 ### Unauthenticated Local Service

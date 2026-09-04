@@ -2,7 +2,7 @@
 
 The connection (TCP host:port or a Unix domain socket path) is configured
 once and persists across Binary Ninja restarts until explicitly reconfigured
-via the command named by :py:data:`RECONFIGURE_COMMAND_NAME`.
+via the command named by :py:data:`CONFIGURE_COMMAND_NAME`.
 
 Two layers of caching, for two different lifetimes:
     1. An attribute parked on the `binaryninja` module. `binaryninja` is not
@@ -38,26 +38,24 @@ SETTINGS_GROUP = "undertale"
 SETTINGS_KEY = "undertale.inferenceServerConnection"
 SETTINGS_KEY_POLL_TIMEOUT = "undertale.inferencePollTimeout"
 SETTINGS_KEY_TOKEN = "undertale.inferenceServerToken"
-RECONFIGURE_COMMAND_NAME = "Undertale\\Reconfigure Inference Server Connection"
-RECONFIGURE_POLL_TIMEOUT_COMMAND_NAME = (
-    "Undertale\\Reconfigure Inference Completion Poll Timeout"
-)
-RECONFIGURE_MENU_PATH = RECONFIGURE_COMMAND_NAME.replace(
-    "\\", " > "
-)  # used for logging
+CONFIGURE_COMMAND_NAME = "Undertale\\Configure Plugin"
+CONFIGURE_MENU_PATH = CONFIGURE_COMMAND_NAME.replace("\\", " > ")  # used for logging
 
 DEFAULT_POLL_TIMEOUT = 60
 
 CONNECTION_FORM_TITLE = "Inference Server Connection"
-POLL_TIMEOUT_FORM_TITLE = "Inference Completion Poll Timeout"
+CONFIGURE_FORM_TITLE = "Configure Undertale Plugin"
 CREDENTIALS_FORM_TITLE = "Inference Server Credentials"
 CONNECTION_KIND_CHOICES = ["TCP (host:port)", "Unix Domain Socket"]
 CONNECTION_KIND_TCP, CONNECTION_KIND_UNIX = range(len(CONNECTION_KIND_CHOICES))
+CLEAR_TOKEN_CHOICES = ["No", "Yes"]
+CLEAR_TOKEN_NO, CLEAR_TOKEN_YES = range(len(CLEAR_TOKEN_CHOICES))
 CONNECTION_ATTR = "_undertale_inference_connection"
 TOKEN_ATTR = "_undertale_inference_token"
 
 INFERENCE_DEFAULT_HOST = "127.0.0.1"
 INFERENCE_DEFAULT_PORT = "5000"
+INFERENCE_DEFAULT_SOCKET_PATH = "/path/to/undertale-inference.sock"
 
 UNIX_SOCKET_VALIDATION_TIMEOUT = 10
 
@@ -84,8 +82,8 @@ def _register_settings() -> None:
                 "ignore": ["SettingsProjectScope", "SettingsResourceScope"],
                 "description": (
                     "Cached Inference Server Connection (JSON), configured "
-                    "via the plugin's connection dialog. Cleared by "
-                    f"{RECONFIGURE_COMMAND_NAME!r}."
+                    "via the plugin's connection dialog. Reconfigured by "
+                    f"{CONFIGURE_COMMAND_NAME!r}."
                 ),
             }
         ),
@@ -101,7 +99,7 @@ def _register_settings() -> None:
                 "description": (
                     "Seconds to wait for the Inference Server to finish "
                     "naming a function before giving up. Reconfigurable via "
-                    f"{RECONFIGURE_POLL_TIMEOUT_COMMAND_NAME!r}."
+                    f"{CONFIGURE_COMMAND_NAME!r}."
                 ),
             }
         ),
@@ -118,7 +116,7 @@ def _register_settings() -> None:
                 "description": (
                     "Cached authentication token (JWT) for the Inference "
                     "Server, obtained by logging in. Cleared by "
-                    f"{RECONFIGURE_COMMAND_NAME!r}."
+                    f"{CONFIGURE_COMMAND_NAME!r}."
                 ),
             }
         ),
@@ -154,14 +152,14 @@ def _validate_unix_socket_path(path: str) -> bool:
         log_error(
             f"Unix domain socket does not exist: {path!r}. The Inference Server "
             "may not be running, or the path is wrong. Start the server, then "
-            f"re-run '{RECONFIGURE_MENU_PATH}' and enter the correct socket path."
+            f"re-run '{CONFIGURE_MENU_PATH}' and enter the correct socket path."
         )
         return False
 
     if not stat.S_ISSOCK(os.stat(path).st_mode):
         log_error(
             f"Not a Unix domain socket: {path!r}. This path points to a regular "
-            f"file or directory, not a socket. Re-run '{RECONFIGURE_MENU_PATH}' "
+            f"file or directory, not a socket. Re-run '{CONFIGURE_MENU_PATH}' "
             "and enter the Inference Server's socket path."
         )
         return False
@@ -175,7 +173,7 @@ def _validate_unix_socket_path(path: str) -> bool:
             f"Unable to connect to Unix domain socket {path!r}: {error}. The "
             "socket file exists but nothing is accepting connections there — the "
             "Inference Server is likely not running. Start it, then re-run "
-            f"'{RECONFIGURE_MENU_PATH}'."
+            f"'{CONFIGURE_MENU_PATH}'."
         )
         return False
 
@@ -197,6 +195,51 @@ def _run_form(
     return False
 
 
+def _build_tcp(host: str, port: str) -> Optional[Connection]:
+    """Validate a host and port and build a TCP connection dict.
+
+    Logs an error and returns None if either is invalid.
+    """
+    if not host or not port.isdigit():
+        log_error(
+            f"Invalid host:port: {host!r}:{port!r}. Re-run "
+            f"'{CONFIGURE_MENU_PATH}' and enter a hostname or IP address (e.g. "
+            "127.0.0.1) for Host, and a numeric port (e.g. 5000) for Port."
+        )
+        return None
+    return {"kind": "tcp", "host": host, "port": int(port)}
+
+
+def _build_unix(path: str) -> Optional[Connection]:
+    """Validate a Unix domain socket path and build a connection dict.
+
+    Logs an error and returns None if the path is empty or unusable.
+    """
+    if not path:
+        log_error(
+            f"No path given. Re-run '{CONFIGURE_MENU_PATH}' and enter the "
+            "Inference Server's Unix domain socket path."
+        )
+        return None
+    if not _validate_unix_socket_path(path):
+        return None
+    return {"kind": "unix", "path": path}
+
+
+def _parse_timeout(timeout: str) -> Optional[int]:
+    """Validate a poll timeout entered as a string, in seconds.
+
+    Logs an error and returns None if it is not a whole number of at least 1.
+    """
+    if not timeout.isdigit() or int(timeout) < 1:
+        log_error(
+            f"Invalid poll timeout: {timeout!r}. Enter a whole number of "
+            f"seconds (1 or greater). Re-run '{CONFIGURE_MENU_PATH}' to try again."
+        )
+        return None
+    return int(timeout)
+
+
 def _prompt_tcp() -> Optional[Connection]:
     """Ask the user for a TCP host and port.
 
@@ -208,16 +251,9 @@ def _prompt_tcp() -> Optional[Connection]:
     if not _run_form([host_field, port_field]):
         return None
 
-    host = (host_field.result or "").strip()
-    port = (port_field.result or "").strip()
-    if not host or not port.isdigit():
-        log_error(
-            f"Invalid host:port: {host!r}:{port!r}. Re-run "
-            f"'{RECONFIGURE_MENU_PATH}' and enter a hostname or IP address (e.g. "
-            "127.0.0.1) for Host, and a numeric port (e.g. 5000) for Port."
-        )
-        return None
-    return {"kind": "tcp", "host": host, "port": int(port)}
+    return _build_tcp(
+        (host_field.result or "").strip(), (port_field.result or "").strip()
+    )
 
 
 def _prompt_unix() -> Optional[Connection]:
@@ -225,21 +261,12 @@ def _prompt_unix() -> Optional[Connection]:
 
     Returns None if the user cancels or gives an invalid answer.
     """
-    path_field = TextLineField("Path", "/path/to/undertale-inference.sock")
+    path_field = TextLineField("Path", INFERENCE_DEFAULT_SOCKET_PATH)
 
     if not _run_form([path_field]):
         return None
 
-    path = (path_field.result or "").strip()
-    if not path:
-        log_error(
-            f"No path given. Re-run '{RECONFIGURE_MENU_PATH}' and enter the "
-            "Inference Server's Unix domain socket path."
-        )
-        return None
-    if not _validate_unix_socket_path(path):
-        return None
-    return {"kind": "unix", "path": path}
+    return _build_unix((path_field.result or "").strip())
 
 
 def _prompt_for_connection() -> Optional[Connection]:
@@ -308,11 +335,6 @@ def _save_connection(connection: Connection) -> None:
     )
 
 
-def _clear_saved_connection() -> None:
-    """Remove the persisted connection so the user is prompted again."""
-    Settings().reset(SETTINGS_KEY, scope=SettingsScope.SettingsUserScope)
-
-
 def get_connection() -> Optional[Connection]:
     """Return the inference server connection.
 
@@ -373,60 +395,86 @@ def clear_token() -> None:
     Settings().reset(SETTINGS_KEY_TOKEN, scope=SettingsScope.SettingsUserScope)
 
 
-def _prompt_poll_timeout() -> Optional[int]:
-    """Ask the user for a new Inference Completion Poll Timeout, in seconds.
-
-    Returns None if the user cancels or gives an invalid answer.
-    """
-    timeout_field = TextLineField("Poll Timeout (seconds)", str(DEFAULT_POLL_TIMEOUT))
-
-    if not get_form_input([timeout_field], POLL_TIMEOUT_FORM_TITLE):
-        log_error(
-            "Operation cancelled: Inference Completion Poll Timeout was not configured."
-        )
-        return None
-
-    timeout = (timeout_field.result or "").strip()
-    if not timeout.isdigit() or int(timeout) < 1:
-        log_error(f"Invalid poll timeout: {timeout!r}")
-        return None
-    return int(timeout)
-
-
-def reconfigure_poll_timeout(bv: BinaryView) -> None:
-    """Reconfigures the Inference Completion Poll Timeout.
-
-    Prompts for a new timeout value and persists it, replacing the current
-    one.
-    """
-    timeout = _prompt_poll_timeout()
-    if timeout is None:
-        return
-
-    Settings().set_integer(
-        SETTINGS_KEY_POLL_TIMEOUT, timeout, scope=SettingsScope.SettingsUserScope
-    )
-    log_info(f"Undertale's Inference Completion Poll Timeout configured: {timeout}s")
-
-
 def get_poll_timeout() -> int:
     """Return the configured timeout, in seconds, to wait for the Inference
     Server to finish naming a function."""
     return Settings().get_integer(SETTINGS_KEY_POLL_TIMEOUT)
 
 
-def reconfigure_connection(bv: BinaryView) -> None:
-    """Recofingures a connection to the Inference Server.
+def configure_plugin(bv: BinaryView) -> None:
+    """Configure the Undertale Plugin.
 
-    Discard the cached and persisted connection, then immediately prompt
-    for a new one.
+    Presents the current connection and poll timeout for editing, and offers
+    to clear a saved login token. Because Binary Ninja forms are static (no
+    conditional fields), the form shows both TCP and Unix connection fields;
+    only the fields for the chosen connection type are validated.
+
+    Nothing is persisted unless every value validates, so a cancel or a bad
+    entry leaves the existing configuration untouched. The saved token is
+    discarded when the connection target changes or when the user asks for it,
+    so stale credentials never carry over to a different server.
     """
-    if hasattr(binaryninja, CONNECTION_ATTR):
-        delattr(binaryninja, CONNECTION_ATTR)
+    current = getattr(binaryninja, CONNECTION_ATTR, None) or _load_connection()
 
-    _clear_saved_connection()
-    clear_token()
-    get_connection()
+    current_kind = CONNECTION_KIND_TCP
+    host_default = INFERENCE_DEFAULT_HOST
+    port_default = INFERENCE_DEFAULT_PORT
+    path_default = INFERENCE_DEFAULT_SOCKET_PATH
+    if current is not None:
+        if current.get("kind") == "unix":
+            current_kind = CONNECTION_KIND_UNIX
+            path_default = current.get("path", path_default)
+        else:
+            host_default = current.get("host", host_default)
+            port_default = str(current.get("port", port_default))
+
+    kind_field = ChoiceField("Connection Type", CONNECTION_KIND_CHOICES)
+    kind_field.result = current_kind
+    host_field = TextLineField("Host", host_default)
+    port_field = TextLineField("Port", port_default)
+    path_field = TextLineField("Unix Socket Path", path_default)
+    timeout_field = TextLineField("Poll Timeout (seconds)", str(get_poll_timeout()))
+
+    fields = [kind_field, host_field, port_field, path_field, timeout_field]
+
+    clear_token_field = None
+    if get_token() is not None:
+        clear_token_field = ChoiceField("Clear saved login token", CLEAR_TOKEN_CHOICES)
+        fields.append(clear_token_field)
+
+    if not get_form_input(fields, CONFIGURE_FORM_TITLE):
+        log_error("Operation cancelled: the Undertale plugin was not configured.")
+        return
+
+    timeout = _parse_timeout((timeout_field.result or "").strip())
+    if timeout is None:
+        return
+
+    if kind_field.result == CONNECTION_KIND_TCP:
+        connection = _build_tcp(
+            (host_field.result or "").strip(), (port_field.result or "").strip()
+        )
+    else:
+        connection = _build_unix((path_field.result or "").strip())
+    if connection is None:
+        return
+
+    setattr(binaryninja, CONNECTION_ATTR, connection)
+    _save_connection(connection)
+    Settings().set_integer(
+        SETTINGS_KEY_POLL_TIMEOUT, timeout, scope=SettingsScope.SettingsUserScope
+    )
+
+    clear_requested = (
+        clear_token_field is not None and clear_token_field.result == CLEAR_TOKEN_YES
+    )
+    if clear_requested or (current is not None and current != connection):
+        clear_token()
+
+    log_info(
+        f"Undertale plugin configured: connection={connection}, "
+        f"poll timeout={timeout}s"
+    )
 
 
 _register_settings()

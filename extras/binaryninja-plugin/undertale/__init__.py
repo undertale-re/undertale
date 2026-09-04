@@ -12,7 +12,7 @@ The plugin's workflow consists of the following steps
 
 The inference server connection is configured once and persists across
 Binary Ninja restarts until explicitly reconfigured (see "Undertale >
-Reconfigure Inference Server Connection"). The supported endpoints include
+Configure Plugin"). The supported endpoints include
     - TCP connections specified as host:port
     - Unix domain sockets specified by filesystem path
 """
@@ -33,18 +33,16 @@ from binaryninja import (
 )
 
 from .utils import (
-    RECONFIGURE_COMMAND_NAME,
-    RECONFIGURE_MENU_PATH,
-    RECONFIGURE_POLL_TIMEOUT_COMMAND_NAME,
+    CONFIGURE_COMMAND_NAME,
+    CONFIGURE_MENU_PATH,
     Connection,
     clear_token,
+    configure_plugin,
     get_connection,
     get_poll_timeout,
     get_token,
     pretokenize_disassembly,
     prompt_credentials,
-    reconfigure_connection,
-    reconfigure_poll_timeout,
     save_token,
 )
 
@@ -248,8 +246,8 @@ def rename(bv: BinaryView, func: Function, name: str) -> None:
         try:
             bv.commit_undo_actions(state)
         except Exception as exc:  # noqa: BLE001
-            log_error(f"failed to commit undo action for rename of {old}: {exc}")
-    log_info(f"renamed {old} -> {func.name} @ {hex(func.start)}")
+            log_error(f"Failed to commit undo action for rename of {old}: {exc}")
+    log_info(f"Renamed {old} -> {func.name} @ {hex(func.start)}")
 
 
 class NameFunctionTask(BackgroundTaskThread):
@@ -281,27 +279,27 @@ class NameFunctionTask(BackgroundTaskThread):
                 f"Could not reach the Undertale Inference Server at {endpoint}: "
                 "connection refused. Make sure the server is running and "
                 "listening there. If the address is wrong, run "
-                f"'{RECONFIGURE_MENU_PATH}'."
+                f"'{CONFIGURE_MENU_PATH}'."
             )
         except FileNotFoundError:
             log_error(
                 f"Could not reach the Undertale Inference Server at {endpoint}: "
                 "the socket file does not exist. The server may not be running, "
                 "or the socket path is wrong. Start the server or run "
-                f"'{RECONFIGURE_MENU_PATH}'."
+                f"'{CONFIGURE_MENU_PATH}'."
             )
         except (TimeoutError, socket.timeout):
             log_error(
                 f"Timed out after {INFERENCE_CONNECT_TIMEOUT}s connecting to the "
                 f"Undertale Inference Server at {endpoint}. Check that the server "
                 "is reachable and not overloaded, or reconfigure the connection "
-                f"via '{RECONFIGURE_MENU_PATH}'."
+                f"via '{CONFIGURE_MENU_PATH}'."
             )
         except OSError as exc:
             log_error(
                 f"Network error talking to the Undertale Inference Server at "
                 f"{endpoint}: {exc}. Verify the connection, and reconfigure it "
-                f"via '{RECONFIGURE_MENU_PATH}' if needed."
+                f"via '{CONFIGURE_MENU_PATH}' if needed."
             )
         except Exception as exc:  # noqa: BLE001
             log_error(
@@ -323,12 +321,7 @@ PluginCommand.register_for_function(
     name_function,
 )
 PluginCommand.register(
-    RECONFIGURE_COMMAND_NAME,
-    "Discard the saved Inference Server connection and prompt for a new one",
-    reconfigure_connection,
-)
-PluginCommand.register(
-    RECONFIGURE_POLL_TIMEOUT_COMMAND_NAME,
-    "Prompt for a new Inference Completion Poll Timeout",
-    reconfigure_poll_timeout,
+    CONFIGURE_COMMAND_NAME,
+    "Configure the Inference Server connection, poll timeout, and saved login token",
+    configure_plugin,
 )
