@@ -39,6 +39,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-p",
         "--pretrained",
+        required=True,
         help="path to a pretrained masked LM checkpoint",
     )
     parser.add_argument(
@@ -66,9 +67,16 @@ if __name__ == "__main__":
         **InstructionTraceTransformerEncoderConfiguration.medium,
     )
 
-    if arguments.pretrained is not None:
-        pretrained = torch.load(cache_path(arguments.pretrained), map_location="cpu")
-        model.load_state_dict(pretrained["state_dict"], strict=False)
+    pretrained = torch.load(cache_path(arguments.pretrained), map_location="cpu")
+    missing, unexpected = model.load_state_dict(pretrained["state_dict"], strict=False)
+
+    missing = [key for key in missing if key.startswith("encoder.")]
+    unexpected = [key for key in unexpected if not key.startswith("head.")]
+    if missing or unexpected:
+        raise ValueError(
+            f"pretrained checkpoint does not match the model encoder "
+            f"(missing: {missing}, unexpected: {unexpected})"
+        )
 
     language_pretrained = GPT2LMHeadModel.from_pretrained(model.LANGUAGE)
     model.language.load_state_dict(language_pretrained.state_dict())
