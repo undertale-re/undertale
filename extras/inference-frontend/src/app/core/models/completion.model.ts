@@ -2,6 +2,7 @@ export enum CompletionState {
   Queued = 0,
   Running = 1,
   Complete = 2,
+  Failed = 3,
 }
 
 export interface Completion {
@@ -10,6 +11,7 @@ export interface Completion {
   output: string | null;
   timestamp: string;
   completed: boolean;
+  failed: boolean;
   username: string;
   rating: number | null;
   comments: string | null;
@@ -24,6 +26,8 @@ export function stateBadgeClass(state: CompletionState): string {
       return 'badge bg-warning text-dark';
     case CompletionState.Complete:
       return 'badge bg-secondary';
+    case CompletionState.Failed:
+      return 'badge bg-danger';
   }
 }
 
@@ -35,5 +39,7 @@ export function stateLabel(state: CompletionState): string {
       return 'Running';
     case CompletionState.Complete:
       return 'Complete';
+    case CompletionState.Failed:
+      return 'Failed';
   }
 }

@@ -82,7 +82,9 @@ def serialize_completion(completion: Completion) -> Dict[str, Any]:
         "input": completion.input,
         "output": completion.output,
         "timestamp": completion.timestamp.isoformat() + "Z",
-        "completed": completion.state == int(CompletionState.complete),
+        "completed": completion.state
+        in (int(CompletionState.complete), int(CompletionState.failed)),
+        "failed": completion.state == int(CompletionState.failed),
         "username": completion.user.username,
         "rating": completion.rating,
         "comments": completion.comments,
