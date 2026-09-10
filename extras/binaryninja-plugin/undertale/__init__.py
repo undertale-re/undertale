@@ -222,6 +222,13 @@ def request_name(connection: Connection, disassembly: str) -> str:
             completion = request(
                 conn, "GET", f"/fnaming/completion/{completion_id}/", token=token
             )
+            if completion.get("failed"):
+                error = (
+                    completion.get("output") or ""
+                ).strip() or "the server reported an error"
+                raise RuntimeError(
+                    f"Inference server failed on completion {completion_id}: {error}"
+                )
             if completion["completed"]:
                 if not completion["output"]:
                     raise RuntimeError(
