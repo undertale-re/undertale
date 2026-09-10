@@ -286,6 +286,20 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
 
     BERTSCORE = "distilbert-base-uncased"
 
+    # Default beam search generation settings, used unless overridden via
+    # `generate(**kwargs)`.
+    #
+    # Without explicit settings, generation falls back to the language
+    # model's default generation configuration (greedy decoding, capped
+    # around 20 tokens) which produces truncated, low-quality summaries.
+    GENERATION = {
+        "max_new_tokens": 150,
+        "min_new_tokens": 1,
+        "num_beams": 5,
+        "do_sample": False,
+        "early_stopping": True,
+    }
+
     def __init__(
         self,
         depth: int,
@@ -418,16 +432,9 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
             device=language_embedded.device,
         )
 
-        # Without explicit settings, generation falls back to the language
-        # model's default generation configuration (greedy decoding, capped
-        # around 20 tokens) which produces truncated, low-quality summaries.
         eos_token_id = self.language.config.eos_token_id
         options = {
-            "max_new_tokens": 150,
-            "min_new_tokens": 1,
-            "num_beams": 5,
-            "do_sample": False,
-            "early_stopping": True,
+            **self.GENERATION,
             "eos_token_id": eos_token_id,
             "pad_token_id": eos_token_id,
         }
