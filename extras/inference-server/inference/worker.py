@@ -98,7 +98,7 @@ class Worker(multiprocessing.Process):
                             "Worker failed on completion %d", completion.id
                         )
                         completion.output = str(error)
-                        completion.state = int(CompletionState.complete)
+                        completion.state = int(CompletionState.failed)
                     session.commit()
         except KeyboardInterrupt:
             logger.info("terminated (pid=%d)", os.getpid())
