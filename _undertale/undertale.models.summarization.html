@@ -249,7 +249,8 @@ of summary logits and computed loss are returned.</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>state</strong> – The tokenized input state tensor.</p></li>
 <li><p><strong>mask</strong> – Optional attention mask.</p></li>
-<li><p><strong>**kwargs</strong> – Forwarded to <code class="docutils literal notranslate"><span class="pre">GPT2LMHeadModel.generate</span></code> (e.g.
+<li><p><strong>**kwargs</strong> – Forwarded to <code class="docutils literal notranslate"><span class="pre">GPT2LMHeadModel.generate</span></code>, overriding the
+default beam search generation settings (e.g.
 <code class="docutils literal notranslate"><span class="pre">max_new_tokens</span></code>, <code class="docutils literal notranslate"><span class="pre">do_sample</span></code>, <code class="docutils literal notranslate"><span class="pre">temperature</span></code>).</p></li>
 </ul>
 </dd>

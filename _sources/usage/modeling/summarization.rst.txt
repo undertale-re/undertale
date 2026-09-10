@@ -62,12 +62,6 @@ now ready to fine-tune for summarization.
     # Results will be written to summarization/.
     python pipelines/models/finetune-summarization.py \
         --tokenizer tokenizer.json \
-        humaneval-x-summaries/ \
-        summarization
-
-    # Initialize from a pre-trained masked LM checkpoint.
-    python pipelines/models/finetune-summarization.py \
-        --tokenizer tokenizer.json \
         --pretrained maskedlm/checkpoint.ckpt \
         humaneval-x-summaries/ \
         summarization

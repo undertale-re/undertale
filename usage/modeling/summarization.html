@@ -80,12 +80,6 @@ now ready to fine-tune for summarization.</p>
 <span class="c1"># Results will be written to summarization/.</span>
 python<span class="w"> </span>pipelines/models/finetune-summarization.py<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--tokenizer<span class="w"> </span>tokenizer.json<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>humaneval-x-summaries/<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>summarization
-
-<span class="c1"># Initialize from a pre-trained masked LM checkpoint.</span>
-python<span class="w"> </span>pipelines/models/finetune-summarization.py<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--tokenizer<span class="w"> </span>tokenizer.json<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--pretrained<span class="w"> </span>maskedlm/checkpoint.ckpt<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>humaneval-x-summaries/<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>summarization
