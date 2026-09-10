@@ -14,7 +14,7 @@ TRAINING=$SHARE/datasets/$FINETUNE_DATASET-finetune-summarization/training/lates
 VALIDATION=$SHARE/datasets/$FINETUNE_DATASET-finetune-summarization/validation/latest
 PRETRAINED=$SHARE/models/maskedlm/$PRETRAIN_DATASET/latest
 CACHE=$SHARE/software/huggingface
-BATCH=40
+BATCH=32
 
 srun python finetune-summarization.py \
     --tokenizer $TOKENIZER \

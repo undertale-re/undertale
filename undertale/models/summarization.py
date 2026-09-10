@@ -286,6 +286,20 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
 
     BERTSCORE = "distilbert-base-uncased"
 
+    # Default beam search generation settings, used unless overridden via
+    # `generate(**kwargs)`.
+    #
+    # Without explicit settings, generation falls back to the language
+    # model's default generation configuration (greedy decoding, capped
+    # around 20 tokens) which produces truncated, low-quality summaries.
+    GENERATION = {
+        "max_new_tokens": 150,
+        "min_new_tokens": 1,
+        "num_beams": 5,
+        "do_sample": False,
+        "early_stopping": True,
+    }
+
     def __init__(
         self,
         depth: int,
@@ -322,7 +336,7 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
             dropout,
             eps,
         )
-        self.connector = MLPConnector(
+        self.connector = TransformerConnector(
             hidden_dimensions,
             connector_dimensions,
             language_dimensions,
@@ -402,7 +416,8 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
         Arguments:
             state: The tokenized input state tensor.
             mask: Optional attention mask.
-            **kwargs: Forwarded to ``GPT2LMHeadModel.generate`` (e.g.
+            **kwargs: Forwarded to ``GPT2LMHeadModel.generate``, overriding the
+                default beam search generation settings (e.g.
                 ``max_new_tokens``, ``do_sample``, ``temperature``).
 
         Returns:
@@ -411,7 +426,25 @@ class InstructionTraceTransformerEncoderForSequenceSummarizationGPT2(
 
         language_embedded = self.encode(state, mask)
 
-        return self.language.generate(inputs_embeds=language_embedded, **kwargs)
+        attention_mask = ones(
+            language_embedded.shape[:2],
+            dtype=long,
+            device=language_embedded.device,
+        )
+
+        eos_token_id = self.language.config.eos_token_id
+        options = {
+            **self.GENERATION,
+            "eos_token_id": eos_token_id,
+            "pad_token_id": eos_token_id,
+        }
+        options.update(kwargs)
+
+        return self.language.generate(
+            inputs_embeds=language_embedded,
+            attention_mask=attention_mask,
+            **options,
+        )
 
     def configure_optimizers(self):
         """"""
