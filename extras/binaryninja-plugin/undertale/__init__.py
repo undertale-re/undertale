@@ -186,7 +186,7 @@ def _authenticate(conn: http.client.HTTPConnection) -> Optional[str]:
     raise RuntimeError(f"GET / -> {response.status}")
 
 
-def function_disassembly(func: Function) -> str:
+def function_disassembly(bv: BinaryView, func: Function) -> str:
     """Render and formats the function's disassembly.
 
     The disassembly is pretokenized in the form Undertale's model was trained
@@ -196,9 +196,23 @@ def function_disassembly(func: Function) -> str:
     cold paths elsewhere, so walking func.start..func.highest_address can pull
     in instructions belonging to other functions. Iterating basic blocks
     avoids that.
+
+    To match training (see undertale/pipeline/binary.py), we undefine all data
+    variables before disassembling so operands render as real addresses instead
+    of expressions like ``jmp data_var[42]``. Leaving them defined would emit
+    different immediate values than the model was trained on.
     """
-    blocks = sorted(func.basic_blocks, key=lambda b: b.start)
-    tokens = pretokenize_disassembly(blocks)
+    cached_data_vars = {
+        address: variable.type for address, variable in bv.data_vars.items()
+    }
+    for address in cached_data_vars:
+        bv.undefine_data_var(address, blacklist=True)
+    try:
+        blocks = sorted(func.basic_blocks, key=lambda b: b.start)
+        tokens = pretokenize_disassembly(blocks)
+    finally:
+        for address, variable_type in cached_data_vars.items():
+            bv.define_data_var(address, variable_type)
     return " ".join(tokens)
 
 
@@ -274,7 +288,7 @@ class NameFunctionTask(BackgroundTaskThread):
     def run(self) -> None:
         endpoint = _describe_connection(self.connection)
         try:
-            disassembly = function_disassembly(self.func)
+            disassembly = function_disassembly(self.bv, self.func)
             if not disassembly:
                 alert_user(f"No disassembly available for {self.func.name}")
                 return
