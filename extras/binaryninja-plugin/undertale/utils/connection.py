@@ -45,6 +45,8 @@ CONFIGURE_COMMAND_NAME = "Undertale\\Configure Plugin"
 CONFIGURE_MENU_PATH = CONFIGURE_COMMAND_NAME.replace("\\", " > ")  # used for logging
 
 DEFAULT_POLL_TIMEOUT = 60
+MIN_POLL_TIMEOUT = 1
+MAX_POLL_TIMEOUT = 3600
 
 CONNECTION_FORM_TITLE = "Inference Server Connection"
 CONFIGURE_FORM_TITLE = "Configure Undertale Plugin"
@@ -98,7 +100,8 @@ def _register_settings() -> None:
                 "title": "Inference Completion Poll Timeout",
                 "type": "number",
                 "default": DEFAULT_POLL_TIMEOUT,
-                "minValue": 1,
+                "minValue": MIN_POLL_TIMEOUT,
+                "maxValue": MAX_POLL_TIMEOUT,
                 "description": (
                     "Seconds to wait for the Inference Server to finish "
                     "naming a function before giving up. Reconfigurable via "
