@@ -20,5 +20,13 @@ repos:
 -   repo: https://github.com/pre-commit/mirrors-mypy
     rev: v2.0.0
     hooks:
+    # Avoid mypy module name collision between the main Undertale module
+    # and the extra Binary Ninja plugin by running the hook separately.
     -   id: mypy
+        name: mypy
         args: [--ignore-missing-imports]
+        exclude: ^extras/binaryninja-plugin/
+    -   id: mypy
+        name: mypy (binaryninja-plugin)
+        args: [--ignore-missing-imports]
+        files: ^extras/binaryninja-plugin/

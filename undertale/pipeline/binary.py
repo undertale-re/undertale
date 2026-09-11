@@ -9,6 +9,7 @@ from ..logging import get_logger
 from ..models.tokenizer import TOKEN_NEXT
 from ..schema import BinaryDataset, validate_dataset
 from ..utils import assert_path_exists, get_or_create_file, write_parquet
+from .disassembly import pretokenize_disassembly
 
 logger = get_logger(__name__)
 
@@ -17,7 +18,7 @@ def segment_and_disassemble(
     row: Series,
 ) -> List[Dict[str, str | bytes]]:
     import binaryninja
-    from binaryninja import InstructionTextTokenType, SymbolType
+    from binaryninja import SymbolType
 
     binaryninja.disable_default_log()
 
@@ -53,7 +54,7 @@ def segment_and_disassemble(
 
             binary = b""
             skipped_reason = None
-            disassembly: List[str] = []
+            disassembled_blocks = []
             for block in blocks_by_address:
                 if block.has_invalid_instructions:
                     skipped_reason = "invalid instruction"
@@ -73,136 +74,12 @@ def segment_and_disassemble(
                 # for completeness and to match the schema requirements.
                 binary += view.read(block.start, block.length)
 
-                annotation = False
-                for line in block.disassembly_text:
-                    for token in line.tokens:
-                        if annotation:
-                            if (
-                                token.type == InstructionTextTokenType.AnnotationToken
-                                and token.text.strip() == "}"
-                            ):
-                                annotation = False
-                            continue
-                        match token.type:
-                            # New Instruction - emit a separator.
-                            case InstructionTextTokenType.AddressSeparatorToken:
-                                if disassembly:
-                                    disassembly.append(TOKEN_NEXT)
-                            # Emit token verbatim.
-                            #
-                            # Instruction mnemonics, registers, braces (memory access).
-                            case (
-                                InstructionTextTokenType.InstructionToken
-                                | InstructionTextTokenType.RegisterToken
-                                | InstructionTextTokenType.BraceToken
-                            ):
-                                disassembly.append(token.text.strip())
-                            # Addresses - emit as integers.
-                            #
-                            # Integers, Immediate values, imports (relative),
-                            # addresses, symbols.
-                            case (
-                                InstructionTextTokenType.IntegerToken
-                                | InstructionTextTokenType.FloatingPointToken
-                                | InstructionTextTokenType.PossibleAddressToken
-                                | InstructionTextTokenType.ImportToken
-                                | InstructionTextTokenType.CodeRelativeAddressToken
-                                | InstructionTextTokenType.DataSymbolToken
-                                | InstructionTextTokenType.CodeSymbolToken
-                                | InstructionTextTokenType.ExternalSymbolToken
-                            ):
-                                disassembly.append(str(token.value))
-                            # Keyword token - parsing required.
-                            #
-                            # Binary Ninja seems to lump together a lot of
-                            # miscellaneous tokens as `KeywordTokens`. We need to
-                            # handle some of them separately.
-                            case InstructionTextTokenType.KeywordToken:
-                                text = token.text.strip()
-                                match text:
-                                    # Memory reference size specifiers.
-                                    case (
-                                        "byte"
-                                        | "word"
-                                        | "dword"
-                                        | "qword"
-                                        | "tword"
-                                        | "xmmword"
-                                        | "ymmword"
-                                        | "zmmword"
-                                    ):
-                                        disassembly.append(text)
-                                    # Instruction pointer relative address.
-                                    case "rel":
-                                        disassembly.append(text)
-                                    case _:
-                                        raise ValueError(
-                                            f"unhandled keyword token: {line} ({token})"
-                                        )
-                            # Operation token - parsing required.
-                            case InstructionTextTokenType.OperationToken:
-                                text = token.text.strip()
-                                match text:
-                                    # Arithmetic operators.
-                                    case "+" | "-" | "*":
-                                        disassembly.append(text)
-                                    # Immediate value prefix - ignored.
-                                    case "#":
-                                        pass
-                                    # Colon operator is somewhat complex.
-                                    case ":":
-                                        # Segment register offset syntax (x86).
-                                        if disassembly[-1] in [
-                                            "cs",
-                                            "ds",
-                                            "es",
-                                            "ss",
-                                            "fs",
-                                            "gs",
-                                        ]:
-                                            disassembly.append("+")
-                                        else:
-                                            raise ValueError(
-                                                f"unhandled ':' operator: {line} ({token})"
-                                            )
-                                    # Special case: x86 rip-relative call.
-                                    #
-                                    # This can sometimes appear in the form of
-                                    # `call $+5` which really just means `call` the
-                                    # next instruction.
-                                    case "$+5":
-                                        disassembly.extend(["rel", "5"])
-                                    case _:
-                                        raise ValueError(
-                                            f"unhandled operation token: {line} ({token})"
-                                        )
-                            # Ignore token.
-                            #
-                            # Text (spacing, formatting, etc.), separators
-                            # (commas), memory operator annotation, tags.
-                            case (
-                                InstructionTextTokenType.TextToken
-                                | InstructionTextTokenType.OperandSeparatorToken
-                                | InstructionTextTokenType.BeginMemoryOperandToken
-                                | InstructionTextTokenType.EndMemoryOperandToken
-                                | InstructionTextTokenType.TagToken
-                                | InstructionTextTokenType.GotoLabelToken
-                            ):
-                                pass
-                            # Annotation token.
-                            #
-                            # Ignore all tokens until the next annotation token is reached.
-                            case InstructionTextTokenType.AnnotationToken:
-                                if token.text.strip().startswith("{"):
-                                    annotation = True
-                                else:
-                                    raise ValueError(
-                                        f"unexpected annotation token {line} ({token})"
-                                    )
-                            case _:
-                                raise ValueError(
-                                    f"unhandled token type: {line} ({token}:{token.type.name}))"
-                                )
+                disassembled_blocks.append(block)
+
+            if not skipped_reason:
+                disassembly = pretokenize_disassembly(
+                    disassembled_blocks, next_token=TOKEN_NEXT
+                )
 
             if skipped_reason:
                 function_disassembly = ""

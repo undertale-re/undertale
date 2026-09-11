@@ -7,7 +7,7 @@ import zipfile
 from datetime import datetime
 from logging import WARNING
 from os import listdir, makedirs
-from os.path import basename, exists, isdir, isfile, join
+from os.path import basename, dirname, exists, isdir, isfile, join
 from tempfile import TemporaryDirectory
 from time import sleep
 from typing import Dict
@@ -1510,6 +1510,33 @@ class TestPipelineBinary(TestCase):
         filtered = loaded[loaded["name"] == "main"]
 
         self.assertEqual(len(filtered), 0)
+
+
+class TestPipelineDisassemblyCodeConsistency(TestCase):
+    def test_binja_plugin_copy_matches_canonical_module(self):
+        repository_root = dirname(dirname(__file__))
+        canonical = join(repository_root, "undertale", "pipeline", "disassembly.py")
+        shared = join(
+            repository_root,
+            "extras",
+            "binaryninja-plugin",
+            "undertale",
+            "utils",
+            "disassembly.py",
+        )
+
+        with open(canonical) as f:
+            canonical_source = f.read()
+        with open(shared) as f:
+            shared_source = f.read()
+
+        self.assertEqual(
+            canonical_source,
+            shared_source,
+            "extras/binaryninja-plugin/undertale/utils/disassembly.py "
+            "has drifted from undertale/pipeline/disassembly.py - copy the "
+            "canonical file over the shared one to resync.",
+        )
 
 
 class TestModelTokenizer(TestCase):
