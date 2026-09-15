@@ -71,11 +71,13 @@ class Tokenizer(Setting):
 class MaskedLMCheckpoint(Setting):
     key = "maskedlm-checkpoint"
     default = "{workspace}/maskedlm.ckpt"
+    required = False
 
 
 class FunctionNamingCheckpoint(Setting):
     key = "function-naming-checkpoint"
     default = "{workspace}/fnaming.ckpt"
+    required = False
 
 
 class Authentication(Setting):
@@ -167,9 +169,16 @@ def fetch() -> Dict[str, Any]:
 
         try:
             value: Optional[str] = parser.get(SETTINGS_SECTION, s.key)
+            if value is not None and value.strip() == "":
+                value = None
         except NoOptionError as e:
             if s.required:
                 raise ConfigurationError(str(e))
+            value = None
+
+        if value is None:
+            if s.required:
+                raise ConfigurationError(f"setting {s.key!r} must not be empty")
             value = s.fallback
 
         settings[s.key] = s.parse(value) if value is not None else None
