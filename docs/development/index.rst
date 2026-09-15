@@ -10,3 +10,4 @@ Development
     conventions
     workflows
     setup
+    releases

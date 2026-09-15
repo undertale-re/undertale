@@ -46,6 +46,32 @@ Migrate the database:
 inference migrate
 ```
 
+#### Offline Installation
+
+For machines without network access, `scripts/release.sh` builds a
+self-contained release bundle: the `undertale-inference` and `undertale`
+wheels, per-platform dependency wheelhouses (macOS arm64, Linux x86-64,
+Windows amd64, with CPU-only PyTorch on Linux/Windows), a pre-seeded
+HuggingFace cache, and deployment examples. Build it on a connected machine:
+
+```bash
+./scripts/release.sh
+```
+
+The resulting archive is written to `dist/`. It contains an `INSTALL.md`
+(from `scripts/release/INSTALL.md`) walking through the offline
+installation; the short version is:
+
+```bash
+pip install --no-index --find-links wheelhouse/<platform> undertale undertale-inference
+```
+
+followed by the usual workspace initialization, plus loading the bundled
+HuggingFace cache and setting `HF_HUB_OFFLINE=1` for the workers. Model
+checkpoints and the tokenizer are distributed separately and copied into the
+workspace.
+
+
 #### Authenticated Systemd Service
 
 Configure the settings to point to your LDAP instance for authentication.
