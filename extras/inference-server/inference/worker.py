@@ -2,10 +2,13 @@ import logging
 import multiprocessing
 import os
 import time
+from typing import Any, Dict, Optional, Type
 
 from inference import settings
+from inference.exceptions import ConfigurationError
 from inference.logging import get_logger, setup_logging
 from inference.models import Completion, CompletionState, CompletionType, connect
+from lightning import LightningModule
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
@@ -14,6 +17,31 @@ logger = get_logger(__name__)
 
 class Worker(multiprocessing.Process):
     """Background process that consumes queued completions and runs inference."""
+
+    @staticmethod
+    def load(
+        model: Type[LightningModule], config: Dict[str, Any], key: str
+    ) -> Optional[LightningModule]:
+        """Load a model from its configured checkpoint, if one is set.
+
+        Arguments:
+            model: The model class to load.
+            config: The fetched settings.
+            key: The settings key holding the checkpoint path for this model.
+
+        Returns:
+            The loaded model in evaluation mode, or ``None`` if disabled.
+        """
+
+        if config.get(key) is not None:
+            loaded = model.load_from_checkpoint(config[key])
+            loaded.eval()
+
+            return loaded
+        else:
+            logger.warning(f"{key} not found - model disabled")
+
+            return None
 
     def run(self):
         from transformers import GPT2Tokenizer
@@ -32,21 +60,21 @@ class Worker(multiprocessing.Process):
         config = settings.fetch()
         engine = connect(config["database"], echo=False)
         self.tokenizer = load_tokenizer(config["tokenizer"])
-        self.maskedlm = (
-            InstructionTraceTransformerEncoderForMaskedLM.load_from_checkpoint(
-                config["maskedlm-checkpoint"]
+
+        self.maskedlm = self.load(
+            InstructionTraceTransformerEncoderForMaskedLM, config, "maskedlm-checkpoint"
+        )
+
+        self.language_tokenizer = None
+        self.function_naming = self.load(
+            InstructionTraceTransformerEncoderForSequenceSummarizationGPT2,
+            config,
+            "function-naming-checkpoint",
+        )
+        if self.function_naming is not None:
+            self.language_tokenizer = GPT2Tokenizer.from_pretrained(
+                self.function_naming.LANGUAGE
             )
-        )
-        self.maskedlm.eval()
-
-        self.function_naming = InstructionTraceTransformerEncoderForSequenceSummarizationGPT2.load_from_checkpoint(
-            config["function-naming-checkpoint"]
-        )
-        self.function_naming.eval()
-
-        self.language_tokenizer = GPT2Tokenizer.from_pretrained(
-            self.function_naming.LANGUAGE
-        )
 
         logger.info("worker started (pid=%d)", os.getpid())
 
@@ -113,6 +141,9 @@ class Worker(multiprocessing.Process):
             The input string with [MASK] tokens replaced by predictions.
         """
 
+        if self.maskedlm is None:
+            raise ConfigurationError("MaskedLM model is disabled")
+
         from torch import no_grad, tensor
 
         from undertale.models.tokenizer import TOKEN_PAD
@@ -138,6 +169,9 @@ class Worker(multiprocessing.Process):
         Returns:
             A predicted function name for the given disassembly tokens.
         """
+
+        if self.function_naming is None:
+            raise ConfigurationError("FunctionNaming model is disabled")
 
         from torch import no_grad, tensor
 
