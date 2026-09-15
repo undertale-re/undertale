@@ -1,0 +1,12 @@
+disassembly
+===========
+
+.. automodule:: undertale.pipeline.disassembly
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      pretokenize_disassembly
+   

@@ -13,6 +13,7 @@ pipeline
    binary
    cpp
    dask
+   disassembly
    json
    parquet
    tarfile
