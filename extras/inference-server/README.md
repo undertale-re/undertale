@@ -35,6 +35,11 @@ inference initialize
 By default the configuration file is written to
 `/etc/undertale-inference/settings.ini`.
 
+The `maskedlm-checkpoint` and `function-naming-checkpoint` settings are
+optional; leave a setting empty (or remove its line) to disable that model.
+A worker with a model disabled logs a warning at startup and fails
+completion requests of that type.
+
 Migrate the database:
 
 ```bash
