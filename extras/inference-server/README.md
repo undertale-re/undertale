@@ -46,6 +46,42 @@ Migrate the database:
 inference migrate
 ```
 
+#### Offline Installation
+
+For deployment targets without internet access, build a release bundle on an
+internet-connected machine with the same OS, architecture, and Python version
+(3.12) as the target:
+
+```bash
+./scripts/release.sh
+```
+
+This writes `dist/undertale-inference-<version>-<os>-<arch>.tar.gz` containing
+a `wheelhouse/` of all required packages, a pre-seeded HuggingFace cache
+(`hf-cache/`), the `examples/` directory, and this README.
+
+On the target, extract the bundle and install from the wheelhouse (note
+`undertale` is named explicitly - it is a runtime requirement of the inference
+worker):
+
+```bash
+pip install --no-index --find-links wheelhouse undertale undertale-inference
+```
+
+If the function naming model is enabled, load the bundled HuggingFace cache
+into `HF_HOME` (defaults to `~/.cache/huggingface`):
+
+```bash
+python -m undertale.utils.models.cache.load hf-cache
+```
+
+Then set `HF_HUB_OFFLINE=1` (and `HF_HOME`, if customized) in the worker's
+environment (e.g., with `Environment=` lines in
+`undertale-inference-worker.service`).
+
+Then continue with the `inference initialize` and `inference migrate` steps
+above.
+
 #### Authenticated Systemd Service
 
 Configure the settings to point to your LDAP instance for authentication.
@@ -189,3 +225,15 @@ Start a development inference worker:
 ```bash
 inference worker --parallelism 1
 ```
+
+### Building a Release Bundle
+
+To build an offline installation bundle for the current platform (requires
+Python 3.12 and internet access):
+
+```bash
+./scripts/release.sh
+```
+
+See the [Offline Installation](#offline-installation) section for details on
+the bundle contents and installation.
