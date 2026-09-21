@@ -1,0 +1,199 @@
+{
+  "version": "v2-validated",
+  "derived_from": "data/sampled_functions.json (3398 symbols)",
+  "date": "2026-09-14",
+  "labeling_scheme": "multi-label; classes are ordered most-specific to most-generic. For a single-label target, take the first matching class in this order.",
+  "classes": [
+    {
+      "name": "Cryptography & Security",
+      "description": "Hashing, ciphers, signatures, certificates/TLS, key & credential handling, authN/authZ, secret detection, privilege and sandbox control.",
+      "seed_regex": "crypt|cipher|\\baes\\b|\\brsa\\b|chacha|poly1305|sha\\d|md5|hmac|blake|digest|signature|\\bsign(er|ing)?\\b|cert(ificate)?|x509|\\btls\\b|\\bssl\\b|pkcs|\\bnss\\b|oauth|\\bjwt\\b|auth(n|z|orize|entic)|password|passwd|secret|credential|keyring|privilege|seccomp",
+      "observed_primary_pct": 3.8,
+      "observed_any_match_pct": 3.8
+    },
+    {
+      "name": "Compression & Media Codecs",
+      "description": "Lossless compression and entropy coding (zstd/zlib/FSE/huffman) and audio/image/video codec work: bitstream packing, sample/frame conversion.",
+      "seed_regex": "compress|decompress|\\bzstd\\b|\\bgzip\\b|\\bzlib\\b|deflate|inflate|huffman|\\bfse\\b|\\blz4\\b|brotli|\\bjpeg\\b|\\bpng\\b|\\bmp3\\b|\\bh26[45]\\b|\\bopus\\b|\\bpcm\\b|bitstream|sample_rate|\\baudio\\b|\\bvideo\\b",
+      "observed_primary_pct": 1.2,
+      "observed_any_match_pct": 1.4
+    },
+    {
+      "name": "Database & Storage",
+      "description": "SQL and query engines, transactions, indexes, key-value and object stores, caches, snapshots, persistence layers.",
+      "seed_regex": "\\bsql\\b|sqlite|postgres|mysql|clickhouse|transaction|rollback|\\bcommit\\b|leveldb|rocksdb|\\bs3\\b|\\bbucket\\b|storage|persist|\\brepo(sitory)?\\b|snapshot|\\bwal\\b|datastore",
+      "observed_primary_pct": 3.9,
+      "observed_any_match_pct": 4.1
+    },
+    {
+      "name": "Networking & Protocols",
+      "description": "Sockets, TCP/UDP/HTTP/gRPC/QUIC/DNS, packet and header handling, RPC clients and servers, URL/address parsing, proxies, load balancing.",
+      "seed_regex": "socket|\\btcp\\b|\\budp\\b|http|grpc|quic|\\bdns\\b|\\brpc\\b|packet|listener|\\bdial\\b|addrinfo|ipv[46]|\\burl\\b|\\buri\\b|websocket|\\bsrt\\b|proxy|resolver|balancer|handshake|curl|hostname|getaddrinfo|\\bpeer\\b|endpoint|net_|\\bnet\\.",
+      "observed_primary_pct": 7.8,
+      "observed_any_match_pct": 9.1
+    },
+    {
+      "name": "Filesystem & File I/O",
+      "description": "Opening/reading/writing/stat-ing files, directory traversal, path manipulation, mmap of files, archive and on-disk container formats.",
+      "seed_regex": "\\bfile\\b|fopen|fread|fwrite|mkdir|readdir|opendir|\\bfstat\\b|unlink|\\bmmap\\b|tmpfile|tempfile|filename|\\bpath\\b|dir(ectory)?\\b|filesystem|basename|dirname|chmod|\\btar\\b|\\bzip\\b|archive",
+      "observed_primary_pct": 3.8,
+      "observed_any_match_pct": 5.0
+    },
+    {
+      "name": "Process, System & Hardware",
+      "description": "Syscalls, process/exec/signal control, OS abstraction, device and register access, CPU/peripheral emulation, SIMD intrinsics, firmware.",
+      "seed_regex": "syscall|\\bexec\\b|\\bfork\\b|\\bpid\\b|\\bioctl\\b|\\bdevice\\b|driver|\\bcpu\\b|emulat|opcode|instruction|interrupt|\\bdma\\b|\\bpci\\b|\\busb\\b|kernel|getuid|\\bbios\\b|firmware|\\bop_[0-9a-f]|_mm_|avx|sse\\d|simd|\\bregister\\b|\\bscsi\\b|\\bnvme\\b|\\bmmio\\b",
+      "observed_primary_pct": 4.3,
+      "observed_any_match_pct": 5.0
+    },
+    {
+      "name": "Graphics & Rendering",
+      "description": "Drawing and rasterization, pixels/textures/shaders, GPU APIs, scene graphs, fonts and glyphs, image manipulation.",
+      "seed_regex": "render|\\bdraw\\b|paint|pixel|bitmap|texture|shader|opengl|vulkan|\\bgpu\\b|canvas|sprite|framebuffer|viewport|\\bmesh\\b|vertex|rasteriz|\\bglyph\\b|\\bfont\\b|scenegraph|\\bimage\\b|\\bcolou?r\\b",
+      "observed_primary_pct": 2.0,
+      "observed_any_match_pct": 2.7
+    },
+    {
+      "name": "UI & Event Handling",
+      "description": "Widgets, layout, menus/dialogs/windows, input events, callbacks and signal wiring, view/page controllers (GUI and TUI).",
+      "seed_regex": "widget|button|dialog|\\bmenu\\b|window|layout|imgui\\b|\\bqt_|\\bgtk|\\bFl_|wx[A-Z]|\\btui\\b|keyboard|mouse|click|callback|\\bsignal\\b|on_[a-z]|toolbar|scroll|checkbox|panel|tooltip|cursor|\\bevent\\b|\\bhandler\\b",
+      "observed_primary_pct": 8.3,
+      "observed_any_match_pct": 11.5
+    },
+    {
+      "name": "Logging, Tracing & Metrics",
+      "description": "Emitting log records, tracing spans, counters/gauges, profiling and telemetry, human-readable diagnostic output.",
+      "seed_regex": "\\blog(ger|ging)?\\b|tracing|\\bspan\\b|verbose|\\bwarn\\b|metric|prometheus|telemetry|profil|\\bgauge\\b|instrument|\\bstats?\\b|\\bdebug\\b",
+      "observed_primary_pct": 3.7,
+      "observed_any_match_pct": 6.3
+    },
+    {
+      "name": "Parsing & Lexing",
+      "description": "Tokenizers, scanners, grammar/AST construction, regex engines, config- and source-format parsers, disassembly.",
+      "seed_regex": "pars(e|er|ing)|lex(er|ing)?\\b|token(ize|izer|chain)?|scanner|grammar|\\bast\\b|syntax|antlr|reduce\\d+|nonterminal|disassembl|\\bregex\\b|\\bglob\\b|winnow",
+      "observed_primary_pct": 6.8,
+      "observed_any_match_pct": 9.9
+    },
+    {
+      "name": "Serialization & Encoding",
+      "description": "Converting between in-memory values and wire/text formats: protobuf, JSON/YAML/XML/TOML, base64, varints, codecs, Marshal/Unmarshal, String().",
+      "seed_regex": "marshal|serial|deserial|encode|decode|protobuf|protowire|protoreflect|protoimpl|XXX_(Size|Merge|Unmarshal|Marshal|DiscardUnknown)|ProtoMessage|ProtoReflect|\\bjson\\b|\\byaml\\b|\\bxml\\b|\\btoml\\b|base64|varint|wiretag|\\bcodec\\b|msgpack|Stringify|SwaggerDoc|rawDesc|serde",
+      "observed_primary_pct": 7.5,
+      "observed_any_match_pct": 12.0
+    },
+    {
+      "name": "Configuration & CLI",
+      "description": "Flag/argument definition and parsing, environment and config-file handling, command registration and dispatch, usage/completion.",
+      "seed_regex": "\\bconfig\\b|\\bcfg\\b|settings|\\bflag\\b|\\bargv?\\b|\\bcommand\\b|cobra|\\bclap\\b|kingpin|urfave|\\bcli\\b|environ|\\bini\\b|subcommand|\\busage\\b|completion|preference",
+      "observed_primary_pct": 5.2,
+      "observed_any_match_pct": 11.2
+    },
+    {
+      "name": "Concurrency & Synchronization",
+      "description": "Threads, mutexes/atomics, channels, async tasks/futures/executors, parallel loops, schedulers, lifetime of concurrent work.",
+      "seed_regex": "thread|mutex|rwlock|\\bunlock\\b|atomic|semaphore|condvar|channel|goroutine|\\basync\\b|\\bawait\\b|future|tokio|rayon|\\btbb\\b|parallel|spawn|scheduler|\\bwaker\\b|barrier|\\bomp\\b|concurren|\\block\\b",
+      "observed_primary_pct": 4.7,
+      "observed_any_match_pct": 9.3
+    },
+    {
+      "name": "Math & Numeric Computation",
+      "description": "Arithmetic and numeric conversion, linear algebra, geometry, bit manipulation, statistics, RNG.",
+      "seed_regex": "\\bmath\\b|arith|\\bsqrt\\b|\\bpow\\b|matrix|linalg|geometr|bbox|bounding|\\bfloat\\b|\\bdouble\\b|bitwise|popcount|\\bround\\b|clamp|interpolat|statistic|histogram|random|\\brng\\b|\\bprime\\b|numeric|arithmetic|\\bvec[234]\\b|scalbn",
+      "observed_primary_pct": 1.2,
+      "observed_any_match_pct": 3.0
+    },
+    {
+      "name": "String & Text Processing",
+      "description": "String construction and mutation, Unicode/encoding conversion, trimming/splitting/joining, case folding, text formatting.",
+      "seed_regex": "\\bstr\\b|string|utf-?8|utf-?16|unicode|ascii|\\btrim\\b|\\bsplit\\b|\\bjoin\\b|replace|substr|lowercase|uppercase|sprintf|snprintf|\\bformat\\b|\\bfmt\\b|\\btext\\b|normalize|escape",
+      "observed_primary_pct": 6.2,
+      "observed_any_match_pct": 19.5
+    },
+    {
+      "name": "Memory Management",
+      "description": "Allocation and deallocation, constructors/destructors/drop, reference counting, buffer and pool management, raw copy/zero.",
+      "seed_regex": "alloc|malloc|calloc|realloc|\\bfree\\b|dealloc|drop_in_place|~[A-Z]|\\bdrop\\b|refcount|\\bArc\\b|shared_ptr|unique_ptr|capacity|reserve|memcpy|memset|\\bpool\\b|RawVec|\\bbuffer\\b|destructor",
+      "observed_primary_pct": 6.9,
+      "observed_any_match_pct": 18.2
+    },
+    {
+      "name": "Data Structures, Search & Sort",
+      "description": "Container operations on vectors/maps/sets/trees/heaps/queues: insert, find, erase, resize, iterate, plus sorting, searching and comparison.",
+      "seed_regex": "\\bvec(tor)?\\b|\\bmap\\b|hashmap|hashtable|hashbrown|btree|\\bset\\b|\\blist\\b|deque|queue|\\bstack\\b|\\bheap\\b|\\btree\\b|\\bnode\\b|iter(ator)?|\\bslice\\b|\\barray\\b|insert|erase|\\bpush\\b|\\bpop\\b|append|\\bremove\\b|\\btable\\b|\\bindex\\b|\\bsort\\b|\\bsearch\\b|\\bcompare\\b|\\bcmp\\b|\\bequal\\b|\\bmin\\b|\\bmax\\b|\\bmatch\\b",
+      "observed_primary_pct": 6.9,
+      "observed_any_match_pct": 28.9
+    },
+    {
+      "name": "Error Handling & Validation",
+      "description": "Constructing, wrapping and propagating errors, assertions and panics, input validation, status/result plumbing.",
+      "seed_regex": "\\berr(or)?\\b|errno|exception|panic|abort|assert|fatal|validat|\\bverify\\b|unwrap|\\brecover\\b|\\bcatch\\b|\\bthrow\\b|Result<|Option<|is_ok|is_err|\\bstatus\\b|\\bcheck\\b",
+      "observed_primary_pct": 3.1,
+      "observed_any_match_pct": 18.3
+    },
+    {
+      "name": "Accessors & Object Lifecycle",
+      "description": "Trivial field getters/setters and predicates, constructors/builders/option setters, clone/deep-copy, generated data-object boilerplate.",
+      "seed_regex": "\\bget[A-Z_]|\\bset[A-Z_]|\\bGet\\b|\\bSet\\b|\\bnew\\b|\\binit\\b|construct|\\bWith[A-Z]|builder|\\bclone\\b|DeepCopy|default|\\bis[A-Z]|\\bhas[A-Z]|\\bfield\\b|propert|\\bDescriptor\\b",
+      "observed_primary_pct": 3.3,
+      "observed_any_match_pct": 26.3
+    },
+    {
+      "name": "Interop & FFI Bindings",
+      "description": "Glue that crosses a language or ABI boundary: Lua/Python/JS binding shims, C wrapper and trampoline functions, argument marshalling between runtimes, generated extern declarations.",
+      "seed_regex": "lua_|luaL_|\\blua\\b|pybind|PyObject|\\bjni\\b|\\bffi\\b|\\bcgo\\b|extern_c|tolua|napi_|wasm_bindgen|trampoline|\\bthunk\\b|_wrap_|\\bshim\\b",
+      "observed_primary_pct": null,
+      "observed_any_match_pct": null,
+      "note": "ADDED IN v2. Found during hand validation: 2/110 hand-labelled functions (~2%) fit no v1 class (a sol2 Lua usertype trampoline and a Lua music-control binding). Place it just before the catch-all."
+    },
+    {
+      "name": "Domain / Application Logic",
+      "description": "Application- or domain-specific behavior that is not primarily a systems concern: game rules, simulation steps, solver heuristics, business workflow.",
+      "seed_regex": null,
+      "observed_primary_pct": 9.3,
+      "observed_any_match_pct": null,
+      "note": "Catch-all / residual bucket. Assign only when no other class fits."
+    }
+  ],
+  "orthogonal_flags": [
+    {
+      "name": "is_generic_glue",
+      "observed_pct": 22.5,
+      "description": "Compiler-generated or stdlib-monomorphized code: drop_in_place, FnOnce::call_once, vtable thunks, Vec/HashMap instantiations, .cold/.constprop splits, proto init stubs. Semantically still belongs to a class, but is not application logic. Recommend a separate flag rather than a class."
+    },
+    {
+      "name": "is_trivial",
+      "description": "Body is a single return/assignment/delegation (very common: ~1 in 5 recoverable bodies). Useful to downweight or stratify."
+    },
+    {
+      "name": "is_accessor",
+      "description": "RECOMMENDED IN v2. Trivial field get/set/predicate, constructor/builder, or generated deep-copy. Because accessors exist inside every domain, modelling this as a 21st class forces a false choice; as a flag it composes with the domain class (e.g. Networking + is_accessor for (*Conn).GetPort)."
+    }
+  ],
+  "known_data_caveats": [
+    "93% of records have function_source=null; only the containing source_files are given.",
+    "source_files is a retrieval guess and is frequently WRONG (e.g. runtime.adjustpanics -> txscript/stack.go). Verify before using as ground truth.",
+    "Rust symbols are overwhelmingly generic/stdlib monomorphizations whose definition is not in the package source (body recovery ~5% for Rust vs ~54% for Go).",
+    "Fuzzing is not a viable class here: no function in the sample performs fuzzing; 'test/fuzz' matches are directory-path artifacts only.",
+    "Body extraction by name matching is unsafe for training labels. On Go methods with a checkable receiver, 34-38% of extracted bodies came from a DIFFERENT type (e.g. (*FlowSchemaList).DeepCopyObject -> FlowSchema). ~16% of extractions are mid-body fragments, not definitions. Rust is worst: ~38% unusable.",
+    "Collision-prone base names dominate extraction ('new', 'String', 'init', 'Reset', 'Marshal', 'Descriptor'), which is exactly where name matching fails.",
+    "Held-out batch confirms the v1 recovery rate: 2027/6797 = 29.8% of functions yield any body (Go 54%, C++ 50%, C 54%, Rust 5%)."
+  ],
+  "validated_against": "data/sampled_functions_test.json (6797 symbols, held out; 5 shared keys / 44 shared symbol names with the v1 sample)",
+  "validation": {
+    "held_out_size": 6797,
+    "distribution_stability": "Every class matched its v1 share within +/-0.6 percentage points; semantic coverage 90.7% -> 91.0%; generic-glue flag 22.5% -> 22.2%.",
+    "hand_labelled_sample": 110,
+    "taxonomy_coverage_hand_checked": "108/110 (98%) received a confident class. The 2 failures motivated 'Interop & FFI Bindings'.",
+    "seed_regex_accuracy_vs_hand_label": "54/108 = 50% top-1 agreement. The seed regexes validate COVERAGE, not CORRECTNESS -- do not ship them as an auto-labeler.",
+    "worst_class_recall": "'Accessors & Object Lifecycle' 1/14 = 7%. Being last in the priority order, it is systematically starved: any getter on a socket/cert/table is captured by the domain class first.",
+    "known_confusions": [
+      "Accessors -> String & Text (5x)",
+      "Serialization -> Cryptography (2x)",
+      "Serialization -> Logging/Metrics (2x)",
+      "Accessors -> Parsing (2x)",
+      "Accessors -> Networking (2x)",
+      "Process/Hardware -> Concurrency (2x)"
+    ]
+  },
+  "seed_regex_purpose": "A COVERAGE PROBE, NOT A CLASSIFIER. Each seed_regex is a flat case-insensitive alternation of keywords matched against demangled symbol + source-file paths + first 1200 chars of body; first class to match in list order wins. It was built to answer one question -- does this class list leave a gap? -- and it answers that well (91% coverage, stable across a held-out batch). It is 50% accurate at picking WHICH class, because any single keyword fires a whole class, the tiebreak is list position rather than fit, and the haystack includes file paths and generic type parameters. Use it to build candidate pools for rare classes and to test the class list for holes. Do not use it to produce labels."
+}

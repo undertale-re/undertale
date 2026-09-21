@@ -15,12 +15,12 @@ Work is split by shard, not by row, so each task writes whole files and a killed
 run resumes by rerunning the same command -- shards already present are left
 alone. `--shard`/`--shards` spread the shards across an array job's tasks.
 
-This file is self-contained. What it needs of `export_functions.py` (carving a
-function's definition out of the `source` column), of `label_functions.py`
-(prompting the server, validating its replies) and of `combine_labels.py`
-(finding shards, matching their compression) is inlined below, pruned to the
-paths this pipeline actually takes. Those three scripts are unchanged and still
-stand on their own for the JSON-corpus route.
+This file is self-contained, and `label_parquet.slurm` beside it runs it as an
+array job. What it needs of the former `export_functions.py` (carving a
+function's definition out of the `source` column), `label_functions.py`
+(prompting the server, validating its replies) and `combine_labels.py` (finding
+shards, matching their compression) is inlined below, pruned to the paths this
+pipeline actually takes.
 """
 
 import argparse
@@ -39,7 +39,6 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 HOME = pathlib.Path(__file__).resolve().parent
-DATA = HOME / "data"
 
 SOURCE_LIMIT = 1200
 RETRIES = 3
@@ -698,7 +697,7 @@ def parse_arguments(arguments: Optional[list[str]] = None) -> argparse.Namespace
         help="directory for the labeled shards",
     )
     parser.add_argument(
-        "--taxonomy", type=pathlib.Path, default=DATA / "function_taxonomy_v2.json"
+        "--taxonomy", type=pathlib.Path, default=HOME / "function_taxonomy.json"
     )
     parser.add_argument(
         "--endpoint",
