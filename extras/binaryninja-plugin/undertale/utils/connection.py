@@ -229,7 +229,7 @@ def _build_tcp(host: str, port: str) -> Optional[Connection]:
         alert_user(
             f"Invalid host:port: {host!r}:{port!r}.\n\nRe-run "
             f"{CONFIGURE_MENU_PATH} and enter a hostname or IP address (e.g. "
-            "127.0.0.1) for Host, and a numeric port (e.g. 5000) for Port."
+            "127.0.0.1) for Host, and a numeric port (e.g. 8000) for Port."
         )
         return None
     return {"kind": "tcp", "host": host, "port": int(port)}
