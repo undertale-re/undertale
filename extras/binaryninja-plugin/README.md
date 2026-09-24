@@ -66,6 +66,8 @@ Which one to pick depends on how the [inference server](../inference-server) is 
 
 This deployment uses NGINX as a frontend for Gunicorn, with LDAP authentication. Configure the plugin to use the TCP option and point it to the endpoint exposed by NGINX.
 
+Set the **Base URL** to match the subpath NGINX serves the API under (usually `/api`).
+
 The first time the plugin talks to an authenticated server, it prompts for your LDAP username and password, logs in, and caches the resulting token in Binary Ninja's user settings (usually at `~/.binaryninja/settings.json`) so you aren't prompted again until the token is rejected (e.g. it expires) or you clear it via **Undertale > Configure Plugin**.
 
 > [!WARNING]
@@ -81,6 +83,9 @@ for simple co-located setups. Configure the plugin with the Unix domain
 socket option, pointed at the same path passed to gunicorn's `--bind
 unix:...` flag. This only works when Binary Ninja runs on the same machine
 as the server — Unix domain sockets aren't reachable over the network.
+
+Because there is no reverse proxy rewriting the path, leave the **Base URL**
+at its default of `/`.
 
 ## Development
 
