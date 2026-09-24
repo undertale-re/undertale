@@ -138,6 +138,7 @@ def _register_settings() -> None:
                 "title": "Inference Server Base URL",
                 "type": "string",
                 "default": DEFAULT_BASE_URL,
+                "ignore": ["SettingsProjectScope", "SettingsResourceScope"],
                 "description": (
                     "Base URL path prefixed to every Inference Server request "
                     "(e.g. '/' or '/api'), for servers mounted behind a "
