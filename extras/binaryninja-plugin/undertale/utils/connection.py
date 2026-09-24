@@ -18,6 +18,7 @@ import os
 import socket
 import stat
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlsplit
 
 import binaryninja
 from binaryninja import (
@@ -41,12 +42,15 @@ SETTINGS_GROUP = "undertale"
 SETTINGS_KEY = "undertale.inferenceServerConnection"
 SETTINGS_KEY_POLL_TIMEOUT = "undertale.inferencePollTimeout"
 SETTINGS_KEY_TOKEN = "undertale.inferenceServerToken"
+SETTINGS_KEY_BASE_URL = "undertale.inferenceServerBaseUrl"
 CONFIGURE_COMMAND_NAME = "Undertale\\Configure Plugin"
 CONFIGURE_MENU_PATH = CONFIGURE_COMMAND_NAME.replace("\\", " > ")  # used for logging
 
 DEFAULT_POLL_TIMEOUT = 60
 MIN_POLL_TIMEOUT = 1
 MAX_POLL_TIMEOUT = 3600
+
+DEFAULT_BASE_URL = "/"
 
 CONNECTION_FORM_TITLE = "Inference Server Connection"
 CONFIGURE_FORM_TITLE = "Configure Undertale Plugin"
@@ -59,7 +63,7 @@ CONNECTION_ATTR = "_undertale_inference_connection"
 TOKEN_ATTR = "_undertale_inference_token"
 
 INFERENCE_DEFAULT_HOST = "127.0.0.1"
-INFERENCE_DEFAULT_PORT = "5000"
+INFERENCE_DEFAULT_PORT = "8000"
 INFERENCE_DEFAULT_SOCKET_PATH = "/path/to/undertale-inference.sock"
 
 UNIX_SOCKET_VALIDATION_TIMEOUT = 10
@@ -122,6 +126,23 @@ def _register_settings() -> None:
                 "description": (
                     "Cached authentication token (JWT) for the Inference "
                     "Server, obtained by logging in. Cleared by "
+                    f"{CONFIGURE_COMMAND_NAME!r}."
+                ),
+            }
+        ),
+    )
+    settings.register_setting(
+        SETTINGS_KEY_BASE_URL,
+        json.dumps(
+            {
+                "title": "Inference Server Base URL",
+                "type": "string",
+                "default": DEFAULT_BASE_URL,
+                "ignore": ["SettingsProjectScope", "SettingsResourceScope"],
+                "description": (
+                    "Base URL path prefixed to every Inference Server request "
+                    "(e.g. '/' or '/api'), for servers mounted behind a "
+                    f"reverse proxy under a subpath. Reconfigurable via "
                     f"{CONFIGURE_COMMAND_NAME!r}."
                 ),
             }
@@ -210,7 +231,7 @@ def _build_tcp(host: str, port: str) -> Optional[Connection]:
         alert_user(
             f"Invalid host:port: {host!r}:{port!r}.\n\nRe-run "
             f"{CONFIGURE_MENU_PATH} and enter a hostname or IP address (e.g. "
-            "127.0.0.1) for Host, and a numeric port (e.g. 5000) for Port."
+            "127.0.0.1) for Host, and a numeric port (e.g. 8000) for Port."
         )
         return None
     return {"kind": "tcp", "host": host, "port": int(port)}
@@ -407,6 +428,58 @@ def get_poll_timeout() -> int:
     return Settings().get_integer(SETTINGS_KEY_POLL_TIMEOUT)
 
 
+def _normalize_base_url(base_url: str) -> str:
+    """Normalize a base URL path prefix.
+
+    Guarantees a leading slash and no trailing slash so it can be joined
+    directly with request paths that begin with '/'. An empty value or '/'
+    normalizes to '/', meaning no prefix.
+    """
+    base_url = base_url.strip()
+    if not base_url:
+        return DEFAULT_BASE_URL
+    if not base_url.startswith("/"):
+        base_url = "/" + base_url
+    return base_url.rstrip("/") or DEFAULT_BASE_URL
+
+
+def _parse_base_url(base_url: str) -> Optional[str]:
+    """Validate a base URL path prefix entered by the user and normalize it.
+
+    A base URL is a bare path such as '/' or '/api', not a full URL. A value
+    that carries a scheme or host (e.g. 'http://host/api'), or a query or
+    fragment, is rejected rather than silently mangled into a nonsensical
+    prefix.
+
+    Alerts the user and returns None on invalid input; otherwise returns the
+    normalized prefix.
+    """
+    base_url = base_url.strip()
+    parts = urlsplit(base_url)
+    if parts.scheme or parts.netloc or parts.query or parts.fragment:
+        alert_user(
+            f"Invalid base URL: {base_url!r}.\n\nEnter a bare path prefix such "
+            f"as '/' or '/api', not a full URL (no scheme, host, query, or "
+            f"fragment).\n\nRe-run {CONFIGURE_MENU_PATH} to try again."
+        )
+        return None
+    return _normalize_base_url(base_url)
+
+
+def get_base_url() -> str:
+    """Return the configured base URL path prefix for Inference Server
+    requests, normalized (leading slash, no trailing slash; '/' means no
+    prefix)."""
+    return _normalize_base_url(Settings().get_string(SETTINGS_KEY_BASE_URL))
+
+
+def join_base_url(base_url: str, path: str) -> str:
+    """Prefix a request ``path`` (which must begin with '/') with a normalized
+    base URL. When ``base_url`` is '/', the path is returned unchanged."""
+    prefix = "" if base_url == DEFAULT_BASE_URL else base_url
+    return f"{prefix}{path}"
+
+
 def configure_plugin(bv: BinaryView) -> None:
     """Configure the Undertale Plugin.
 
@@ -439,9 +512,17 @@ def configure_plugin(bv: BinaryView) -> None:
     host_field = TextLineField("Host", host_default)
     port_field = TextLineField("Port", port_default)
     path_field = TextLineField("Unix Socket Path", path_default)
+    base_url_field = TextLineField("Base URL", get_base_url())
     timeout_field = TextLineField("Poll Timeout (seconds)", str(get_poll_timeout()))
 
-    fields = [kind_field, host_field, port_field, path_field, timeout_field]
+    fields = [
+        kind_field,
+        host_field,
+        port_field,
+        path_field,
+        base_url_field,
+        timeout_field,
+    ]
 
     clear_token_field = None
     if get_token() is not None:
@@ -465,10 +546,17 @@ def configure_plugin(bv: BinaryView) -> None:
     if connection is None:
         return
 
+    base_url = _parse_base_url(base_url_field.result or "")
+    if base_url is None:
+        return
+
     setattr(binaryninja, CONNECTION_ATTR, connection)
     _save_connection(connection)
     Settings().set_integer(
         SETTINGS_KEY_POLL_TIMEOUT, timeout, scope=SettingsScope.SettingsUserScope
+    )
+    Settings().set_string(
+        SETTINGS_KEY_BASE_URL, base_url, scope=SettingsScope.SettingsUserScope
     )
 
     clear_requested = (
@@ -479,7 +567,7 @@ def configure_plugin(bv: BinaryView) -> None:
 
     log_info(
         f"Undertale plugin configured: connection={connection}, "
-        f"poll timeout={timeout}s"
+        f"base URL={base_url!r}, poll timeout={timeout}s"
     )
 
 

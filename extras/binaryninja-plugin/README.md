@@ -52,6 +52,7 @@ This configuration is saved in Binary Ninja's user settings and persists across 
 To change any of the plugin's settings later, select **Undertale > Configure Plugin**. This opens a single form where you can:
 
 * re-pick or edit the connection (TCP host/port or Unix socket path),
+* set the **Base URL** (default `/`), a path prefix applied to every request. Use `/` when the inference server is served at the root, or a subpath such as `/api` when it is mounted behind a reverse proxy under that prefix,
 * set the **Inference Completion Poll Timeout** (default 60 seconds, up to a maximum of 3600 seconds), which controls how long the plugin waits for the inference server to finish naming a function before giving up, and
 * clear the saved login token (shown only when one is cached — see below).
 
@@ -64,6 +65,8 @@ Which one to pick depends on how the [inference server](../inference-server) is 
 ### Authenticated Systemd Service
 
 This deployment uses NGINX as a frontend for Gunicorn, with LDAP authentication. Configure the plugin to use the TCP option and point it to the endpoint exposed by NGINX.
+
+Set the **Base URL** to match the subpath NGINX serves the API under (usually `/api`).
 
 The first time the plugin talks to an authenticated server, it prompts for your LDAP username and password, logs in, and caches the resulting token in Binary Ninja's user settings (usually at `~/.binaryninja/settings.json`) so you aren't prompted again until the token is rejected (e.g. it expires) or you clear it via **Undertale > Configure Plugin**.
 
@@ -80,6 +83,9 @@ for simple co-located setups. Configure the plugin with the Unix domain
 socket option, pointed at the same path passed to gunicorn's `--bind
 unix:...` flag. This only works when Binary Ninja runs on the same machine
 as the server — Unix domain sockets aren't reachable over the network.
+
+Because there is no reverse proxy rewriting the path, leave the **Base URL**
+at its default of `/`.
 
 ## Development
 

@@ -39,9 +39,11 @@ from .utils import (
     alert_user,
     clear_token,
     configure_plugin,
+    get_base_url,
     get_connection,
     get_poll_timeout,
     get_token,
+    join_base_url,
     pretokenize_disassembly,
     prompt_credentials,
     save_token,
@@ -132,7 +134,7 @@ def request(
     return json.loads(raw.decode("utf-8")) if raw else {}
 
 
-def _login(conn: http.client.HTTPConnection) -> str:
+def _login(conn: http.client.HTTPConnection, base_url: str) -> str:
     """Prompt for credentials and log in to the inference server.
 
     Persists the resulting token so future requests skip the prompt until
@@ -145,7 +147,7 @@ def _login(conn: http.client.HTTPConnection) -> str:
     if credentials is None:
         raise AuthenticationRequired("Login cancelled: no credentials provided")
 
-    response = request(conn, "POST", "/login/", credentials)
+    response = request(conn, "POST", join_base_url(base_url, "/login/"), credentials)
     token = response["token"]
     save_token(token)
 
@@ -154,7 +156,7 @@ def _login(conn: http.client.HTTPConnection) -> str:
     return token
 
 
-def _authenticate(conn: http.client.HTTPConnection) -> Optional[str]:
+def _authenticate(conn: http.client.HTTPConnection, base_url: str) -> Optional[str]:
     """Ensure requests on this connection are authenticated, if the
     inference server requires it.
 
@@ -167,8 +169,9 @@ def _authenticate(conn: http.client.HTTPConnection) -> Optional[str]:
     """
     token = get_token()
 
+    root = join_base_url(base_url, "/")
     headers = {"Authorization": f"Bearer {token}"} if token is not None else {}
-    conn.request("GET", "/", headers=headers)
+    conn.request("GET", root, headers=headers)
     response = conn.getresponse()
     raw = response.read()
 
@@ -181,9 +184,9 @@ def _authenticate(conn: http.client.HTTPConnection) -> Optional[str]:
     if response.status == 401:
         if token is not None:
             clear_token()
-        return _login(conn)
+        return _login(conn, base_url)
 
-    raise RuntimeError(f"GET / -> {response.status}")
+    raise RuntimeError(f"GET {root} -> {response.status}")
 
 
 def function_disassembly(bv: BinaryView, func: Function) -> str:
@@ -222,11 +225,16 @@ def request_name(connection: Connection, disassembly: str) -> str:
     Reuses a single connection across the POST and the entire poll loop
     rather than opening a fresh one for every request.
     """
+    base_url = get_base_url()
     conn = _open_connection(connection)
     try:
-        token = _authenticate(conn)
+        token = _authenticate(conn, base_url)
         created = request(
-            conn, "POST", "/fnaming/completion/", {"input": disassembly}, token=token
+            conn,
+            "POST",
+            join_base_url(base_url, "/fnaming/completion/"),
+            {"input": disassembly},
+            token=token,
         )
         completion_id = created["id"]
 
@@ -234,7 +242,10 @@ def request_name(connection: Connection, disassembly: str) -> str:
         deadline = time.monotonic() + poll_timeout
         while True:
             completion = request(
-                conn, "GET", f"/fnaming/completion/{completion_id}/", token=token
+                conn,
+                "GET",
+                join_base_url(base_url, f"/fnaming/completion/{completion_id}/"),
+                token=token,
             )
             if completion.get("failed"):
                 error = (
