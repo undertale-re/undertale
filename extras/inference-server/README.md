@@ -11,12 +11,10 @@ from users.
 
 ### Prerequisites
 
-- [nginx][nginx] as a reverse proxy
-- [gunicorn][gunicorn] as the WSGI server
 - The core Undertale python package, installed
+- optional: [nginx][nginx] as a reverse proxy
 
 [nginx]: https://nginx.org/
-[gunicorn]: https://gunicorn.org/
 
 ### Installing
 
