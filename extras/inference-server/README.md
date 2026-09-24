@@ -11,14 +11,14 @@ from users.
 
 ### Prerequisites
 
-- [nginx][nginx] as a reverse proxy
-- [gunicorn][gunicorn] as the WSGI server
 - The core Undertale python package, installed
+- optional: [nginx][nginx] as a reverse proxy
 
 [nginx]: https://nginx.org/
-[gunicorn]: https://gunicorn.org/
 
 ### Installing
+
+#### Online Installation
 
 Install the Python package:
 
@@ -45,6 +45,30 @@ Migrate the database:
 ```bash
 inference migrate
 ```
+
+#### Offline Installation
+
+On the target system, extract the bundle and run the installation from the root
+directory. (note `undertale` is named explicitly - it is a runtime requirement
+of the inference worker):
+
+```bash
+pip install --no-index --find-links wheelhouse undertale undertale-inference
+```
+
+If the function naming model is enabled, load the bundled HuggingFace cache
+into `HF_HOME` (defaults to `~/.cache/huggingface`):
+
+```bash
+python -m undertale.utils.models.cache.load hf-cache
+```
+
+Then set `HF_HUB_OFFLINE=1` (and `HF_HOME`, if customized) in the worker's
+environment (e.g., with `Environment=` lines in
+`undertale-inference-worker.service`).
+
+Then continue with the `inference initialize` and `inference migrate` steps
+above.
 
 #### Authenticated Systemd Service
 
@@ -189,3 +213,15 @@ Start a development inference worker:
 ```bash
 inference worker --parallelism 1
 ```
+
+### Building a Release Bundle
+
+To build an offline installation bundle for the current platform (requires
+Python 3.12 and internet access):
+
+```bash
+bash ./scripts/release.sh
+```
+
+See the [Offline Installation](#offline-installation) section for details on
+the bundle contents and installation.
