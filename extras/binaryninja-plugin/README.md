@@ -52,6 +52,7 @@ This configuration is saved in Binary Ninja's user settings and persists across 
 To change any of the plugin's settings later, select **Undertale > Configure Plugin**. This opens a single form where you can:
 
 * re-pick or edit the connection (TCP host/port or Unix socket path),
+* set the **Base URL** (default `/`), a path prefix applied to every request. Use `/` when the inference server is served at the root, or a subpath such as `/api` when it is mounted behind a reverse proxy under that prefix,
 * set the **Inference Completion Poll Timeout** (default 60 seconds, up to a maximum of 3600 seconds), which controls how long the plugin waits for the inference server to finish naming a function before giving up, and
 * clear the saved login token (shown only when one is cached — see below).
 
