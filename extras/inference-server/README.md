@@ -60,9 +60,9 @@ This writes `dist/undertale-inference-<version>-<os>-<arch>.tar.gz` containing
 a `wheelhouse/` of all required packages, a pre-seeded HuggingFace cache
 (`hf-cache/`), the `examples/` directory, and this README.
 
-On the target, extract the bundle and install from the wheelhouse (note
-`undertale` is named explicitly - it is a runtime requirement of the inference
-worker):
+On the target system, extract the bundle and run the installation from the root
+directory. (note `undertale` is named explicitly - it is a runtime requirement
+of the inference worker):
 
 ```bash
 pip install --no-index --find-links wheelhouse undertale undertale-inference
