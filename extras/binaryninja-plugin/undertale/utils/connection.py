@@ -62,7 +62,7 @@ CONNECTION_ATTR = "_undertale_inference_connection"
 TOKEN_ATTR = "_undertale_inference_token"
 
 INFERENCE_DEFAULT_HOST = "127.0.0.1"
-INFERENCE_DEFAULT_PORT = "5000"
+INFERENCE_DEFAULT_PORT = "8000"
 INFERENCE_DEFAULT_SOCKET_PATH = "/path/to/undertale-inference.sock"
 
 UNIX_SOCKET_VALIDATION_TIMEOUT = 10
