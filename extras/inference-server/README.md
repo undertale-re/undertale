@@ -18,6 +18,8 @@ from users.
 
 ### Installing
 
+#### Online Installation
+
 Install the Python package:
 
 ```bash
@@ -45,18 +47,6 @@ inference migrate
 ```
 
 #### Offline Installation
-
-For deployment targets without internet access, build a release bundle on an
-internet-connected machine with the same OS, architecture, and Python version
-(3.12) as the target:
-
-```bash
-./scripts/release.sh
-```
-
-This writes `dist/undertale-inference-<version>-<os>-<arch>.tar.gz` containing
-a `wheelhouse/` of all required packages, a pre-seeded HuggingFace cache
-(`hf-cache/`), the `examples/` directory, and this README.
 
 On the target system, extract the bundle and run the installation from the root
 directory. (note `undertale` is named explicitly - it is a runtime requirement
@@ -230,7 +220,7 @@ To build an offline installation bundle for the current platform (requires
 Python 3.12 and internet access):
 
 ```bash
-./scripts/release.sh
+bash ./scripts/release.sh
 ```
 
 See the [Offline Installation](#offline-installation) section for details on
