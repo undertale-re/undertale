@@ -18,6 +18,7 @@ import os
 import socket
 import stat
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlsplit
 
 import binaryninja
 from binaryninja import (
@@ -441,6 +442,29 @@ def _normalize_base_url(base_url: str) -> str:
     return base_url.rstrip("/") or DEFAULT_BASE_URL
 
 
+def _parse_base_url(base_url: str) -> Optional[str]:
+    """Validate a base URL path prefix entered by the user and normalize it.
+
+    A base URL is a bare path such as '/' or '/api', not a full URL. A value
+    that carries a scheme or host (e.g. 'http://host/api'), or a query or
+    fragment, is rejected rather than silently mangled into a nonsensical
+    prefix.
+
+    Alerts the user and returns None on invalid input; otherwise returns the
+    normalized prefix.
+    """
+    base_url = base_url.strip()
+    parts = urlsplit(base_url)
+    if parts.scheme or parts.netloc or parts.query or parts.fragment:
+        alert_user(
+            f"Invalid base URL: {base_url!r}.\n\nEnter a bare path prefix such "
+            f"as '/' or '/api', not a full URL (no scheme, host, query, or "
+            f"fragment).\n\nRe-run {CONFIGURE_MENU_PATH} to try again."
+        )
+        return None
+    return _normalize_base_url(base_url)
+
+
 def get_base_url() -> str:
     """Return the configured base URL path prefix for Inference Server
     requests, normalized (leading slash, no trailing slash; '/' means no
@@ -521,7 +545,9 @@ def configure_plugin(bv: BinaryView) -> None:
     if connection is None:
         return
 
-    base_url = _normalize_base_url(base_url_field.result or "")
+    base_url = _parse_base_url(base_url_field.result or "")
+    if base_url is None:
+        return
 
     setattr(binaryninja, CONNECTION_ATTR, connection)
     _save_connection(connection)
