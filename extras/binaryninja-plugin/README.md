@@ -26,7 +26,31 @@ waiting on the inference server.
 
 ## Installation
 
-The installable plugin lives in
+Whichever method you use, restart Binary Ninja afterwards to register the
+plugin.
+
+### Install from a Release Bundle
+
+Extract the release archive and copy the plugin directory it contains into
+Binary Ninja's user plugin folder:
+
+```bash
+tar -xzf undertale-binaryninja-plugin-<version>.tar.gz
+cd undertale-binaryninja-plugin-<version>
+
+# In Linux
+cp -R undertale ~/.binaryninja/plugins/undertale
+
+# In macOS
+cp -R undertale ~/Library/Application\ Support/Binary\ Ninja/plugins/undertale
+```
+
+To see how the bundle is built, see [Building a Release
+Bundle](#building-a-release-bundle).
+
+### Install from Source
+
+When working from a checkout, the installable plugin lives in
 [`undertale/`](undertale). Symlink (or copy)
 that directory into Binary Ninja's user plugin folder:
 
@@ -38,7 +62,8 @@ ln -s "/path/to/binaryninja-plugin/undertale" ~/.binaryninja/plugins/undertale
 ln -s "/path/to/binaryninja-plugin/undertale" ~/Library/Application\ Support/Binary\ Ninja/plugins/undertale
 ```
 
-Then restart Binary Ninja to register the plugin.
+Symlinking keeps the installed plugin in sync with the checkout, so a Binary
+Ninja restart is all that is needed to pick up local changes.
 
 ## Configuration
 
@@ -110,3 +135,17 @@ at its default of `/`.
   for the one-line log entry — e.g. `"Invalid host:port.\n\nRe-run Configure
   Plugin and enter a numeric port."`.
 
+### Building a Release Bundle
+
+To build an installation bundle for distribution:
+
+```bash
+bash scripts/release.sh
+```
+
+The archive is written to `dist/` and named from the `version` field in
+`undertale/plugin.json` — that field is the plugin's only version declaration,
+so it is the one place to edit when cutting a new release.
+
+See the [Install from a Release Bundle](#install-from-a-release-bundle) section
+for details on the bundle contents and installation.
