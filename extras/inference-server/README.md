@@ -4,17 +4,23 @@ Undertale inference server.
 
 ## Description
 
-A lightweight inference REST API that collects optional feedback and telemetry
-from users.
+A lightweight inference REST API that optionally collects feedback and
+telemetry from users.
 
 ## Installation
 
 ### Prerequisites
 
 - The core Undertale python package, installed
+- Model weight files for any models you would like to enable
 - Optional: [nginx][nginx] as a reverse proxy
 
 [nginx]: https://nginx.org/
+
+#### Model Access
+
+Model weight files are not publicly available - please contact us if you'd like
+access to a pre-trained model.
 
 ### Installing
 
@@ -49,8 +55,8 @@ inference migrate
 #### Offline Installation
 
 On the target system, extract the bundle and run the installation from the root
-directory. (note `undertale` is named explicitly - it is a runtime requirement
-of the inference worker):
+directory. (note the core `undertale` package is included in the offline
+installer):
 
 ```bash
 pip install --no-index --find-links wheelhouse undertale undertale-inference
