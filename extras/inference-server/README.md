@@ -12,7 +12,7 @@ from users.
 ### Prerequisites
 
 - The core Undertale python package, installed
-- optional: [nginx][nginx] as a reverse proxy
+- Optional: [nginx][nginx] as a reverse proxy
 
 [nginx]: https://nginx.org/
 
