@@ -4,17 +4,23 @@ Undertale inference server.
 
 ## Description
 
-A lightweight inference REST API that collects optional feedback and telemetry
-from users.
+A lightweight inference REST API that optionally collects feedback and
+telemetry from users.
 
 ## Installation
 
 ### Prerequisites
 
 - The core Undertale python package, installed
-- optional: [nginx][nginx] as a reverse proxy
+- Model weight files for any models you would like to enable
+- Optional: [nginx][nginx] as a reverse proxy
 
 [nginx]: https://nginx.org/
+
+#### Model Access
+
+Model weight files are not publicly available - please contact us if you'd like
+access to a pre-trained model.
 
 ### Installing
 
@@ -49,8 +55,8 @@ inference migrate
 #### Offline Installation
 
 On the target system, extract the bundle and run the installation from the root
-directory. (note `undertale` is named explicitly - it is a runtime requirement
-of the inference worker):
+directory. (note the core `undertale` package is included in the offline
+installer):
 
 ```bash
 pip install --no-index --find-links wheelhouse undertale undertale-inference
@@ -63,59 +69,117 @@ into `HF_HOME` (defaults to `~/.cache/huggingface`):
 python -m undertale.utils.models.cache.load hf-cache
 ```
 
-Then set `HF_HUB_OFFLINE=1` (and `HF_HOME`, if customized) in the worker's
-environment (e.g., with `Environment=` lines in
-`undertale-inference-worker.service`).
+The worker then needs `HF_HUB_OFFLINE=1` (and `HF_HOME`, if customized) in its
+environment - the example worker unit has commented-out `Environment=` lines
+for this.
 
 Then continue with the `inference initialize` and `inference migrate` steps
 above.
 
-#### Authenticated Systemd Service
+#### Services
 
-Configure the settings to point to your LDAP instance for authentication.
-
-Install the API systemd service using the example as a reference:
+Every deployment runs the same two systemd services: the API server and the
+inference worker. Install both from the examples:
 
 ```bash
 cp examples/undertale-inference.service /etc/systemd/system/
-systemctl enable --now undertale-inference
+cp examples/undertale-inference-worker.service /etc/systemd/system/
+systemctl enable --now undertale-inference undertale-inference-worker
 ```
 
-Configure nginx to proxy `/api/` to gunicorn using the example configuration as
-a reference:
+The example units carry the default deployment configuration: the API listens
+on loopback TCP at `127.0.0.1:8000` and the worker runs with a parallelism of
+4. Edit the copies in `/etc/systemd/system/` to change either, then run
+`systemctl daemon-reload` and restart the affected service.
+
+That default is a local, unauthenticated deployment, so set `authentication =
+no` in `/etc/undertale-inference/settings.ini` (`inference initialize` writes
+`authentication = yes`). To serve other users, see
+[Authentication](#authentication); to expose the API over a Unix domain socket
+instead of TCP, see [Sockets](#sockets).
+
+## Configuration
+
+### Authentication
+
+Authentication is off in the default deployment. To authenticate users against
+an LDAP instance, set the following in
+`/etc/undertale-inference/settings.ini`:
+
+```ini
+[undertale-inference]
+authentication = yes
+jwtsecret = <random hex string>
+ldaphost = ad.example.com
+ldapport = 636
+ldapdomain = example.com
+```
+
+`inference initialize` generates a `jwtsecret` for you; keep it secret and
+stable, since rotating it invalidates every issued token. All four settings are
+required when `authentication = yes` - the server refuses to start otherwise.
+
+Restart the services to pick up the change:
+
+```bash
+systemctl restart undertale-inference undertale-inference-worker
+```
+
+Grant admin privileges to the users who need them:
+
+```bash
+inference admin --promote <username>
+```
+
+An authenticated deployment is typically fronted by nginx, terminating TLS and
+proxying `/api/` to the API service. Use the example configuration as a
+reference:
 
 ```bash
 cp examples/nginx.conf /etc/nginx/conf.d/undertale-inference.conf
 nginx -s reload
 ```
 
-Install the inference worker systemd service using the example as a reference:
+The example proxies to the default `127.0.0.1:8000` bind and sets the
+`X-Forwarded-*` headers the API needs to generate correct URLs.
 
-```bash
-cp examples/undertale-inference-worker.service /etc/systemd/system/
-systemctl enable --now undertale-inference-worker
+### Sockets
+
+By default the API binds a loopback TCP socket, which is what nginx and any
+other host-local reverse proxy expect:
+
+```
+ExecStart=gunicorn --workers=4 --bind 127.0.0.1:8000 inference.api:app
 ```
 
-#### Unauthenticated Local Service
+For a co-located deployment - where every client runs on the same machine as
+the server, e.g. the Binary Ninja plugin - a Unix domain socket avoids opening
+a port entirely. Edit `/etc/systemd/system/undertale-inference.service`:
 
-Authentication may be disabled for simple, co-located inference service
-deployments (e.g., `authentication = False` in the configuration).
-
-Start the inference server bound to e.g., a Unix socket:
-
-```bash
-gunicorn --bind unix:./undertale-inference.sock inference.api:app
+```
+RuntimeDirectory=undertale-inference
+ExecStart=gunicorn --workers=4 --bind unix:/run/undertale-inference/undertale-inference.sock inference.api:app
 ```
 
-Start the inference worker(s):
+`RuntimeDirectory=` creates `/run/undertale-inference/` owned by the service
+user on start and removes it on stop. Apply the change with:
 
 ```bash
-inference worker --parallelism 2
+systemctl daemon-reload
+systemctl restart undertale-inference
+```
+
+Clients must be on the same machine to reach a Unix domain socket - it is not
+reachable over the network. If nginx fronts a socket-bound server, point
+`proxy_pass` at the socket instead of the TCP address:
+
+```nginx
+proxy_pass http://unix:/run/undertale-inference/undertale-inference.sock:/;
 ```
 
 ## Usage
 
-### Authenticated Systemd Service
+### Services
 
 Use `systemctl` to manage the services:
 
@@ -220,7 +284,7 @@ To build an offline installation bundle for the current platform (requires
 Python 3.12 and internet access):
 
 ```bash
-bash ./scripts/release.sh
+./scripts/release.sh
 ```
 
 See the [Offline Installation](#offline-installation) section for details on
