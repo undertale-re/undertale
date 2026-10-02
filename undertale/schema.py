@@ -87,6 +87,13 @@ class TokenizedClassificationDataset(TokenizedDataset):
     """Integer class label for the sequence."""
 
 
+class TokenizedMultiLabelClassificationDataset(TokenizedDataset):
+    """A tokenized dataset with class name labels, any number per row."""
+
+    labels: Series[object]
+    """Names of the classes the sequence belongs to."""
+
+
 class TokenizedSummarizationDataset(TokenizedDataset):
     """A tokenized dataset with tokenized summaries."""
 
@@ -126,5 +133,6 @@ __all__ = [
     "SummarizedDataset",
     "TokenizedDataset",
     "TokenizedClassificationDataset",
+    "TokenizedMultiLabelClassificationDataset",
     "TokenizedSummarizationDataset",
 ]
