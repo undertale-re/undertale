@@ -11,7 +11,7 @@
 # Original parquet shards -> labeled parquet shards, in one pass. The job is
 # client-only: every array task queries one vLLM server that is already running
 # elsewhere. Start that server separately, then point this job at it:
-#
+#   (currently using models--Qwen--Qwen3-Coder-30B-A3B-Instruct)http://a-3-4:12132/
 #   ENDPOINT=http://{node-name}:{vllm-port} sbatch label_parquet.slurm
 #
 # Submit from this directory. The job runs the `label_parquet.py` beside this
@@ -26,8 +26,8 @@
 # only as far as the server keeps up.
 
 DATASET=${DATASET:-nixpkgs-legacy_10percent}
-INPUTS=${INPUTS:-$SHARE/datasets/$DATASET/split-testing}
-DESTINATION=${DESTINATION:-$SHARE/datasets/$DATASET/split-testing-labeled}
+INPUTS=${INPUTS:-$SHARE/datasets/$DATASET/split-validation}
+DESTINATION=${DESTINATION:-$SHARE/datasets/$DATASET/split-validation-labeled}
 ENDPOINT=${ENDPOINT:-http://localhost:8000}
 SHARDS=$SLURM_ARRAY_TASK_COUNT
 
@@ -62,4 +62,5 @@ python label_parquet.py \
     "${OPTIONS[@]}" \
     --shard $SLURM_ARRAY_TASK_ID \
     --shards $SHARDS \
+    --drop-unlabeled \
     --concurrency 32

@@ -6,6 +6,14 @@ Three columns are appended to each shard:
     flags        list<string>, the taxonomy's orthogonal flags, null on failure
     label_error  string, why labeling failed, null when it succeeded
 
+`tokenize-disassembly.py` also requires `id` and `name` columns, which the
+nixpkgs shards lack, so each is appended when the shard does not have it:
+
+    id    string, `<shard>:<row>`, the row's position in the input shard
+    name  string, a copy of `function_name`
+
+With `--drop-unlabeled`, the output can be tokenized as it is.
+
     python label_parquet.py \
         $SHARE/datasets/nixpkgs-legacy_10percent/split-testing/ \
         --destination $SHARE/datasets/nixpkgs-legacy_10percent/ \
@@ -598,7 +606,19 @@ def write(
     """
     parquet = pq.ParquetFile(source)
     codec = arguments.compression or compression(source)
-    schema = pa.schema(list(parquet.schema_arrow) + LABEL_FIELDS)
+    inherited = parquet.schema_arrow
+    stem = os.path.basename(source).removesuffix(".parquet")
+
+    # The `id` and `name` columns `tokenize-disassembly.py` requires.
+    identify = "id" not in inherited.names
+    rename = "name" not in inherited.names
+    fields = list(inherited) + LABEL_FIELDS
+    if identify:
+        fields.append(pa.field("id", pa.large_string()))
+    if rename:
+        fields.append(pa.field("name", inherited.field("function_name").type))
+
+    schema = pa.schema(fields)
     partial = destination.parent / (destination.name + ".partial")
 
     written = 0
@@ -611,6 +631,15 @@ def write(
             for field, key in zip(LABEL_FIELDS, ("labels", "flags", "error")):
                 values = [row.get(key) for row in rows]
                 columns.append(pa.array(values, type=field.type))
+
+            # Numbered before unlabeled rows are dropped, so an `id` names the
+            # same row of the input shard whether or not its neighbours survive.
+            if identify:
+                positions = range(written, written + batch.num_rows)
+                identifiers = [f"{stem}:{position}" for position in positions]
+                columns.append(pa.array(identifiers, type=pa.large_string()))
+            if rename:
+                columns.append(batch.column("function_name"))
 
             table = pa.Table.from_arrays(columns, schema=schema)
             if arguments.drop_unlabeled:
