@@ -40,11 +40,14 @@ Pull requests and issues are more than welcome. Please review the
 | --- | --- | --- |
 | 04/30/2024 | [arXiv][arxiv] | [On Training a Neural Network To Explain Binaries][20240430-arxiv] |
 | 09/15/2025 | [IEEE HPEC][HPEC] | [Scaling Performance of Large Language Model Pretraining][20250915-hpec] |
+| 08/08/2026 | [Nix Vegas][nix-vegas] | [Compiling the World: A Binary Dataset Built from nixpkgs][20260808-nix] |
 
 [arxiv]: https://arxiv.org/
 [HPEC]: https://ieee-hpec.org/
+[nix-vegas]: https://nix.vegas/
 [20240430-arxiv]: https://arxiv.org/abs/2404.19631
 [20250915-hpec]: https://arxiv.org/abs/2509.05258
+[20260808-nix]: https://cfp.nix.vegas/2026/talk/MVYVWQ/
 
 ### Disclaimer
 
