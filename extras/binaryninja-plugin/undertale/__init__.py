@@ -54,6 +54,8 @@ FNAMING_COMMAND_NAME = "Undertale\\Generate Function Name"
 INFERENCE_CONNECT_TIMEOUT = 10
 INFERENCE_POLL_INTERVAL = 1
 
+UNAUTHORIZED_STATUSES = (401, 422)  # to handle missing or expired tokens
+
 
 class UnixHTTPConnection(http.client.HTTPConnection):
     """An HTTPConnection that dials a Unix domain socket.
@@ -101,7 +103,8 @@ class AuthenticationRequired(RuntimeError):
 
 
 class Unauthorized(RuntimeError):
-    """Raised when the inference server rejects a request with 401."""
+    """Raised when the inference server rejects a request's token (see
+    :py:data:`UNAUTHORIZED_STATUSES`)."""
 
 
 def request(
@@ -127,8 +130,8 @@ def request(
             error = json.loads(raw.decode("utf-8")).get("error", raw)
         except ValueError:
             error = raw.decode("utf-8", "replace")
-        if response.status == 401:
-            raise Unauthorized(f"{method} {path} -> 401: {error}")
+        if response.status in UNAUTHORIZED_STATUSES:
+            raise Unauthorized(f"{method} {path} -> {response.status}: {error}")
         raise RuntimeError(f"{method} {path} -> {response.status}: {error}")
 
     return json.loads(raw.decode("utf-8")) if raw else {}
@@ -160,33 +163,25 @@ def _authenticate(conn: http.client.HTTPConnection, base_url: str) -> Optional[s
     """Ensure requests on this connection are authenticated, if the
     inference server requires it.
 
-    Uses the given, already-open connection. Tries a previously saved token
-    first; if there isn't one, or the server rejects it, prompts for
-    credentials and logs in.
+    Uses the given, already-open connection, via :py:func:`request`. Tries a
+    previously saved token first; if there isn't one, or the server rejects
+    it, prompts for credentials and logs in.
 
     Returns the bearer token to attach to subsequent requests, or None if
     the server does not require authentication.
     """
     token = get_token()
 
-    root = join_base_url(base_url, "/")
-    headers = {"Authorization": f"Bearer {token}"} if token is not None else {}
-    conn.request("GET", root, headers=headers)
-    response = conn.getresponse()
-    raw = response.read()
-
-    if response.status == 200:
-        body = json.loads(raw.decode("utf-8")) if raw else {}
-        if not body.get("authentication"):
-            return None
-        return token
-
-    if response.status == 401:
+    try:
+        body = request(conn, "GET", join_base_url(base_url, "/"), token=token)
+    except Unauthorized:
         if token is not None:
             clear_token()
         return _login(conn, base_url)
 
-    raise RuntimeError(f"GET {root} -> {response.status}")
+    if not body.get("authentication"):
+        return None
+    return token
 
 
 def function_disassembly(bv: BinaryView, func: Function) -> str:
@@ -321,7 +316,7 @@ class NameFunctionTask(BackgroundTaskThread):
                 "or the socket path is wrong.\n\nStart the server or run "
                 f"{CONFIGURE_MENU_PATH}."
             )
-        except (TimeoutError, socket.timeout):
+        except TimeoutError:
             alert_user(
                 f"Timed out after {INFERENCE_CONNECT_TIMEOUT}s connecting to the "
                 f"Undertale Inference Server at {endpoint}.\n\nCheck that the server "
