@@ -54,6 +54,8 @@ FNAMING_COMMAND_NAME = "Undertale\\Generate Function Name"
 INFERENCE_CONNECT_TIMEOUT = 10
 INFERENCE_POLL_INTERVAL = 1
 
+UNAUTHORIZED_STATUSES = (401, 422)  # to handle missing or expired tokens
+
 
 class UnixHTTPConnection(http.client.HTTPConnection):
     """An HTTPConnection that dials a Unix domain socket.
@@ -101,7 +103,8 @@ class AuthenticationRequired(RuntimeError):
 
 
 class Unauthorized(RuntimeError):
-    """Raised when the inference server rejects a request with 401."""
+    """Raised when the inference server rejects a request's token (see
+    :py:data:`UNAUTHORIZED_STATUSES`)."""
 
 
 def request(
@@ -127,8 +130,8 @@ def request(
             error = json.loads(raw.decode("utf-8")).get("error", raw)
         except ValueError:
             error = raw.decode("utf-8", "replace")
-        if response.status == 401:
-            raise Unauthorized(f"{method} {path} -> 401: {error}")
+        if response.status in UNAUTHORIZED_STATUSES:
+            raise Unauthorized(f"{method} {path} -> {response.status}: {error}")
         raise RuntimeError(f"{method} {path} -> {response.status}: {error}")
 
     return json.loads(raw.decode("utf-8")) if raw else {}
