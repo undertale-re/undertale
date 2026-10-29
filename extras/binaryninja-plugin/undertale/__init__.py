@@ -160,33 +160,25 @@ def _authenticate(conn: http.client.HTTPConnection, base_url: str) -> Optional[s
     """Ensure requests on this connection are authenticated, if the
     inference server requires it.
 
-    Uses the given, already-open connection. Tries a previously saved token
-    first; if there isn't one, or the server rejects it, prompts for
-    credentials and logs in.
+    Uses the given, already-open connection, via :py:func:`request`. Tries a
+    previously saved token first; if there isn't one, or the server rejects
+    it, prompts for credentials and logs in.
 
     Returns the bearer token to attach to subsequent requests, or None if
     the server does not require authentication.
     """
     token = get_token()
 
-    root = join_base_url(base_url, "/")
-    headers = {"Authorization": f"Bearer {token}"} if token is not None else {}
-    conn.request("GET", root, headers=headers)
-    response = conn.getresponse()
-    raw = response.read()
-
-    if response.status == 200:
-        body = json.loads(raw.decode("utf-8")) if raw else {}
-        if not body.get("authentication"):
-            return None
-        return token
-
-    if response.status == 401:
+    try:
+        body = request(conn, "GET", join_base_url(base_url, "/"), token=token)
+    except Unauthorized:
         if token is not None:
             clear_token()
         return _login(conn, base_url)
 
-    raise RuntimeError(f"GET {root} -> {response.status}")
+    if not body.get("authentication"):
+        return None
+    return token
 
 
 def function_disassembly(bv: BinaryView, func: Function) -> str:
@@ -321,7 +313,7 @@ class NameFunctionTask(BackgroundTaskThread):
                 "or the socket path is wrong.\n\nStart the server or run "
                 f"{CONFIGURE_MENU_PATH}."
             )
-        except (TimeoutError, socket.timeout):
+        except TimeoutError:
             alert_user(
                 f"Timed out after {INFERENCE_CONNECT_TIMEOUT}s connecting to the "
                 f"Undertale Inference Server at {endpoint}.\n\nCheck that the server "
