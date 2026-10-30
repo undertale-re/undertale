@@ -18,6 +18,30 @@ predicted name.
 Naming runs in the background, so Binary Ninja stays responsive while
 waiting on the inference server.
 
+## Rating Generated Names
+
+After Undertale names a function, select it and run **Undertale > Rate
+Function Name** to tell the inference server how good the name was. The
+command is greyed out for functions Undertale did not name.
+
+The form shows the generated name, a **Rating** (Bad, Fair, Average, Good,
+Great), and free-text **Comments**. If you renamed the function after
+Undertale named it, the form also shows its current name.
+Rating a function again replaces its previous rating, and the form is
+prefilled with the rating and comments already stored on the server.
+
+- **Ratings and comments are sent to the inference server**, which stores them
+  on the completion that produced the name (the same feedback the web frontend
+  collects). The plugin keeps only a reference to that completion (its id,
+  the generated name, and the server it came from) in the database's metadata.
+  Save the `.bndb` to keep these references, otherwise they are lost when the
+  file is closed.
+- **Feedback only goes to the server that generated the name.** If the plugin
+  is now configured for a different server or base URL, rating is refused.
+  Before sending anything, the plugin also checks that the completion still
+  exists on the server and still matches the generated name, so a rating is
+  never attributed to the wrong completion.
+
 ## Requirements
 
 - Binary Ninja build 4000 or newer, with Python 3 scripting enabled.

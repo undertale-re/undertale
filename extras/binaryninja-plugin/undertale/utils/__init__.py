@@ -1,3 +1,9 @@
+from .completions import (
+    describe_server,
+    get_completion,
+    is_same_server,
+    store_completion,
+)
 from .connection import (
     CONFIGURE_COMMAND_NAME,
     CONFIGURE_MENU_PATH,
@@ -22,12 +28,16 @@ __all__ = [
     "alert_user",
     "clear_token",
     "configure_plugin",
+    "describe_server",
     "get_base_url",
+    "get_completion",
     "get_connection",
     "get_poll_timeout",
     "get_token",
+    "is_same_server",
     "join_base_url",
     "pretokenize_disassembly",
     "prompt_credentials",
     "save_token",
+    "store_completion",
 ]
