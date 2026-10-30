@@ -24,8 +24,9 @@ After Undertale names a function, select it and run **Undertale > Rate
 Function Name** to tell the inference server how good the name was. The
 command is greyed out for functions Undertale did not name.
 
-The form shows the generated name and the function's current name, a
-**Rating** (Bad, Fair, Average, Good, Great), and free-text **Comments**.
+The form shows the generated name, a **Rating** (Bad, Fair, Average, Good,
+Great), and free-text **Comments**. If you renamed the function after
+Undertale named it, the form also shows its current name.
 Rating a function again replaces its previous rating, and the form is
 prefilled with the rating and comments already stored on the server.
 
