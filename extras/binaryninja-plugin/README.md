@@ -173,7 +173,28 @@ bash scripts/release.sh
 
 The archive is written to `dist/` and named from the `version` field in
 `undertale/plugin.json` — that field is the plugin's only version declaration,
-so it is the one place to edit when cutting a new release.
+so it is the one place to edit when cutting a new release. The bundle also
+includes [`CHANGELOG.md`](CHANGELOG.md), and the script refuses to build if
+the changelog has no section for that version.
+
+### Changelog
+
+Notable changes are recorded by hand in [`CHANGELOG.md`](CHANGELOG.md),
+following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Pull
+requests with user-visible changes should add an entry under `[Unreleased]`.
+
+### Cutting a Release
+
+1. In `CHANGELOG.md`, rename `[Unreleased]` to `[<version>] - <YYYY-MM-DD>`,
+   add a new empty `[Unreleased]` section above it, and update the comparison
+   links at the bottom of the file.
+2. Set `version` in `undertale/plugin.json` to the same `<version>`.
+3. Merge the change to `main` (e.g., `chore[binaryninja-plugin]: release
+   <version>`).
+4. Tag the merge commit `binaryninja-plugin/v<version>` and push the tag.
+5. Build the bundle with `bash scripts/release.sh`.
+6. Optionally, create a GitHub Release for the tag by hand, attaching the
+   bundle and pasting the version's `CHANGELOG.md` section as the notes.
 
 See the [Install from a Release Bundle](#install-from-a-release-bundle) section
 for details on the bundle contents and installation.
