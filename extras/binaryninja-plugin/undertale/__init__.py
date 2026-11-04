@@ -76,6 +76,14 @@ INFERENCE_POLL_INTERVAL = 1
 UNAUTHORIZED_STATUSES = (401, 422)  # to handle missing or expired tokens
 
 
+# Design note: the Unix domain socket is handled by hand on top of the standard
+# library's http.client. httpx was explored as an alternative, since it supports
+# Unix sockets, but it brings additional dependencies. Those would have to be
+# vendored into the plugin, or installed into the Python interpreter Binary Ninja
+# uses, which can conflict with other plugins. The socket logic here is about 40
+# lines; httpx would shrink it to roughly 10-20. That isn't worth the extra
+# dependencies, so this stays as is. Revisit the vendoring strategy if the
+# plugin's dependencies grow.
 class UnixHTTPConnection(http.client.HTTPConnection):
     """An HTTPConnection that dials a Unix domain socket.
 
