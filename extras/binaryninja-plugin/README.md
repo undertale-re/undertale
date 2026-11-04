@@ -29,13 +29,17 @@ The form shows the generated name, a **Rating** (Bad, Fair, Average, Good,
 Great), and free-text **Comments**.
 Rating a function again replaces its previous rating, and the form is
 prefilled with the rating and comments already stored on the server.
+Running **Undertale > Generate Function Name** on a function again replaces
+its stored completion, so only the latest generated name can be rated.
 
 - **Ratings and comments are sent to the inference server**, which stores them
   on the completion that produced the name (the same feedback the web frontend
   collects). The plugin keeps only a reference to that completion (its id,
-  the generated name, and the server it came from) in the database's metadata.
-  Save the `.bndb` to keep these references, otherwise they are lost when the
-  file is closed.
+  the generated name, the name Binary Ninja actually applied, and the server
+  it came from) in the database's metadata. The applied name can differ from
+  the generated one if Binary Ninja adjusts it, and it is what the plugin
+  compares against to detect a later rename. Save the `.bndb` to keep these
+  references, otherwise they are lost when the file is closed.
 - **Feedback only goes to the server that generated the name.** If the plugin
   is now configured for a different server or base URL, rating is refused.
   Before sending anything, the plugin also checks that the completion still
