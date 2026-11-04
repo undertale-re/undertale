@@ -253,6 +253,26 @@ def _build_unix(path: str) -> Optional[Connection]:
     return {"kind": "unix", "path": path}
 
 
+def describe_server(connection: Connection, base_url: Optional[str] = None) -> str:
+    """Describe an Inference Server endpoint for user-facing messages.
+
+    Args:
+        connection: The server's connection.
+        base_url: The server's base URL, mentioned only if it is not the
+            default.
+
+    Returns:
+        A user friendly description of the endpoint.
+    """
+    if connection["kind"] == "unix":
+        description = f"the Unix domain socket {connection['path']!r}"
+    else:
+        description = f"{connection['host']}:{connection['port']} (TCP)"
+    if base_url is not None and base_url != DEFAULT_BASE_URL:
+        description += f" with base URL {base_url!r}"
+    return description
+
+
 def _parse_timeout(timeout: str) -> Optional[int]:
     """Validate a poll timeout entered as a string, in seconds.
 

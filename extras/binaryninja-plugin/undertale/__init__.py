@@ -53,10 +53,12 @@ from .utils import (
     get_connection,
     get_poll_timeout,
     get_token,
+    is_reverted,
     is_same_server,
     join_base_url,
     pretokenize_disassembly,
     prompt_credentials,
+    renamed,
     save_token,
     store_completion,
 )
@@ -204,9 +206,15 @@ def session(
 ) -> Generator[Tuple[http.client.HTTPConnection, str, Optional[str]], None, None]:
     """Open an authenticated connection to the inference server.
 
-    Yields ``(conn, base_url, token)``: the open connection, the configured
-    base URL, and the bearer token (None if the server does not require
-    authentication). The connection is closed on exit.
+    The connection is closed on exit.
+
+    Args:
+        connection: The inference server to connect to.
+
+    Yields:
+        ``(conn, base_url, token)``: the open connection, the configured base
+        URL, and the bearer token (None if the server does not require
+        authentication).
     """
     base_url = get_base_url()
     conn = _open_connection(connection)
@@ -215,6 +223,41 @@ def session(
         yield conn, base_url, token
     finally:
         conn.close()
+
+
+def send(
+    connection: Connection,
+    token: Optional[str],
+    method: str,
+    path: str,
+    body: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Send one request on a fresh connection, reusing an existing token.
+
+    Skips the authentication check :py:func:`session` makes. Only if the
+    server rejects ``token`` (for example, it expired) does this
+    authenticate again and retry once.
+
+    Args:
+        connection: The inference server to connect to.
+        token: A bearer token from an earlier :py:func:`session`, or None.
+        method: The HTTP method.
+        path: The request path, already joined with the base URL.
+        body: The JSON body to send, if any.
+
+    Returns:
+        The decoded JSON response.
+    """
+    conn = _open_connection(connection)
+    try:
+        return request(conn, method, path, body, token=token)
+    except Unauthorized:
+        pass
+    finally:
+        conn.close()
+
+    with session(connection) as (conn, _, token):
+        return request(conn, method, path, body, token=token)
 
 
 def function_disassembly(bv: BinaryView, func: Function) -> str:
@@ -253,8 +296,13 @@ def request_name(connection: Connection, disassembly: str) -> Tuple[int, str, st
     Reuses a single connection across the POST and the entire poll loop
     rather than opening a fresh one for every request.
 
-    Returns ``(completion_id, name, base_url)``, where ``base_url`` is the one
-    the completion was requested under.
+    Args:
+        connection: The inference server to request the name from.
+        disassembly: The function's pretokenized disassembly.
+
+    Returns:
+        ``(completion_id, name, base_url)``, where ``base_url`` is the one the
+        completion was requested under.
     """
     with session(connection) as (conn, base_url, token):
         created = request(
@@ -314,6 +362,12 @@ def report_failure(exc: Exception, action: str, endpoint: str) -> None:
 
     Shared by the background tasks so naming and rating report connection
     problems identically.
+
+    Args:
+        exc: The exception that stopped the task.
+        action: What the task was doing, such as ``"Naming sub_401000"``.
+        endpoint: A description of the server, from
+            :py:func:`describe_server`.
     """
     if isinstance(exc, AuthenticationRequired):
         log_info(str(exc))
@@ -331,7 +385,7 @@ def report_failure(exc: Exception, action: str, endpoint: str) -> None:
             "or the socket path is wrong.\n\nStart the server or run "
             f"{CONFIGURE_MENU_PATH}."
         )
-    elif isinstance(exc, TimeoutError):
+    elif isinstance(exc, (TimeoutError, socket.timeout)):
         alert_user(
             f"Timed out after {INFERENCE_CONNECT_TIMEOUT}s connecting to the "
             f"Undertale Inference Server at {endpoint}.\n\nCheck that the server "
@@ -370,11 +424,19 @@ class NameFunctionTask(BackgroundTaskThread):
                 return
             completion_id, name, base_url = request_name(self.connection, disassembly)
             rename(self.bv, self.func, name)
-            store_completion(
-                self.bv, self.func, completion_id, name, self.connection, base_url
-            )
         except Exception as exc:  # noqa: BLE001
             report_failure(exc, f"Naming {self.func.name}", endpoint)
+            return
+
+        # The rename already happened, so a failure here only affects rating.
+        try:
+            store_completion(self.func, completion_id, name, self.connection, base_url)
+        except Exception as exc:  # noqa: BLE001
+            log_error(f"Failed to record completion {completion_id}: {exc}")
+            alert_user(
+                f"Renamed {self.func.name}, but could not record the completion, "
+                f"so it can't be rated: {exc}"
+            )
 
 
 def prompt_feedback(
@@ -382,13 +444,19 @@ def prompt_feedback(
 ) -> Optional[Tuple[int, str]]:
     """Ask the user to rate a generated name.
 
-    ``current`` is the function's name if the user renamed it, or None to
-    show only the generated name.
-
     The form runs on the UI thread because this is called from a background
     task.
 
-    Returns ``(rating, comments)``, or None if the user cancels.
+    Args:
+        generated: The name the server generated.
+        current: The function's name if the user renamed it, or None to show
+            only the generated name.
+        rating: The rating already saved on the server, if any, as an index
+            into ``RATING_CHOICES``.
+        comments: The comments already saved on the server.
+
+    Returns:
+        ``(rating, comments)``, or None if the user cancels.
     """
     rating_field = ChoiceField("Rating", RATING_CHOICES, default=rating)
     comments_field = MultilineTextField("Comments", comments)
@@ -429,9 +497,15 @@ class RateFunctionTask(BackgroundTaskThread):
             report_failure(exc, f"Rating {self.func.name}", endpoint)
 
     def rate(self) -> None:
-        entry = get_completion(self.bv, self.func)
+        entry = get_completion(self.func)
         if entry is None:
             alert_user(f"Undertale did not name {self.func.name}, so it can't be rated")
+            return
+        if is_reverted(self.func, entry):
+            alert_user(
+                f"The name Undertale generated for {self.func.name} "
+                f"({entry['name']!r}) was undone, so there is nothing to rate."
+            )
             return
 
         base_url = get_base_url()
@@ -473,7 +547,7 @@ class RateFunctionTask(BackgroundTaskThread):
 
         feedback = prompt_feedback(
             entry["name"],
-            self.func.name if self.func.name != entry["name"] else None,
+            self.func.name if renamed(self.func, entry) else None,
             completion.get("rating"),
             completion.get("comments") or "",
         )
@@ -483,14 +557,13 @@ class RateFunctionTask(BackgroundTaskThread):
         rating, comments = feedback
 
         # The form may have been open for a while, so reconnect.
-        with session(self.connection) as (conn, _, token):
-            request(
-                conn,
-                "POST",
-                feedback_path,
-                {"rating": rating, "comments": comments.strip() or None},
-                token=token,
-            )
+        send(
+            self.connection,
+            token,
+            "POST",
+            feedback_path,
+            {"rating": rating, "comments": comments.strip() or None},
+        )
         log_info(
             f"Rated {self.func.name} @ {hex(self.func.start)} as "
             f"{RATING_CHOICES[rating]!r} (completion {entry['id']})"
@@ -514,8 +587,10 @@ def rate_function(bv: BinaryView, func: Function) -> None:
 
 
 def is_rateable(bv: BinaryView, func: Function) -> bool:
-    """Only functions Undertale named can be rated."""
-    return get_completion(bv, func) is not None
+    """Only functions Undertale named, and whose name wasn't undone, can be
+    rated."""
+    entry = get_completion(func)
+    return entry is not None and not is_reverted(func, entry)
 
 
 PluginCommand.register_for_function(

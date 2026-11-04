@@ -1,7 +1,8 @@
 from .completions import (
-    describe_server,
     get_completion,
+    is_reverted,
     is_same_server,
+    renamed,
     store_completion,
 )
 from .connection import (
@@ -10,6 +11,7 @@ from .connection import (
     Connection,
     clear_token,
     configure_plugin,
+    describe_server,
     get_base_url,
     get_connection,
     get_poll_timeout,
@@ -34,10 +36,12 @@ __all__ = [
     "get_connection",
     "get_poll_timeout",
     "get_token",
+    "is_reverted",
     "is_same_server",
     "join_base_url",
     "pretokenize_disassembly",
     "prompt_credentials",
+    "renamed",
     "save_token",
     "store_completion",
 ]
