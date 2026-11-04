@@ -58,6 +58,7 @@ from .utils import (
     join_base_url,
     pretokenize_disassembly,
     prompt_credentials,
+    remove_completion,
     renamed,
     save_token,
     store_completion,
@@ -423,6 +424,10 @@ class NameFunctionTask(BackgroundTaskThread):
                 alert_user(f"No disassembly available for {self.func.name}")
                 return
             completion_id, name, base_url = request_name(self.connection, disassembly)
+            previous = self.func.name
+            # Forget any earlier completion first, so it can't be rated against
+            # the new name if recording this one fails.
+            remove_completion(self.func)
             rename(self.bv, self.func, name)
         except Exception as exc:  # noqa: BLE001
             report_failure(exc, f"Naming {self.func.name}", endpoint)
@@ -430,7 +435,9 @@ class NameFunctionTask(BackgroundTaskThread):
 
         # The rename already happened, so a failure here only affects rating.
         try:
-            store_completion(self.func, completion_id, name, self.connection, base_url)
+            store_completion(
+                self.func, completion_id, name, previous, self.connection, base_url
+            )
         except Exception as exc:  # noqa: BLE001
             log_error(f"Failed to record completion {completion_id}: {exc}")
             alert_user(
@@ -483,9 +490,8 @@ class RateFunctionTask(BackgroundTaskThread):
     completion there still matches the name it produced.
     """
 
-    def __init__(self, bv: BinaryView, func: Function, connection: Connection) -> None:
+    def __init__(self, func: Function, connection: Connection) -> None:
         BackgroundTaskThread.__init__(self, f"Rating {func.name}...", True)
-        self.bv = bv
         self.func = func
         self.connection = connection
 
@@ -523,9 +529,7 @@ class RateFunctionTask(BackgroundTaskThread):
             return
 
         path = join_base_url(base_url, f"/fnaming/completion/{entry['id']}/")
-        feedback_path = join_base_url(
-            base_url, f"/fnaming/completion/{entry['id']}/feedback/"
-        )
+        feedback_path = path + "feedback/"
         with session(self.connection) as (conn, _, token):
             try:
                 completion = request(conn, "GET", path, token=token)
@@ -583,7 +587,7 @@ def rate_function(bv: BinaryView, func: Function) -> None:
     connection = get_connection()
     if connection is None:
         return
-    RateFunctionTask(bv, func, connection).start()
+    RateFunctionTask(func, connection).start()
 
 
 def is_rateable(bv: BinaryView, func: Function) -> bool:

@@ -2,6 +2,7 @@ from .completions import (
     get_completion,
     is_reverted,
     is_same_server,
+    remove_completion,
     renamed,
     store_completion,
 )
@@ -41,6 +42,7 @@ __all__ = [
     "join_base_url",
     "pretokenize_disassembly",
     "prompt_credentials",
+    "remove_completion",
     "renamed",
     "save_token",
     "store_completion",
