@@ -53,7 +53,6 @@ from .utils import (
     get_connection,
     get_poll_timeout,
     get_token,
-    is_reverted,
     is_same_server,
     join_base_url,
     pretokenize_disassembly,
@@ -424,7 +423,6 @@ class NameFunctionTask(BackgroundTaskThread):
                 alert_user(f"No disassembly available for {self.func.name}")
                 return
             completion_id, name, base_url = request_name(self.connection, disassembly)
-            previous = self.func.name
             # Forget any earlier completion first, so it can't be rated against
             # the new name if recording this one fails.
             remove_completion(self.func)
@@ -435,9 +433,7 @@ class NameFunctionTask(BackgroundTaskThread):
 
         # The rename already happened, so a failure here only affects rating.
         try:
-            store_completion(
-                self.func, completion_id, name, previous, self.connection, base_url
-            )
+            store_completion(self.func, completion_id, name, self.connection, base_url)
         except Exception as exc:  # noqa: BLE001
             log_error(f"Failed to record completion {completion_id}: {exc}")
             alert_user(
@@ -447,7 +443,7 @@ class NameFunctionTask(BackgroundTaskThread):
 
 
 def prompt_feedback(
-    generated: str, current: Optional[str], rating: Optional[int], comments: str
+    generated: str, rating: Optional[int], comments: str
 ) -> Optional[Tuple[int, str]]:
     """Ask the user to rate a generated name.
 
@@ -456,8 +452,6 @@ def prompt_feedback(
 
     Args:
         generated: The name the server generated.
-        current: The function's name if the user renamed it, or None to show
-            only the generated name.
         rating: The rating already saved on the server, if any, as an index
             into ``RATING_CHOICES``.
         comments: The comments already saved on the server.
@@ -467,10 +461,11 @@ def prompt_feedback(
     """
     rating_field = ChoiceField("Rating", RATING_CHOICES, default=rating)
     comments_field = MultilineTextField("Comments", comments)
-    fields: List[Any] = [LabelField(f"Generated name: {generated}")]
-    if current is not None:
-        fields.append(LabelField(f"Current name: {current}"))
-    fields += [rating_field, comments_field]
+    fields: List[Any] = [
+        LabelField(f"Generated name: {generated}"),
+        rating_field,
+        comments_field,
+    ]
 
     submitted = []
     execute_on_main_thread_and_wait(
@@ -507,10 +502,10 @@ class RateFunctionTask(BackgroundTaskThread):
         if entry is None:
             alert_user(f"Undertale did not name {self.func.name}, so it can't be rated")
             return
-        if is_reverted(self.func, entry):
+        if renamed(self.func, entry):
             alert_user(
-                f"The name Undertale generated for {self.func.name} "
-                f"({entry['name']!r}) was undone, so there is nothing to rate."
+                f"{self.func.name} was renamed or its rename was undone after "
+                f"Undertale named it {entry['name']!r}, so it can't be rated."
             )
             return
 
@@ -551,7 +546,6 @@ class RateFunctionTask(BackgroundTaskThread):
 
         feedback = prompt_feedback(
             entry["name"],
-            self.func.name if renamed(self.func, entry) else None,
             completion.get("rating"),
             completion.get("comments") or "",
         )
@@ -591,10 +585,10 @@ def rate_function(bv: BinaryView, func: Function) -> None:
 
 
 def is_rateable(bv: BinaryView, func: Function) -> bool:
-    """Only functions Undertale named, and whose name wasn't undone, can be
+    """Only functions that still have the name Undertale gave them can be
     rated."""
     entry = get_completion(func)
-    return entry is not None and not is_reverted(func, entry)
+    return entry is not None and not renamed(func, entry)
 
 
 PluginCommand.register_for_function(

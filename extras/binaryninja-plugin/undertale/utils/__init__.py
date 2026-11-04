@@ -1,6 +1,5 @@
 from .completions import (
     get_completion,
-    is_reverted,
     is_same_server,
     remove_completion,
     renamed,
@@ -37,7 +36,6 @@ __all__ = [
     "get_connection",
     "get_poll_timeout",
     "get_token",
-    "is_reverted",
     "is_same_server",
     "join_base_url",
     "pretokenize_disassembly",

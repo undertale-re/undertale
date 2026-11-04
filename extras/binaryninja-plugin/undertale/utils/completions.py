@@ -1,8 +1,7 @@
 """Track which Inference Server completion named each function.
 
 When Undertale names a function, it records the completion ID, the name the
-server suggested, the name Binary Ninja actually applied, and the function's
-name from before the rename. Each record is
+server suggested, and the name Binary Ninja actually applied. Each record is
 stored in that function's own metadata under ``METADATA_KEY``, so it is saved
 in the ``.bndb`` along with the rest of the analysis.
 
@@ -24,7 +23,6 @@ def store_completion(
     func: Function,
     completion_id: int,
     name: str,
-    previous: str,
     connection: Connection,
     base_url: str,
 ) -> None:
@@ -37,7 +35,6 @@ def store_completion(
         func: The function Undertale renamed.
         completion_id: The ID of the completion on the inference server.
         name: The name the server generated.
-        previous: The function's name before the rename.
         connection: The connection the completion was requested over.
         base_url: The base URL the completion was requested under.
     """
@@ -47,7 +44,6 @@ def store_completion(
             "id": completion_id,
             "name": name,
             "applied": func.name,
-            "previous": previous,
             "server": {"connection": connection, "base_url": base_url},
         },
     )
@@ -82,6 +78,8 @@ def remove_completion(func: Function) -> None:
 def renamed(func: Function, entry: Dict[str, Any]) -> bool:
     """Determine whether a function's name changed since Undertale named it.
 
+    This covers both a rename by the user and an undo of Undertale's rename.
+
     Args:
         func: The function Undertale named.
         entry: The function's completion record.
@@ -90,24 +88,6 @@ def renamed(func: Function, entry: Dict[str, Any]) -> bool:
         True if the function's current name is not the one Undertale applied.
     """
     return func.name != entry.get("applied", entry["name"])
-
-
-def is_reverted(func: Function, entry: Dict[str, Any]) -> bool:
-    """Determine whether the name Undertale applied was undone.
-
-    Undoing the rename restores the function's previous name, which may be
-    auto-defined (such as ``sub_401000``) or one the user gave it, so the
-    symbol's type can't tell an undo apart from a rename by the user.
-
-    Args:
-        func: The function Undertale named.
-        entry: The function's completion record.
-
-    Returns:
-        True if the function's name changed back to the one it had before
-        Undertale named it.
-    """
-    return renamed(func, entry) and func.name == entry.get("previous")
 
 
 def is_same_server(
