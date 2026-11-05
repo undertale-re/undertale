@@ -18,6 +18,34 @@ predicted name.
 Naming runs in the background, so Binary Ninja stays responsive while
 waiting on the inference server.
 
+## Rating Generated Names
+
+After Undertale names a function, select it and run **Undertale > Rate
+Function Name** to tell the inference server how good the name was. The
+command is greyed out for functions Undertale did not name, and for functions
+whose name changed afterwards (renamed by you, or the rename was undone).
+
+The form shows the generated name, a **Rating** (Bad, Fair, Average, Good,
+Great), and free-text **Comments**.
+Rating a function again replaces its previous rating, and the form is
+prefilled with the rating and comments already stored on the server.
+Running **Undertale > Generate Function Name** on a function again replaces
+its stored completion, so only the latest generated name can be rated.
+
+- **Ratings and comments are sent to the inference server**, which stores them
+  on the completion that produced the name (the same feedback the web frontend
+  collects). The plugin keeps only a reference to that completion (its id,
+  the generated name, the name Binary Ninja actually applied, and the server
+  it came from) in the database's metadata. The applied name can differ from
+  the generated one if Binary Ninja adjusts it, and it is what the plugin
+  compares against to detect a later rename. Save the `.bndb` to keep these
+  references, otherwise they are lost when the file is closed.
+- **Feedback only goes to the server that generated the name.** If the plugin
+  is now configured for a different server or base URL, rating is refused.
+  Before sending anything, the plugin also checks that the completion still
+  exists on the server and still matches the generated name, so a rating is
+  never attributed to the wrong completion.
+
 ## Requirements
 
 - Binary Ninja build 4000 or newer, with Python 3 scripting enabled.
@@ -145,7 +173,28 @@ bash scripts/release.sh
 
 The archive is written to `dist/` and named from the `version` field in
 `undertale/plugin.json` — that field is the plugin's only version declaration,
-so it is the one place to edit when cutting a new release.
+so it is the one place to edit when cutting a new release. The bundle also
+includes [`CHANGELOG.md`](CHANGELOG.md), and the script refuses to build if
+the changelog has no section for that version.
+
+### Changelog
+
+Notable changes are recorded by hand in [`CHANGELOG.md`](CHANGELOG.md),
+following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Pull
+requests with user-visible changes should add an entry under `[Unreleased]`.
+
+### Cutting a Release
+
+1. In `CHANGELOG.md`, rename `[Unreleased]` to `[<version>] - <YYYY-MM-DD>`,
+   add a new empty `[Unreleased]` section above it, and update the comparison
+   links at the bottom of the file.
+2. Set `version` in `undertale/plugin.json` to the same `<version>`.
+3. Merge the change to `main` (e.g., `chore[binaryninja-plugin]: release
+   <version>`).
+4. Tag the merge commit `binaryninja-plugin/v<version>` and push the tag.
+5. Build the bundle with `bash scripts/release.sh`.
+6. Optionally, create a GitHub Release for the tag by hand, attaching the
+   bundle and pasting the version's `CHANGELOG.md` section as the notes.
 
 See the [Install from a Release Bundle](#install-from-a-release-bundle) section
 for details on the bundle contents and installation.

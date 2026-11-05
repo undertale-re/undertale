@@ -9,6 +9,8 @@ The plugin's workflow consists of the following steps
     3. The pretokenized disassembly is sent to the inference server for analysis
     4. The plugin will poll the inference server for the function name prediction
     5. Finally, the predicted name will be applied to the function
+    6. Optionally, the user rates the generated name (see "Undertale > Rate
+        Function Name"), and the rating is sent back to the inference server
 
 The inference server connection is configured once and persists across
 Binary Ninja restarts until explicitly reconfigured (see "Undertale >
@@ -21,13 +23,19 @@ import http.client
 import json
 import socket
 import time
-from typing import Any, Dict, Optional
+from contextlib import contextmanager
+from typing import Any, Dict, Generator, List, Optional, Tuple
 
 from binaryninja import (
     BackgroundTaskThread,
     BinaryView,
+    ChoiceField,
     Function,
+    LabelField,
+    MultilineTextField,
     PluginCommand,
+    execute_on_main_thread_and_wait,
+    get_form_input,
     log_error,
     log_info,
 )
@@ -39,17 +47,28 @@ from .utils import (
     alert_user,
     clear_token,
     configure_plugin,
+    describe_server,
     get_base_url,
+    get_completion,
     get_connection,
     get_poll_timeout,
     get_token,
+    is_same_server,
     join_base_url,
     pretokenize_disassembly,
     prompt_credentials,
+    remove_completion,
+    renamed,
     save_token,
+    store_completion,
 )
 
 FNAMING_COMMAND_NAME = "Undertale\\Generate Function Name"
+FNAMING_MENU_PATH = FNAMING_COMMAND_NAME.replace("\\", " > ")  # used for logging
+RATE_COMMAND_NAME = "Undertale\\Rate Function Name"
+
+RATE_FORM_TITLE = "Rate Function Name"
+RATING_CHOICES = ["Bad", "Fair", "Average", "Good", "Great"]
 
 INFERENCE_CONNECT_TIMEOUT = 10
 INFERENCE_POLL_INTERVAL = 1
@@ -57,6 +76,14 @@ INFERENCE_POLL_INTERVAL = 1
 UNAUTHORIZED_STATUSES = (401, 422)  # to handle missing or expired tokens
 
 
+# Design note: the Unix domain socket is handled by hand on top of the standard
+# library's http.client. httpx was explored as an alternative, since it supports
+# Unix sockets, but it brings additional dependencies. Those would have to be
+# vendored into the plugin, or installed into the Python interpreter Binary Ninja
+# uses, which can conflict with other plugins. The socket logic here is about 40
+# lines; httpx would shrink it to roughly 10-20. That isn't worth the extra
+# dependencies, so this stays as is. Revisit the vendoring strategy if the
+# plugin's dependencies grow.
 class UnixHTTPConnection(http.client.HTTPConnection):
     """An HTTPConnection that dials a Unix domain socket.
 
@@ -85,15 +112,6 @@ def _open_connection(connection: Connection) -> http.client.HTTPConnection:
     )
 
 
-def _describe_connection(connection: Connection) -> str:
-    """User friendly descriptions of the configured Inference Server endpoint,
-    for error messages.
-    """
-    if connection["kind"] == "unix":
-        return f"the Unix domain socket {connection['path']!r}"
-    return f"{connection['host']}:{connection['port']} (TCP)"
-
-
 class AuthenticationRequired(RuntimeError):
     """Raised when the inference server requires authentication and the user
     declined to provide credentials for it.
@@ -105,6 +123,10 @@ class AuthenticationRequired(RuntimeError):
 class Unauthorized(RuntimeError):
     """Raised when the inference server rejects a request's token (see
     :py:data:`UNAUTHORIZED_STATUSES`)."""
+
+
+class NotFound(RuntimeError):
+    """Raised when the inference server responds with 404."""
 
 
 def request(
@@ -130,9 +152,12 @@ def request(
             error = json.loads(raw.decode("utf-8")).get("error", raw)
         except ValueError:
             error = raw.decode("utf-8", "replace")
+        message = f"{method} {path} -> {response.status}: {error}"
         if response.status in UNAUTHORIZED_STATUSES:
-            raise Unauthorized(f"{method} {path} -> {response.status}: {error}")
-        raise RuntimeError(f"{method} {path} -> {response.status}: {error}")
+            raise Unauthorized(message)
+        if response.status == 404:
+            raise NotFound(message)
+        raise RuntimeError(message)
 
     return json.loads(raw.decode("utf-8")) if raw else {}
 
@@ -184,6 +209,66 @@ def _authenticate(conn: http.client.HTTPConnection, base_url: str) -> Optional[s
     return token
 
 
+@contextmanager
+def session(
+    connection: Connection,
+) -> Generator[Tuple[http.client.HTTPConnection, str, Optional[str]], None, None]:
+    """Open an authenticated connection to the inference server.
+
+    The connection is closed on exit.
+
+    Args:
+        connection: The inference server to connect to.
+
+    Yields:
+        ``(conn, base_url, token)``: the open connection, the configured base
+        URL, and the bearer token (None if the server does not require
+        authentication).
+    """
+    base_url = get_base_url()
+    conn = _open_connection(connection)
+    try:
+        token = _authenticate(conn, base_url)
+        yield conn, base_url, token
+    finally:
+        conn.close()
+
+
+def send(
+    connection: Connection,
+    token: Optional[str],
+    method: str,
+    path: str,
+    body: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Send one request on a fresh connection, reusing an existing token.
+
+    Skips the authentication check :py:func:`session` makes. Only if the
+    server rejects ``token`` (for example, it expired) does this
+    authenticate again and retry once.
+
+    Args:
+        connection: The inference server to connect to.
+        token: A bearer token from an earlier :py:func:`session`, or None.
+        method: The HTTP method.
+        path: The request path, already joined with the base URL.
+        body: The JSON body to send, if any.
+
+    Returns:
+        The decoded JSON response.
+    """
+    conn = _open_connection(connection)
+    try:
+        return request(conn, method, path, body, token=token)
+    except Unauthorized:
+        pass
+    finally:
+        conn.close()
+
+    with session(connection) as (conn, _, token):
+        return request(conn, method, path, body, token=token)
+
+
 def function_disassembly(bv: BinaryView, func: Function) -> str:
     """Render and formats the function's disassembly.
 
@@ -214,16 +299,21 @@ def function_disassembly(bv: BinaryView, func: Function) -> str:
     return " ".join(tokens)
 
 
-def request_name(connection: Connection, disassembly: str) -> str:
+def request_name(connection: Connection, disassembly: str) -> Tuple[int, str, str]:
     """POST a function-naming completion, then poll until it's complete.
 
     Reuses a single connection across the POST and the entire poll loop
     rather than opening a fresh one for every request.
+
+    Args:
+        connection: The inference server to request the name from.
+        disassembly: The function's pretokenized disassembly.
+
+    Returns:
+        ``(completion_id, name, base_url)``, where ``base_url`` is the one the
+        completion was requested under.
     """
-    base_url = get_base_url()
-    conn = _open_connection(connection)
-    try:
-        token = _authenticate(conn, base_url)
+    with session(connection) as (conn, base_url, token):
         created = request(
             conn,
             "POST",
@@ -254,14 +344,12 @@ def request_name(connection: Connection, disassembly: str) -> str:
                     raise RuntimeError(
                         f"Completion {completion_id} finished with no output"
                     )
-                return completion["output"].strip()
+                return completion_id, completion["output"].strip(), base_url
             if time.monotonic() > deadline:
                 raise RuntimeError(
                     f"Completion {completion_id} did not finish within {poll_timeout}s"
                 )
             time.sleep(INFERENCE_POLL_INTERVAL)
-    finally:
-        conn.close()
 
 
 def rename(bv: BinaryView, func: Function, name: str) -> None:
@@ -278,6 +366,51 @@ def rename(bv: BinaryView, func: Function, name: str) -> None:
     log_info(f"Renamed {old} -> {func.name} @ {hex(func.start)}")
 
 
+def report_failure(exc: Exception, action: str, endpoint: str) -> None:
+    """Surface a failure talking to the inference server to the user.
+
+    Shared by the background tasks so naming and rating report connection
+    problems identically.
+
+    Args:
+        exc: The exception that stopped the task.
+        action: What the task was doing, such as ``"Naming sub_401000"``.
+        endpoint: A description of the server, from
+            :py:func:`describe_server`.
+    """
+    if isinstance(exc, AuthenticationRequired):
+        log_info(str(exc))
+    elif isinstance(exc, ConnectionRefusedError):
+        alert_user(
+            f"Could not reach the Undertale Inference Server at {endpoint}: "
+            "connection refused.\n\nMake sure the server is running and "
+            "listening there.\n\nIf the address is wrong, run "
+            f"{CONFIGURE_MENU_PATH}."
+        )
+    elif isinstance(exc, FileNotFoundError):
+        alert_user(
+            f"Could not reach the Undertale Inference Server at {endpoint}: "
+            "the socket file does not exist.\n\nThe server may not be running, "
+            "or the socket path is wrong.\n\nStart the server or run "
+            f"{CONFIGURE_MENU_PATH}."
+        )
+    elif isinstance(exc, (TimeoutError, socket.timeout)):
+        alert_user(
+            f"Timed out after {INFERENCE_CONNECT_TIMEOUT}s connecting to the "
+            f"Undertale Inference Server at {endpoint}.\n\nCheck that the server "
+            "is reachable and not overloaded, or reconfigure the connection "
+            f"via {CONFIGURE_MENU_PATH}."
+        )
+    elif isinstance(exc, OSError):
+        alert_user(
+            f"Network error talking to the Undertale Inference Server at "
+            f"{endpoint}: {exc}.\n\nVerify the connection, and reconfigure it "
+            f"via {CONFIGURE_MENU_PATH} if needed."
+        )
+    else:
+        alert_user(f"{action} failed (server at {endpoint}): {exc}")
+
+
 class NameFunctionTask(BackgroundTaskThread):
     """Runs off the UI thread.
 
@@ -292,47 +425,156 @@ class NameFunctionTask(BackgroundTaskThread):
         self.connection = connection
 
     def run(self) -> None:
-        endpoint = _describe_connection(self.connection)
+        endpoint = describe_server(self.connection)
         try:
             disassembly = function_disassembly(self.bv, self.func)
             if not disassembly:
                 alert_user(f"No disassembly available for {self.func.name}")
                 return
-            name = request_name(self.connection, disassembly)
+            completion_id, name, base_url = request_name(self.connection, disassembly)
+            # Forget any earlier completion first, so it can't be rated against
+            # the new name if recording this one fails.
+            remove_completion(self.func)
             rename(self.bv, self.func, name)
-        except AuthenticationRequired as exc:
-            log_info(str(exc))
-        except ConnectionRefusedError:
-            alert_user(
-                f"Could not reach the Undertale Inference Server at {endpoint}: "
-                "connection refused.\n\nMake sure the server is running and "
-                "listening there.\n\nIf the address is wrong, run "
-                f"{CONFIGURE_MENU_PATH}."
-            )
-        except FileNotFoundError:
-            alert_user(
-                f"Could not reach the Undertale Inference Server at {endpoint}: "
-                "the socket file does not exist.\n\nThe server may not be running, "
-                "or the socket path is wrong.\n\nStart the server or run "
-                f"{CONFIGURE_MENU_PATH}."
-            )
-        except TimeoutError:
-            alert_user(
-                f"Timed out after {INFERENCE_CONNECT_TIMEOUT}s connecting to the "
-                f"Undertale Inference Server at {endpoint}.\n\nCheck that the server "
-                "is reachable and not overloaded, or reconfigure the connection "
-                f"via {CONFIGURE_MENU_PATH}."
-            )
-        except OSError as exc:
-            alert_user(
-                f"Network error talking to the Undertale Inference Server at "
-                f"{endpoint}: {exc}.\n\nVerify the connection, and reconfigure it "
-                f"via {CONFIGURE_MENU_PATH} if needed."
-            )
         except Exception as exc:  # noqa: BLE001
+            report_failure(exc, f"Naming {self.func.name}", endpoint)
+            return
+
+        # The rename already happened, so a failure here only affects rating.
+        try:
+            store_completion(self.func, completion_id, name, self.connection, base_url)
+        except Exception as exc:  # noqa: BLE001
+            log_error(f"Failed to record completion {completion_id}: {exc}")
             alert_user(
-                f"Naming failed for {self.func.name} (server at {endpoint}): {exc}"
+                f"Renamed {self.func.name}, but could not record the completion, "
+                f"so it can't be rated: {exc}"
             )
+
+
+def prompt_feedback(
+    generated: str, rating: Optional[int], comments: str
+) -> Optional[Tuple[int, str]]:
+    """Ask the user to rate a generated name.
+
+    The form runs on the UI thread because this is called from a background
+    task.
+
+    Args:
+        generated: The name the server generated.
+        rating: The rating already saved on the server, if any, as an index
+            into ``RATING_CHOICES``.
+        comments: The comments already saved on the server.
+
+    Returns:
+        ``(rating, comments)``, or None if the user cancels.
+    """
+    rating_field = ChoiceField("Rating", RATING_CHOICES, default=rating)
+    comments_field = MultilineTextField("Comments", comments)
+    fields: List[Any] = [
+        LabelField(f"Generated name: {generated}"),
+        rating_field,
+        comments_field,
+    ]
+
+    submitted = []
+    execute_on_main_thread_and_wait(
+        lambda: submitted.append(get_form_input(fields, RATE_FORM_TITLE))
+    )
+
+    if not submitted or not submitted[0]:
+        return None
+    return int(rating_field.result), comments_field.result or ""
+
+
+class RateFunctionTask(BackgroundTaskThread):
+    """Sends the user's rating of a generated name to the inference server.
+
+    Runs off the UI thread, like :py:class:`NameFunctionTask`. Feedback is only
+    sent to the server that generated the name, and only after confirming the
+    completion there still matches the name it produced.
+    """
+
+    def __init__(self, func: Function, connection: Connection) -> None:
+        BackgroundTaskThread.__init__(self, f"Rating {func.name}...", True)
+        self.func = func
+        self.connection = connection
+
+    def run(self) -> None:
+        endpoint = describe_server(self.connection)
+        try:
+            self.rate()
+        except Exception as exc:  # noqa: BLE001
+            report_failure(exc, f"Rating {self.func.name}", endpoint)
+
+    def rate(self) -> None:
+        entry = get_completion(self.func)
+        if entry is None:
+            alert_user(f"Undertale did not name {self.func.name}, so it can't be rated")
+            return
+        if renamed(self.func, entry):
+            alert_user(
+                f"{self.func.name} was renamed or its rename was undone after "
+                f"Undertale named it {entry['name']!r}, so it can't be rated."
+            )
+            return
+
+        base_url = get_base_url()
+        if not is_same_server(entry, self.connection, base_url):
+            server = entry["server"]
+            alert_user(
+                "The name of this function was generated by the Undertale "
+                "Inference Server at "
+                f"{describe_server(server['connection'], server['base_url'])}, "
+                "but the plugin is configured for "
+                f"{describe_server(self.connection, base_url)}.\n\nRatings can only "
+                "be sent to the server that generated the name.\n\nTo rate it, "
+                f"point the plugin back at that server via {CONFIGURE_MENU_PATH}."
+            )
+            return
+
+        path = join_base_url(base_url, f"/fnaming/completion/{entry['id']}/")
+        feedback_path = path + "feedback/"
+        with session(self.connection) as (conn, _, token):
+            try:
+                completion = request(conn, "GET", path, token=token)
+            except NotFound:
+                completion = None
+        if (
+            completion is None
+            or (completion.get("output") or "").strip() != entry["name"]
+        ):
+            alert_user(
+                f"The completion that named this function (id {entry['id']}) "
+                "could not be found on the Undertale Inference Server at "
+                f"{describe_server(self.connection, base_url)}, or it no longer "
+                "matches the generated name.\n\nNo rating was sent.\n\nTo rate "
+                f"this function, run {FNAMING_MENU_PATH} again to get a new "
+                "name, then rate it."
+            )
+            return
+
+        feedback = prompt_feedback(
+            entry["name"],
+            completion.get("rating"),
+            completion.get("comments") or "",
+        )
+        if feedback is None:
+            log_info(f"Rating cancelled for {self.func.name}")
+            return
+        rating, comments = feedback
+
+        # The form may have been open for a while, so reconnect.
+        send(
+            self.connection,
+            token,
+            "POST",
+            feedback_path,
+            {"rating": rating, "comments": comments.strip() or None},
+        )
+        log_info(
+            f"Rated {self.func.name} @ {hex(self.func.start)} as "
+            f"{RATING_CHOICES[rating]!r} (completion {entry['id']})"
+        )
 
 
 def name_function(bv: BinaryView, func: Function) -> None:
@@ -343,10 +585,31 @@ def name_function(bv: BinaryView, func: Function) -> None:
     NameFunctionTask(bv, func, connection).start()
 
 
+def rate_function(bv: BinaryView, func: Function) -> None:
+    """Plugin entry point for rating a name Undertale generated."""
+    connection = get_connection()
+    if connection is None:
+        return
+    RateFunctionTask(func, connection).start()
+
+
+def is_rateable(bv: BinaryView, func: Function) -> bool:
+    """Only functions that still have the name Undertale gave them can be
+    rated."""
+    entry = get_completion(func)
+    return entry is not None and not renamed(func, entry)
+
+
 PluginCommand.register_for_function(
     FNAMING_COMMAND_NAME,
     "Send the function's disassembly to the Undertale Inference Server and apply the predicted name",
     name_function,
+)
+PluginCommand.register_for_function(
+    RATE_COMMAND_NAME,
+    "Rate the name the Undertale Inference Server generated for this function",
+    rate_function,
+    is_valid=is_rateable,
 )
 PluginCommand.register(
     CONFIGURE_COMMAND_NAME,
