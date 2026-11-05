@@ -1,4 +1,5 @@
 import argparse
+import importlib.util
 import json
 import logging
 import os
@@ -78,6 +79,29 @@ from undertale.utils import (
 )
 from undertale.utils.datasets.split import parse_split
 from undertale.utils.datasets.split import split as split_dataset
+
+
+def _load_label_parquet():
+    """Load `label_parquet.py` by path.
+
+    It lives under `undertale/pipelines/datasets/` as a standalone script (that
+    directory is not an importable package), so it cannot be reached with a
+    normal import; load it from its file instead.
+    """
+
+    path = join(
+        dirname(dirname(__file__)),
+        "pipelines",
+        "datasets",
+        "label_parquet.py",
+    )
+    spec = importlib.util.spec_from_file_location("label_parquet", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+label_parquet = _load_label_parquet()
 
 
 class TestUtilitiesHash(TestCase):
@@ -2340,6 +2364,222 @@ class TestUtilitiesDatasetSplit(TestCase):
     def test_invalid_split_format_non_numeric_percentage(self):
         with self.assertRaises(argparse.ArgumentTypeError):
             parse_split("training:abc")
+
+
+class TestLabelParquetSplitSource(TestCase):
+    def test_empty_source_is_empty_list(self):
+        self.assertEqual(label_parquet.split_source(""), [])
+        self.assertEqual(label_parquet.split_source(None), [])
+
+    def test_unfenced_source_is_single_unnamed_block(self):
+        blocks = label_parquet.split_source("  just some text  ")
+
+        self.assertEqual(blocks, [{"path": None, "text": "just some text"}])
+
+    def test_single_fenced_block(self):
+        source = "foo/bar.c:\n```\nint main() {}\n```\n"
+        blocks = label_parquet.split_source(source)
+
+        self.assertEqual(len(blocks), 1)
+        self.assertEqual(blocks[0]["path"], "foo/bar.c")
+        self.assertEqual(blocks[0]["text"], "int main() {}")
+
+    def test_multiple_fenced_blocks(self):
+        source = (
+            "a.c:\n```\nint a() { return 1; }\n```\n"
+            "b.c:\n```\nint b() { return 2; }\n```\n"
+        )
+        blocks = label_parquet.split_source(source)
+
+        self.assertEqual([block["path"] for block in blocks], ["a.c", "b.c"])
+        self.assertEqual(blocks[0]["text"], "int a() { return 1; }")
+        self.assertEqual(blocks[1]["text"], "int b() { return 2; }")
+
+    def test_fence_closing_backticks_stripped(self):
+        source = "x.c:\n```\nbody\n```"
+        blocks = label_parquet.split_source(source)
+
+        self.assertNotIn("`", blocks[0]["text"])
+        self.assertEqual(blocks[0]["text"], "body")
+
+
+class TestLabelParquetBaseName(TestCase):
+    def test_none_and_empty_pass_through(self):
+        self.assertIsNone(label_parquet.base_name(None))
+        self.assertEqual(label_parquet.base_name(""), "")
+
+    def test_plain_name_unchanged(self):
+        self.assertEqual(label_parquet.base_name("remove_node"), "remove_node")
+
+    def test_compiler_suffix_stripped(self):
+        self.assertEqual(label_parquet.base_name("remove_node.cold.1"), "remove_node")
+        self.assertEqual(label_parquet.base_name("f.part.0"), "f")
+        self.assertEqual(label_parquet.base_name("g.isra.0"), "g")
+        self.assertEqual(label_parquet.base_name("h.constprop.12"), "h")
+
+    def test_trailing_number_stripped(self):
+        self.assertEqual(label_parquet.base_name("foo.1234"), "foo")
+
+
+class TestLabelParquetExtractDefinition(TestCase):
+    def test_none_name_returns_none(self):
+        self.assertIsNone(label_parquet.extract_definition("int f() {}", None))
+
+    def test_simple_definition(self):
+        text = "int add(int a, int b) {\n    return a + b;\n}\n"
+        result = label_parquet.extract_definition(text, "add")
+
+        self.assertEqual(result, "int add(int a, int b) {\n    return a + b;\n}")
+
+    def test_prototype_is_rejected(self):
+        # A declaration with no body must not be mistaken for a definition.
+        text = "int add(int a, int b);\n"
+        self.assertIsNone(label_parquet.extract_definition(text, "add"))
+
+    def test_call_site_is_rejected(self):
+        text = "void g() {\n    add(1, 2);\n}\n"
+        self.assertIsNone(label_parquet.extract_definition(text, "add"))
+
+    def test_definition_found_after_earlier_call(self):
+        text = (
+            "void g() {\n    add(1, 2);\n}\n"
+            "int add(int a, int b) {\n    return a + b;\n}\n"
+        )
+        result = label_parquet.extract_definition(text, "add")
+
+        self.assertIsNotNone(result)
+        self.assertTrue(result.startswith("int add(int a, int b)"))
+
+    def test_nested_braces_balanced(self):
+        text = "int f() {\n    if (x) {\n        return 1;\n    }\n    return 0;\n}\n"
+        result = label_parquet.extract_definition(text, "f")
+
+        self.assertIsNotNone(result)
+        self.assertTrue(result.endswith("return 0;\n}"))
+        self.assertEqual(result.count("{"), result.count("}"))
+
+    def test_braces_in_strings_ignored(self):
+        text = 'int f() {\n    const char *s = "}";\n    return 0;\n}\n'
+        result = label_parquet.extract_definition(text, "f")
+
+        self.assertIsNotNone(result)
+        self.assertTrue(result.endswith("return 0;\n}"))
+
+    def test_braces_in_comments_ignored(self):
+        text = "int f() {\n    /* } not a close */\n    return 0;\n}\n"
+        result = label_parquet.extract_definition(text, "f")
+
+        self.assertIsNotNone(result)
+        self.assertTrue(result.endswith("return 0;\n}"))
+
+    def test_return_type_on_own_line_pulled_in(self):
+        text = "static int\nf(void) {\n    return 0;\n}\n"
+        result = label_parquet.extract_definition(text, "f")
+
+        self.assertIsNotNone(result)
+        self.assertTrue(result.startswith("static int"))
+
+    def test_preprocessor_guarded_declarator(self):
+        text = (
+            "#ifdef TEST\n"
+            "int f(int a)\n"
+            "#else\n"
+            "int f(int a)\n"
+            "#endif\n"
+            "{\n    return a;\n}\n"
+        )
+        result = label_parquet.extract_definition(text, "f")
+
+        self.assertIsNotNone(result)
+        self.assertTrue(result.endswith("return a;\n}"))
+
+    def test_substring_name_not_matched(self):
+        # `add` must not match inside `readд`-like identifiers.
+        text = "int readd(int a) {\n    return a;\n}\n"
+        self.assertIsNone(label_parquet.extract_definition(text, "add"))
+
+    def test_missing_name_returns_none(self):
+        text = "int other() {\n    return 0;\n}\n"
+        self.assertIsNone(label_parquet.extract_definition(text, "f"))
+
+
+class TestLabelParquetParse(TestCase):
+    CLASSES = ["Networking & Protocols", "Parsing & Lexing", "Memory Management"]
+    FLAGS = ["is_trivial", "is_generic_glue"]
+
+    def parse(self, content):
+        return label_parquet.parse(content, self.CLASSES, self.FLAGS)
+
+    def test_valid_reply(self):
+        content = json.dumps({"labels": ["Parsing & Lexing"], "flags": ["is_trivial"]})
+        result = self.parse(content)
+
+        self.assertEqual(result["labels"], ["Parsing & Lexing"])
+        self.assertEqual(result["flags"], ["is_trivial"])
+
+    def test_labels_ordered_by_taxonomy(self):
+        content = json.dumps(
+            {"labels": ["Memory Management", "Networking & Protocols"]}
+        )
+        result = self.parse(content)
+
+        # Most-specific (earliest in CLASSES) first.
+        self.assertEqual(
+            result["labels"], ["Networking & Protocols", "Memory Management"]
+        )
+
+    def test_unknown_labels_filtered(self):
+        content = json.dumps({"labels": ["Not A Class", "Parsing & Lexing"]})
+        result = self.parse(content)
+
+        self.assertEqual(result["labels"], ["Parsing & Lexing"])
+
+    def test_unknown_flags_filtered(self):
+        content = json.dumps(
+            {"labels": ["Parsing & Lexing"], "flags": ["bogus", "is_trivial"]}
+        )
+        result = self.parse(content)
+
+        self.assertEqual(result["flags"], ["is_trivial"])
+
+    def test_no_valid_labels_returns_none(self):
+        content = json.dumps({"labels": ["Not A Class"]})
+        self.assertIsNone(self.parse(content))
+
+    def test_empty_labels_returns_none(self):
+        self.assertIsNone(self.parse(json.dumps({"labels": []})))
+
+    def test_invalid_json_returns_none(self):
+        self.assertIsNone(self.parse("not json at all"))
+
+    def test_json_embedded_in_prose_recovered(self):
+        content = (
+            'Sure! Here is the answer: {"labels": ["Parsing & Lexing"]} hope it helps'
+        )
+        result = self.parse(content)
+
+        self.assertEqual(result["labels"], ["Parsing & Lexing"])
+
+    def test_top_level_array_returns_none(self):
+        # Valid JSON, wrong shape: must not raise AttributeError.
+        self.assertIsNone(self.parse(json.dumps(["Parsing & Lexing"])))
+
+    def test_null_labels_returns_none(self):
+        # Valid JSON object with labels=null: must not raise TypeError.
+        self.assertIsNone(self.parse(json.dumps({"labels": None})))
+
+    def test_null_flags_treated_as_empty(self):
+        content = json.dumps({"labels": ["Parsing & Lexing"], "flags": None})
+        result = self.parse(content)
+
+        self.assertEqual(result["flags"], [])
+
+    def test_scalar_json_returns_none(self):
+        self.assertIsNone(self.parse(json.dumps(42)))
+        self.assertIsNone(self.parse(json.dumps("a string")))
+
+    def test_missing_labels_key_returns_none(self):
+        self.assertIsNone(self.parse(json.dumps({"flags": ["is_trivial"]})))
 
 
 if __name__ == "__main__":

@@ -87,6 +87,19 @@ class TokenizedClassificationDataset(TokenizedDataset):
     """Integer class label for the sequence."""
 
 
+class TokenizedMultiLabelClassificationDataset(TokenizedDataset):
+    """A tokenized dataset with multi-label classification labels.
+
+    Each row's ``labels`` is a list of taxonomy class names, as written by
+    ``label_parquet.py``. The multi-hot vector a model trains on is built from
+    these names at collation time, against a fixed class ordering, so the names
+    are carried through as-is rather than pre-encoded.
+    """
+
+    labels: Series[object]
+    """List of class names the sequence belongs to."""
+
+
 class TokenizedSummarizationDataset(TokenizedDataset):
     """A tokenized dataset with tokenized summaries."""
 
@@ -126,5 +139,6 @@ __all__ = [
     "SummarizedDataset",
     "TokenizedDataset",
     "TokenizedClassificationDataset",
+    "TokenizedMultiLabelClassificationDataset",
     "TokenizedSummarizationDataset",
 ]
