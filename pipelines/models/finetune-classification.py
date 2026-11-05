@@ -1,7 +1,7 @@
 import json
 from collections import Counter
 from os.path import basename, dirname
-from typing import Iterable, List, Optional
+from typing import Callable, Iterable, List, Optional, Type
 
 import torch
 from lightning import Trainer
@@ -22,6 +22,7 @@ from undertale.models.dataset import DataModule
 from undertale.models.tokenizer import TOKEN_NEXT
 from undertale.models.tokenizer import load as load_tokenizer
 from undertale.parsers import ModelArgumentParser
+from undertale.schema import Dataset as DatasetSchema
 from undertale.schema import (
     TokenizedClassificationDataset,
     TokenizedMultiLabelClassificationDataset,
@@ -163,6 +164,8 @@ if __name__ == "__main__":
     vocab_size = tokenizer.get_vocab_size()
     next_token_id = tokenizer.token_to_id(TOKEN_NEXT)
 
+    collator: Callable
+    schema: Type[DatasetSchema]
     if arguments.multi_label:
         classes = load_classes(cache_path(arguments.taxonomy))
         collator = MultiLabelClassificationCollator(classes)
