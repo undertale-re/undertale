@@ -91,7 +91,6 @@ def _load_label_parquet():
 
     path = join(
         dirname(dirname(__file__)),
-        "undertale",
         "pipelines",
         "datasets",
         "label_parquet.py",
