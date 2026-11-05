@@ -88,7 +88,7 @@ def _load_label_parquet():
     directory is not an importable package), so it cannot be reached with a
     normal import; load it from its file instead.
     """
-    
+
     path = join(
         dirname(dirname(__file__)),
         "undertale",
@@ -2416,9 +2416,7 @@ class TestLabelParquetBaseName(TestCase):
         self.assertEqual(label_parquet.base_name("remove_node.cold.1"), "remove_node")
         self.assertEqual(label_parquet.base_name("f.part.0"), "f")
         self.assertEqual(label_parquet.base_name("g.isra.0"), "g")
-        self.assertEqual(
-            label_parquet.base_name("h.constprop.12"), "h"
-        )
+        self.assertEqual(label_parquet.base_name("h.constprop.12"), "h")
 
     def test_trailing_number_stripped(self):
         self.assertEqual(label_parquet.base_name("foo.1234"), "foo")
@@ -2514,9 +2512,7 @@ class TestLabelParquetParse(TestCase):
         return label_parquet.parse(content, self.CLASSES, self.FLAGS)
 
     def test_valid_reply(self):
-        content = json.dumps(
-            {"labels": ["Parsing & Lexing"], "flags": ["is_trivial"]}
-        )
+        content = json.dumps({"labels": ["Parsing & Lexing"], "flags": ["is_trivial"]})
         result = self.parse(content)
 
         self.assertEqual(result["labels"], ["Parsing & Lexing"])
