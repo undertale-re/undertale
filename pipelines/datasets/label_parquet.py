@@ -80,6 +80,7 @@ class ShardAborted(Exception):
     of mistaking a near-empty file for finished work.
     """
 
+
 # The cluster sets http_proxy, which urllib would otherwise apply to the vLLM
 # endpoint; the server is always in-cluster, so go to it directly.
 OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
@@ -296,7 +297,7 @@ def line_start(text: str, position: int) -> int:
     return start
 
 
-def extract_definition(text: str, name: Optional[str]) -> Optional[str]:
+def extract_definition(text: Optional[str], name: Optional[str]) -> Optional[str]:
     """Best-effort carve-out of `name`'s definition from a C file body.
 
     Looks for `name (` at the start of a declarator, checks that a `{` follows
@@ -312,6 +313,8 @@ def extract_definition(text: str, name: Optional[str]) -> Optional[str]:
         (box64's `my_<callback>_<n>` bridges) legitimately have no textual
         definition.
     """
+    if not text:
+        return None
     if not name:
         return None
 
@@ -648,7 +651,9 @@ def f1(true_positive: int, false_positive: int, false_negative: int) -> float:
     return 2 * true_positive / denominator if denominator else 0.0
 
 
-def score(gold_sets: list[list[str]], predicted_sets: list[list[str]], names: list[str]):
+def score(
+    gold_sets: list[list[str]], predicted_sets: list[list[str]], names: list[str]
+):
     """Score predicted name sets against gold name sets.
 
     Micro and macro F1 are defined exactly as the multi-label classifier
@@ -778,9 +783,7 @@ def validate(arguments: argparse.Namespace) -> int:
 
     print()
     print("per-class F1 (classes present in gold or predictions):")
-    ranked = sorted(
-        labels_report["per_name"].items(), key=lambda item: item[1]["f1"]
-    )
+    ranked = sorted(labels_report["per_name"].items(), key=lambda item: item[1]["f1"])
     for name, stats in ranked:
         print(
             f"  {stats['f1']:.3f}  {name}  "

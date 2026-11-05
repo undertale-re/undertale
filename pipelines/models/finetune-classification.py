@@ -166,6 +166,7 @@ if __name__ == "__main__":
 
     collator: Callable
     schema: Type[DatasetSchema]
+
     if arguments.multi_label:
         classes = load_classes(cache_path(arguments.taxonomy))
         collator = MultiLabelClassificationCollator(classes)
