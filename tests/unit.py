@@ -88,6 +88,7 @@ def _load_label_parquet():
     directory is not an importable package), so it cannot be reached with a
     normal import; load it from its file instead.
     """
+    
     path = join(
         dirname(dirname(__file__)),
         "undertale",
