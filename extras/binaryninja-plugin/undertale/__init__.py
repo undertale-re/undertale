@@ -152,11 +152,12 @@ def request(
             error = json.loads(raw.decode("utf-8")).get("error", raw)
         except ValueError:
             error = raw.decode("utf-8", "replace")
+        message = f"{method} {path} -> {response.status}: {error}"
         if response.status in UNAUTHORIZED_STATUSES:
-            raise Unauthorized(f"{method} {path} -> {response.status}: {error}")
+            raise Unauthorized(message)
         if response.status == 404:
-            raise NotFound(f"{method} {path} -> 404")
-        raise RuntimeError(f"{method} {path} -> {response.status}: {error}")
+            raise NotFound(message)
+        raise RuntimeError(message)
 
     return json.loads(raw.decode("utf-8")) if raw else {}
 

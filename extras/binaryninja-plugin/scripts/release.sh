@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #
 # Build an installation bundle for the Binary Ninja plugin, containing the
-# plugin directory, its documentation, and its changelog. The plugin is pure Python with no
-# dependencies, so there is nothing to compile or vendor. See the Install from a
-# Release Bundle section of README.md.
+# plugin directory, its documentation, and its changelog. The plugin is pure
+# Python with no dependencies, so there is nothing to compile or vendor. See
+# the Install from a Release Bundle section of README.md.
 
 set -euo pipefail
 cd "$(dirname "$0")/.."

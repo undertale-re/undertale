@@ -72,6 +72,10 @@ def remove_completion(func: Function) -> None:
     Args:
         func: The function to forget the completion of.
     """
+    try:
+        func.query_metadata(METADATA_KEY)
+    except KeyError:
+        return
     func.remove_metadata(METADATA_KEY)
 
 
