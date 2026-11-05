@@ -103,20 +103,26 @@ class Keep(ParquetOperation):
     """Keep only specific columns from the dataset.
 
     Arguments:
-        columns: Column names to keep.
+        columns: Column names to keep; each must be present in the dataset.
+        optional: Column names to keep when present and silently skip when
+            absent. Use this for columns that only some datasets carry, such as
+            the ``labels`` written by ``label_parquet.py``, so one pipeline can
+            serve both labeled and unlabeled inputs.
     """
 
-    def __init__(self, columns: List[str]):
+    def __init__(self, columns: List[str], optional: Optional[List[str]] = None):
         self.columns = columns
+        self.optional = optional or []
 
     def __call__(self, frame: DataFrame) -> DataFrame:
-        logger.info(f"keeping only dataset column(s): {', '.join(self.columns)}")
-
         for column in self.columns:
             if column not in frame.columns:
                 raise SchemaError(f"dataset does not include the column {column!r}")
 
-        return frame[self.columns]
+        present = self.columns + [c for c in self.optional if c in frame.columns]
+        logger.info(f"keeping only dataset column(s): {', '.join(present)}")
+
+        return frame[present]
 
 
 class Filter(ParquetOperation):

@@ -3,15 +3,19 @@
 #SBATCH --array=0-7
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=12
-#SBATCH --mem=0
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=4G
 #SBATCH --distribution=nopack
 #SBATCH --output=label-parquet-%A_%a.out
 
 # Original parquet shards -> labeled parquet shards, in one pass. The job is
-# client-only: every array task queries one vLLM server that is already running
-# elsewhere. Start that server separately, then point this job at it:
-#   (currently using models--Qwen--Qwen3-Coder-30B-A3B-Instruct)http://a-3-4:12132/
+# client-only -- it only reads parquet and talks HTTP to a vLLM server running
+# elsewhere -- so it asks for little: 2 CPUs and 4G, not the GPU-job defaults
+# (--cpus-per-task=12, --mem=0) it was copied from. A smaller request schedules
+# faster. Raise them only if a shard's parquet row group genuinely needs more.
+#
+# Every array task queries the one vLLM server. Start that server separately
+# (we have been serving Qwen3-Coder-30B-A3B-Instruct), then point this job at it:
 #   ENDPOINT=http://{node-name}:{vllm-port} sbatch label_parquet.slurm
 #
 # Submit from this directory. The job runs the `label_parquet.py` beside this
@@ -20,6 +24,13 @@
 # Work is split by shard file, not by row, so each task writes whole parquet
 # files and shards already present are skipped. A job that runs out of time
 # resumes by resubmitting it unchanged -- no listing to rebuild first.
+#
+# If the vLLM server dies or stalls mid-run, label_parquet.py aborts any shard
+# whose connection/HTTP error rate crosses --max-error-rate (MAX_ERROR_RATE,
+# default 0.25): that shard is left unwritten rather than renamed into place
+# near-empty, and the task exits non-zero so Slurm marks it FAILED instead of
+# silently losing data. Resubmit the job unchanged once the server is back and
+# the aborted shards are retried, while the ones already finished are skipped.
 #
 # The array size is how many clients share the one server, not how the corpus is
 # divided; 965 shards across 8 tasks is ~121 each. Raise it (and --concurrency)
@@ -52,6 +63,9 @@ fi
 if [[ -n $TAXONOMY ]]; then
     OPTIONS+=(--taxonomy "$TAXONOMY")
 fi
+if [[ -n $MAX_ERROR_RATE ]]; then
+    OPTIONS+=(--max-error-rate "$MAX_ERROR_RATE")
+fi
 
 echo "shard $SLURM_ARRAY_TASK_ID/$SHARDS -> $ENDPOINT ${MODEL:-(server default)}"
 
@@ -64,3 +78,13 @@ python label_parquet.py \
     --shards $SHARDS \
     --drop-unlabeled \
     --concurrency 32
+status=$?
+
+# A non-zero exit means one or more shards were aborted (usually a dead or
+# stalled server), so those shards were left unwritten. Surface it clearly and
+# propagate it, so the task shows up as FAILED and a plain resubmit retries them.
+if (( status != 0 )); then
+    echo "shard $SLURM_ARRAY_TASK_ID/$SHARDS: exit $status -- shard(s) aborted," \
+         "left unwritten; resubmit once the server is healthy to retry them"
+fi
+exit $status

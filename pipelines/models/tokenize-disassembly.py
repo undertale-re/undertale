@@ -22,7 +22,8 @@ if __name__ == "__main__":
         "-m",
         "--minimize",
         action="store_true",
-        help="remove all columns from the tokenized dataset except for tokens",
+        help="remove all columns from the tokenized dataset except for tokens "
+        "(and classification `labels` where the input carries them)",
     )
 
     arguments = parser.parse_args()
@@ -45,7 +46,12 @@ if __name__ == "__main__":
 
         merge_operations: list[ParquetOperation] = [Repartition(size="100MB")]
         if arguments.minimize:
-            merge_operations = [Keep(["id", "tokens", "mask"]), *merge_operations]
+            # `labels` is kept when the input is a labeled classification
+            # dataset and skipped otherwise, so the same flag serves both.
+            merge_operations = [
+                Keep(["id", "tokens", "mask"], optional=["labels"]),
+                *merge_operations,
+            ]
 
         merged = client.submit(
             modify_parquet,

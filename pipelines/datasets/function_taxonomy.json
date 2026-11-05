@@ -163,10 +163,6 @@
     {
       "name": "is_trivial",
       "description": "Body is a single return/assignment/delegation (very common: ~1 in 5 recoverable bodies). Useful to downweight or stratify."
-    },
-    {
-      "name": "is_accessor",
-      "description": "RECOMMENDED IN v2. Trivial field get/set/predicate, constructor/builder, or generated deep-copy. Because accessors exist inside every domain, modelling this as a 21st class forces a false choice; as a flag it composes with the domain class (e.g. Networking + is_accessor for (*Conn).GetPort)."
     }
   ],
   "known_data_caveats": [
@@ -178,7 +174,7 @@
     "Collision-prone base names dominate extraction ('new', 'String', 'init', 'Reset', 'Marshal', 'Descriptor'), which is exactly where name matching fails.",
     "Held-out batch confirms the v1 recovery rate: 2027/6797 = 29.8% of functions yield any body (Go 54%, C++ 50%, C 54%, Rust 5%)."
   ],
-  "validated_against": "data/sampled_functions_test.json (6797 symbols, held out; 5 shared keys / 44 shared symbol names with the v1 sample)",
+  "validated_against": "labelling_validation.json (6797 symbols, held out; 5 shared keys / 44 shared symbol names with the v1 sample)",
   "validation": {
     "held_out_size": 6797,
     "distribution_stability": "Every class matched its v1 share within +/-0.6 percentage points; semantic coverage 90.7% -> 91.0%; generic-glue flag 22.5% -> 22.2%.",
