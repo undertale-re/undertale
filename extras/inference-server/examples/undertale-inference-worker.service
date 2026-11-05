@@ -4,7 +4,13 @@ After=network.target
 
 [Service]
 User=undertale
+
+# For offline installations, point the worker at the bundled HuggingFace cache:
+#Environment=HF_HUB_OFFLINE=1
+#Environment=HF_HOME=/var/lib/undertale-inference/hf-cache
+
 ExecStart=inference worker --parallelism 4
+
 Restart=on-failure
 
 [Install]

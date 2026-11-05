@@ -4,7 +4,13 @@ After=network.target
 
 [Service]
 User=undertale
+
+# Default: bind a loopback TCP socket. To serve a Unix domain socket instead,
+# uncomment the following and comment out the TCP ExecStart below:
+#RuntimeDirectory=undertale-inference
+#ExecStart=gunicorn --workers=4 --bind unix:/run/undertale-inference/undertale-inference.sock inference.api:app
 ExecStart=gunicorn --workers=4 --bind 127.0.0.1:8000 inference.api:app
+
 Restart=on-failure
 
 [Install]

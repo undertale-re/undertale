@@ -28,7 +28,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           claude_args: >-
             --disallowedTools Bash,Edit,Write
-            --max-turns 10
+            --max-turns 30
             --append-system-prompt "You are a code reviewer and technical assistant for this repository.
             You must NOT implement changes, push code, create or modify files, create branches, or open
             pull requests under any circumstances.

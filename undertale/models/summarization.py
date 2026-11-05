@@ -4,7 +4,6 @@ import json
 from logging import WARNING
 from typing import List, Optional, Tuple
 
-import evaluate
 from lightning.pytorch import LightningModule
 from pandas import Series
 from pandas import read_parquet as pandas_read_parquet
@@ -564,6 +563,8 @@ def evaluate_summarized(input: str, output: str) -> str:
     Returns:
         The path where the evaluation results are written (JSON).
     """
+
+    import evaluate
 
     input = assert_path_exists(input)
 
