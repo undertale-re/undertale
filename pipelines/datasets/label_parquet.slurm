@@ -7,6 +7,7 @@
 #SBATCH --mem=0
 #SBATCH --distribution=nopack
 #SBATCH --output=label-parquet-%A_%a.out
+#SBATCH --time=72:00:00
 
 # Original parquet shards -> labeled parquet shards, in one pass. The job is
 # client-only: every array task queries one vLLM server that is already running

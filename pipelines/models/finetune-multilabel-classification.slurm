@@ -10,8 +10,8 @@
 PRETRAIN_DATASET=nixpkgs-legacy
 FINETUNE_DATASET=nixpkgs-legacy_10percent
 TOKENIZER=$SHARE/models/tokenizer/$PRETRAIN_DATASET/latest
-TRAINING=$SHARE/datasets/$FINETUNE_DATASET-finetune-multilabel-classification/training/latest
-VALIDATION=$SHARE/datasets/$FINETUNE_DATASET-finetune-multilabel-classification/validation/latest
+TRAINING=$SHARE/datasets/$FINETUNE_DATASET-finetune-multilabel-classification/training/20261020
+VALIDATION=$SHARE/datasets/$FINETUNE_DATASET-finetune-multilabel-classification/validation/20261021
 PRETRAINED=$SHARE/models/maskedlm/$PRETRAIN_DATASET/latest
 BATCH=64
 
