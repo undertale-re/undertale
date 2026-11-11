@@ -15,16 +15,26 @@ The plugin's workflow consists of the following steps
 The inference server connection is configured once and persists across
 Binary Ninja restarts until explicitly reconfigured (see "Undertale >
 Configure Plugin"). The supported endpoints include
-    - TCP connections specified as host:port
+    - HTTP connections specified as host:port
+    - HTTPS connections specified as host:port, verified against the system
+        trust store or a configured CA certificate file
     - Unix domain sockets specified by filesystem path
 """
 
 import http.client
+import ipaddress
 import json
+import os
 import socket
+import ssl
 import time
 from contextlib import contextmanager
 from typing import Any, Dict, Generator, List, Optional, Tuple
+
+try:
+    import truststore  # optional; uses the OS trust store when installed
+except ImportError:
+    truststore = None  # type: ignore[assignment]
 
 from binaryninja import (
     BackgroundTaskThread,
@@ -48,7 +58,7 @@ from .utils import (
     clear_token,
     configure_plugin,
     describe_server,
-    get_base_url,
+    get_ca_file,
     get_completion,
     get_connection,
     get_poll_timeout,
@@ -84,6 +94,13 @@ UNAUTHORIZED_STATUSES = (401, 422)  # to handle missing or expired tokens
 # lines; httpx would shrink it to roughly 10-20. That isn't worth the extra
 # dependencies, so this stays as is. Revisit the vendoring strategy if the
 # plugin's dependencies grow.
+#
+# HTTPS follows the same reasoning: it uses the standard library's ssl and
+# http.client.HTTPSConnection. The one optional extra is truststore, used only
+# if it is already importable, so the OS trust store (macOS Keychain, Linux
+# system store) works without a CA file. The plugin never vendors or installs
+# it; a configured CA certificate file is the dependency-free fix whenever the
+# default trust store does not work.
 class UnixHTTPConnection(http.client.HTTPConnection):
     """An HTTPConnection that dials a Unix domain socket.
 
@@ -104,12 +121,84 @@ class UnixHTTPConnection(http.client.HTTPConnection):
         self.sock.connect(self.unix_socket_path)
 
 
+def _trust_source() -> str:
+    """Describe where HTTPS certificates are verified against, for
+    user-facing messages. Follows the same precedence as
+    :py:func:`_tls_context`."""
+    ca_file = get_ca_file()
+    if ca_file is not None:
+        return f"the CA certificate file {ca_file!r}"
+    if truststore is not None:
+        return "the OS trust store (via truststore)"
+    return "Python's default trust store"
+
+
+_tls_cache: Optional[Tuple[Tuple[Optional[str], float], ssl.SSLContext]] = None
+
+
+def _tls_context() -> ssl.SSLContext:
+    """Return the TLS context for HTTPS connections to the inference server.
+
+    The context is cached until the configured CA certificate file, or its
+    modification time, changes.
+    """
+    global _tls_cache
+    ca_file = get_ca_file()
+    try:
+        key = (ca_file, os.stat(ca_file).st_mtime if ca_file is not None else 0.0)
+    except OSError:  # let _build_tls_context report the unreadable file
+        return _build_tls_context(ca_file)
+    if _tls_cache is None or _tls_cache[0] != key:
+        _tls_cache = (key, _build_tls_context(ca_file))
+    return _tls_cache[1]
+
+
+def _build_tls_context(ca_file: Optional[str]) -> ssl.SSLContext:
+    """Build the TLS context for HTTPS connections to the inference server.
+
+    Certificates and hostnames are always verified. The trust source is, in
+    order of precedence: the CA certificate file ``ca_file``, the OS trust
+    store if truststore is importable, and Python's default trust store.
+    """
+    if ca_file is not None:
+        try:
+            context = ssl.create_default_context(cafile=ca_file)
+        except OSError as error:  # includes ssl.SSLError
+            raise RuntimeError(
+                f"Unable to load the CA certificate file {ca_file!r}: {error}. "
+                f"Fix or clear it via {CONFIGURE_MENU_PATH}"
+            ) from error
+    elif truststore is not None:
+        context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    else:
+        context = ssl.create_default_context()
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
+    return context
+
+
 def _open_connection(connection: Connection) -> http.client.HTTPConnection:
     if connection["kind"] == "unix":
-        return UnixHTTPConnection(connection["path"])
+        return UnixHTTPConnection(connection["socket"])
+    if connection["scheme"] == "https":
+        return http.client.HTTPSConnection(
+            connection["host"],
+            connection["port"],
+            timeout=INFERENCE_CONNECT_TIMEOUT,
+            context=_tls_context(),
+        )
     return http.client.HTTPConnection(
         connection["host"], connection["port"], timeout=INFERENCE_CONNECT_TIMEOUT
     )
+
+
+def _is_loopback(host: str) -> bool:
+    """Determine whether ``host`` names this machine."""
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
 
 
 class AuthenticationRequired(RuntimeError):
@@ -129,6 +218,61 @@ class NotFound(RuntimeError):
     """Raised when the inference server responds with 404."""
 
 
+class ResponseError(RuntimeError):
+    """Raised when the inference server responds with any other error status.
+
+    Attributes:
+        status: The HTTP status code.
+        structured: Whether the body was a JSON object, as the inference
+            server's own errors are. False suggests something else answered,
+            such as a reverse proxy.
+    """
+
+    def __init__(self, message: str, status: int, structured: bool) -> None:
+        super().__init__(message)
+        self.status = status
+        self.structured = structured
+
+
+class Redirected(RuntimeError):
+    """Raised when the inference server responds with a redirect (3xx).
+
+    The plugin does not follow redirects: the inference server never sends
+    them, so one means something else answered, such as a reverse proxy
+    redirecting plain HTTP to HTTPS.
+
+    Attributes:
+        status: The HTTP status code.
+        location: The redirect target from the Location header, if any.
+    """
+
+    def __init__(self, message: str, status: int, location: Optional[str]) -> None:
+        super().__init__(message)
+        self.status = status
+        self.location = location
+
+
+# Hosts already warned about receiving a token or credentials over plain HTTP.
+_warned_hosts: set = set()
+
+
+def _warn_plaintext(conn: http.client.HTTPConnection) -> None:
+    """Warn, once per host per session, when a login token or credentials
+    are about to be sent unencrypted to another machine."""
+    if isinstance(conn, (http.client.HTTPSConnection, UnixHTTPConnection)):
+        return
+    if _is_loopback(conn.host) or conn.host in _warned_hosts:
+        return
+    _warned_hosts.add(conn.host)
+    alert_user(
+        f"The Undertale Inference Server at {conn.host} is configured over "
+        "plain HTTP, so your login token and credentials are sent "
+        "unencrypted.\n\nUse an HTTPS connection instead, via "
+        f"{CONFIGURE_MENU_PATH}.",
+        warning=True,
+    )
+
+
 def request(
     conn: http.client.HTTPConnection,
     method: str,
@@ -141,6 +285,7 @@ def request(
     data = json.dumps(body).encode("utf-8") if body is not None else None
     headers = {"Content-Type": "application/json"} if data else {}
     if token is not None:
+        _warn_plaintext(conn)
         headers["Authorization"] = f"Bearer {token}"
     conn.request(method, path, body=data, headers=headers)
     response = conn.getresponse()
@@ -149,20 +294,33 @@ def request(
 
     if response.status >= 400:
         try:
-            error = json.loads(raw.decode("utf-8")).get("error", raw)
+            parsed = json.loads(raw.decode("utf-8"))
         except ValueError:
+            parsed = None
+        structured = isinstance(parsed, dict)
+        if structured:
+            error = parsed.get("error", raw)
+        else:
             error = raw.decode("utf-8", "replace")
         message = f"{method} {path} -> {response.status}: {error}"
         if response.status in UNAUTHORIZED_STATUSES:
             raise Unauthorized(message)
         if response.status == 404:
             raise NotFound(message)
-        raise RuntimeError(message)
+        raise ResponseError(message, response.status, structured)
+
+    if 300 <= response.status < 400:
+        location = response.getheader("Location")
+        raise Redirected(
+            f"{method} {path} -> {response.status}: redirected to {location!r}",
+            response.status,
+            location,
+        )
 
     return json.loads(raw.decode("utf-8")) if raw else {}
 
 
-def _login(conn: http.client.HTTPConnection, base_url: str) -> str:
+def _login(conn: http.client.HTTPConnection, connection: Connection) -> str:
     """Prompt for credentials and log in to the inference server.
 
     Persists the resulting token so future requests skip the prompt until
@@ -175,7 +333,11 @@ def _login(conn: http.client.HTTPConnection, base_url: str) -> str:
     if credentials is None:
         raise AuthenticationRequired("Login cancelled: no credentials provided")
 
-    response = request(conn, "POST", join_base_url(base_url, "/login/"), credentials)
+    _warn_plaintext(conn)
+
+    response = request(
+        conn, "POST", join_base_url(connection["base_url"], "/login/"), credentials
+    )
     token = response["token"]
     save_token(token)
 
@@ -184,7 +346,9 @@ def _login(conn: http.client.HTTPConnection, base_url: str) -> str:
     return token
 
 
-def _authenticate(conn: http.client.HTTPConnection, base_url: str) -> Optional[str]:
+def _authenticate(
+    conn: http.client.HTTPConnection, connection: Connection
+) -> Optional[str]:
     """Ensure requests on this connection are authenticated, if the
     inference server requires it.
 
@@ -198,11 +362,13 @@ def _authenticate(conn: http.client.HTTPConnection, base_url: str) -> Optional[s
     token = get_token()
 
     try:
-        body = request(conn, "GET", join_base_url(base_url, "/"), token=token)
+        body = request(
+            conn, "GET", join_base_url(connection["base_url"], "/"), token=token
+        )
     except Unauthorized:
         if token is not None:
             clear_token()
-        return _login(conn, base_url)
+        return _login(conn, connection)
 
     if not body.get("authentication"):
         return None
@@ -212,7 +378,7 @@ def _authenticate(conn: http.client.HTTPConnection, base_url: str) -> Optional[s
 @contextmanager
 def session(
     connection: Connection,
-) -> Generator[Tuple[http.client.HTTPConnection, str, Optional[str]], None, None]:
+) -> Generator[Tuple[http.client.HTTPConnection, Optional[str]], None, None]:
     """Open an authenticated connection to the inference server.
 
     The connection is closed on exit.
@@ -221,15 +387,13 @@ def session(
         connection: The inference server to connect to.
 
     Yields:
-        ``(conn, base_url, token)``: the open connection, the configured base
-        URL, and the bearer token (None if the server does not require
-        authentication).
+        ``(conn, token)``: the open connection and the bearer token (None if
+        the server does not require authentication).
     """
-    base_url = get_base_url()
     conn = _open_connection(connection)
     try:
-        token = _authenticate(conn, base_url)
-        yield conn, base_url, token
+        token = _authenticate(conn, connection)
+        yield conn, token
     finally:
         conn.close()
 
@@ -265,7 +429,7 @@ def send(
     finally:
         conn.close()
 
-    with session(connection) as (conn, _, token):
+    with session(connection) as (conn, token):
         return request(conn, method, path, body, token=token)
 
 
@@ -299,7 +463,7 @@ def function_disassembly(bv: BinaryView, func: Function) -> str:
     return " ".join(tokens)
 
 
-def request_name(connection: Connection, disassembly: str) -> Tuple[int, str, str]:
+def request_name(connection: Connection, disassembly: str) -> Tuple[int, str]:
     """POST a function-naming completion, then poll until it's complete.
 
     Reuses a single connection across the POST and the entire poll loop
@@ -310,10 +474,10 @@ def request_name(connection: Connection, disassembly: str) -> Tuple[int, str, st
         disassembly: The function's pretokenized disassembly.
 
     Returns:
-        ``(completion_id, name, base_url)``, where ``base_url`` is the one the
-        completion was requested under.
+        ``(completion_id, name)``.
     """
-    with session(connection) as (conn, base_url, token):
+    base_url = connection["base_url"]
+    with session(connection) as (conn, token):
         created = request(
             conn,
             "POST",
@@ -344,7 +508,7 @@ def request_name(connection: Connection, disassembly: str) -> Tuple[int, str, st
                     raise RuntimeError(
                         f"Completion {completion_id} finished with no output"
                     )
-                return completion_id, completion["output"].strip(), base_url
+                return completion_id, completion["output"].strip()
             if time.monotonic() > deadline:
                 raise RuntimeError(
                     f"Completion {completion_id} did not finish within {poll_timeout}s"
@@ -366,7 +530,7 @@ def rename(bv: BinaryView, func: Function, name: str) -> None:
     log_info(f"Renamed {old} -> {func.name} @ {hex(func.start)}")
 
 
-def report_failure(exc: Exception, action: str, endpoint: str) -> None:
+def report_failure(exc: Exception, action: str, connection: Connection) -> None:
     """Surface a failure talking to the inference server to the user.
 
     Shared by the background tasks so naming and rating report connection
@@ -375,9 +539,10 @@ def report_failure(exc: Exception, action: str, endpoint: str) -> None:
     Args:
         exc: The exception that stopped the task.
         action: What the task was doing, such as ``"Naming sub_401000"``.
-        endpoint: A description of the server, from
-            :py:func:`describe_server`.
+        connection: The server's connection.
     """
+    endpoint = describe_server(connection)
+    plain_http = connection.get("scheme") == "http"
     if isinstance(exc, AuthenticationRequired):
         log_info(str(exc))
     elif isinstance(exc, ConnectionRefusedError):
@@ -400,6 +565,66 @@ def report_failure(exc: Exception, action: str, endpoint: str) -> None:
             f"Undertale Inference Server at {endpoint}.\n\nCheck that the server "
             "is reachable and not overloaded, or reconfigure the connection "
             f"via {CONFIGURE_MENU_PATH}."
+        )
+    # ssl.SSLError and RemoteDisconnected are OSErrors, so these come first.
+    elif isinstance(exc, ssl.SSLCertVerificationError):
+        alert_user(
+            "Could not verify the TLS certificate of the Undertale Inference "
+            f"Server at {endpoint}: {exc.verify_message}.\n\nThe certificate "
+            f"was checked against {_trust_source()}.\n\nIf the server uses a "
+            "self-signed certificate or a private certificate authority, set "
+            f"its CA Certificate File via {CONFIGURE_MENU_PATH}. The "
+            "certificate must also list the configured host in its "
+            "subjectAltName."
+        )
+    elif isinstance(exc, ssl.SSLError):
+        alert_user(
+            "TLS handshake with the Undertale Inference Server at "
+            f"{endpoint} failed: {exc.reason or exc}.\n\nIs the server actually "
+            "serving HTTPS on this port?\n\nIf it serves plain HTTP, switch the "
+            f"connection type to HTTP via {CONFIGURE_MENU_PATH}."
+        )
+    elif plain_http and isinstance(exc, ConnectionResetError):
+        # A TLS server resets (or, via a proxy, closes) a plain HTTP connection,
+        # which includes http.client.RemoteDisconnected. So does a server that
+        # crashed or restarted mid-request, so this is only a hint.
+        alert_user(
+            f"The Undertale Inference Server at {endpoint} closed the "
+            f"connection: {exc}.\n\nThe server may have crashed or restarted; "
+            "check its logs.\n\nIf it serves HTTPS on this port, switch the "
+            f"connection type to HTTPS via {CONFIGURE_MENU_PATH}."
+        )
+    elif (
+        plain_http
+        # A proxy's (not the inference server's) response to plain HTTP sent to
+        # its HTTPS port, such as nginx's or Caddy's.
+        and isinstance(exc, ResponseError)
+        and exc.status == 400
+        and not exc.structured
+    ):
+        alert_user(
+            f"The Undertale Inference Server at {endpoint} did not answer the "
+            "plain HTTP request.\n\nIf it serves HTTPS on this port, switch the "
+            f"connection type to HTTPS via {CONFIGURE_MENU_PATH}."
+        )
+    elif (
+        plain_http
+        and isinstance(exc, Redirected)
+        and (exc.location or "").lower().startswith("https://")
+    ):
+        alert_user(
+            f"The server at {endpoint} redirects to HTTPS ({exc.location}).\n\n"
+            "Switch the connection type to HTTPS via "
+            f"{CONFIGURE_MENU_PATH}."
+        )
+    elif isinstance(exc, Redirected):
+        target = exc.location or "an unknown location"
+        alert_user(
+            f"The server at {endpoint} redirected the request to {target} "
+            f"(HTTP {exc.status}), and the plugin does not follow redirects."
+            "\n\nThe Undertale Inference Server does not normally redirect, "
+            "so something else may be answering. Check the host, port, and base URL via "
+            f"{CONFIGURE_MENU_PATH}."
         )
     elif isinstance(exc, OSError):
         alert_user(
@@ -425,24 +650,23 @@ class NameFunctionTask(BackgroundTaskThread):
         self.connection = connection
 
     def run(self) -> None:
-        endpoint = describe_server(self.connection)
         try:
             disassembly = function_disassembly(self.bv, self.func)
             if not disassembly:
                 alert_user(f"No disassembly available for {self.func.name}")
                 return
-            completion_id, name, base_url = request_name(self.connection, disassembly)
+            completion_id, name = request_name(self.connection, disassembly)
             # Forget any earlier completion first, so it can't be rated against
             # the new name if recording this one fails.
             remove_completion(self.func)
             rename(self.bv, self.func, name)
         except Exception as exc:  # noqa: BLE001
-            report_failure(exc, f"Naming {self.func.name}", endpoint)
+            report_failure(exc, f"Naming {self.func.name}", self.connection)
             return
 
         # The rename already happened, so a failure here only affects rating.
         try:
-            store_completion(self.func, completion_id, name, self.connection, base_url)
+            store_completion(self.func, completion_id, name, self.connection)
         except Exception as exc:  # noqa: BLE001
             log_error(f"Failed to record completion {completion_id}: {exc}")
             alert_user(
@@ -500,11 +724,10 @@ class RateFunctionTask(BackgroundTaskThread):
         self.connection = connection
 
     def run(self) -> None:
-        endpoint = describe_server(self.connection)
         try:
             self.rate()
         except Exception as exc:  # noqa: BLE001
-            report_failure(exc, f"Rating {self.func.name}", endpoint)
+            report_failure(exc, f"Rating {self.func.name}", self.connection)
 
     def rate(self) -> None:
         entry = get_completion(self.func)
@@ -518,23 +741,22 @@ class RateFunctionTask(BackgroundTaskThread):
             )
             return
 
-        base_url = get_base_url()
-        if not is_same_server(entry, self.connection, base_url):
-            server = entry["server"]
+        if not is_same_server(entry, self.connection):
             alert_user(
                 "The name of this function was generated by the Undertale "
-                "Inference Server at "
-                f"{describe_server(server['connection'], server['base_url'])}, "
+                f"Inference Server at {describe_server(entry['server'])}, "
                 "but the plugin is configured for "
-                f"{describe_server(self.connection, base_url)}.\n\nRatings can only "
+                f"{describe_server(self.connection)}.\n\nRatings can only "
                 "be sent to the server that generated the name.\n\nTo rate it, "
                 f"point the plugin back at that server via {CONFIGURE_MENU_PATH}."
             )
             return
 
-        path = join_base_url(base_url, f"/fnaming/completion/{entry['id']}/")
+        path = join_base_url(
+            self.connection["base_url"], f"/fnaming/completion/{entry['id']}/"
+        )
         feedback_path = path + "feedback/"
-        with session(self.connection) as (conn, _, token):
+        with session(self.connection) as (conn, token):
             try:
                 completion = request(conn, "GET", path, token=token)
             except NotFound:
@@ -546,7 +768,7 @@ class RateFunctionTask(BackgroundTaskThread):
             alert_user(
                 f"The completion that named this function (id {entry['id']}) "
                 "could not be found on the Undertale Inference Server at "
-                f"{describe_server(self.connection, base_url)}, or it no longer "
+                f"{describe_server(self.connection)}, or it no longer "
                 "matches the generated name.\n\nNo rating was sent.\n\nTo rate "
                 f"this function, run {FNAMING_MENU_PATH} again to get a new "
                 "name, then rate it."
