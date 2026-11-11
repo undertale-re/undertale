@@ -1,3 +1,4 @@
+from .client import NotFound, request, request_name, send, session
 from .completions import (
     get_completion,
     is_same_server,
@@ -5,43 +6,35 @@ from .completions import (
     renamed,
     store_completion,
 )
-from .connection import (
-    CONFIGURE_COMMAND_NAME,
-    CONFIGURE_MENU_PATH,
-    Connection,
-    clear_token,
-    configure_plugin,
-    describe_server,
-    get_ca_file,
-    get_connection,
-    get_poll_timeout,
-    get_token,
-    join_base_url,
-    prompt_credentials,
-    save_token,
-)
+from .configure import configure_plugin, get_connection
+from .connection import Connection, describe_server, join_base_url
 from .disassembly import pretokenize_disassembly
+from .failures import report_failure
 from .notify import alert_user
+from .prompts import RATING_CHOICES, prompt_feedback
+from .settings import CONFIGURE_COMMAND_NAME, CONFIGURE_MENU_PATH
 
 __all__ = [
     "CONFIGURE_COMMAND_NAME",
     "CONFIGURE_MENU_PATH",
     "Connection",
+    "NotFound",
+    "RATING_CHOICES",
     "alert_user",
-    "clear_token",
     "configure_plugin",
     "describe_server",
-    "get_ca_file",
     "get_completion",
     "get_connection",
-    "get_poll_timeout",
-    "get_token",
     "is_same_server",
     "join_base_url",
     "pretokenize_disassembly",
-    "prompt_credentials",
+    "prompt_feedback",
     "remove_completion",
     "renamed",
-    "save_token",
+    "report_failure",
+    "request",
+    "request_name",
+    "send",
+    "session",
     "store_completion",
 ]
