@@ -141,7 +141,7 @@ This deployment uses NGINX as a frontend for Gunicorn, with LDAP authentication.
 
 Set the **Base URL** to match the subpath NGINX serves the API under (usually `/api`).
 
-Avoid the **HTTP** option here: it sends your username, password, and login token unencrypted. The plugin shows a warning, once per host per session, when it sends credentials or a token over plain HTTP to a host other than this machine.
+Avoid the **HTTP** option here: it sends your username, password, and login token unencrypted. Before the plugin sends credentials or a token over plain HTTP to a host other than this machine, it asks you to confirm, once per server per session. If you answer No, nothing is sent.
 
 The first time the plugin talks to an authenticated server, it prompts for your LDAP username and password, logs in, and caches the resulting token in Binary Ninja's user settings (usually at `~/.binaryninja/settings.json`) so you aren't prompted again until the token is rejected (e.g. it expires) or you clear it via **Undertale > Configure Plugin**.
 

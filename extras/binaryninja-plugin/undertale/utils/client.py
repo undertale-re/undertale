@@ -37,9 +37,8 @@ except ImportError:
 
 from binaryninja import log_info
 
-from .connection import Connection, join_base_url
-from .notify import alert_user
-from .prompts import prompt_credentials
+from .connection import Connection, describe_server, join_base_url
+from .prompts import confirm_plaintext, prompt_credentials
 from .settings import (
     CONFIGURE_MENU_PATH,
     clear_token,
@@ -100,19 +99,22 @@ def _tls_context() -> ssl.SSLContext:
     ca_file = get_ca_file()
     try:
         key = (ca_file, os.stat(ca_file).st_mtime if ca_file is not None else 0.0)
-    except OSError:  # let _build_tls_context report the unreadable file
-        return _build_tls_context(ca_file)
+    except OSError:  # let build_tls_context report the unreadable file
+        return build_tls_context(ca_file)
     if _tls_cache is None or _tls_cache[0] != key:
-        _tls_cache = (key, _build_tls_context(ca_file))
+        _tls_cache = (key, build_tls_context(ca_file))
     return _tls_cache[1]
 
 
-def _build_tls_context(ca_file: Optional[str]) -> ssl.SSLContext:
+def build_tls_context(ca_file: Optional[str]) -> ssl.SSLContext:
     """Build the TLS context for HTTPS connections to the inference server.
 
     Certificates and hostnames are always verified. The trust source is, in
     order of precedence: the CA certificate file ``ca_file``, the OS trust
     store if truststore is importable, and Python's default trust store.
+
+    Raises RuntimeError if ``ca_file`` cannot be loaded; its cause is the
+    underlying OSError.
     """
     if ca_file is not None:
         try:
@@ -157,7 +159,7 @@ def _is_loopback(host: str) -> bool:
 
 class AuthenticationRequired(RuntimeError):
     """Raised when the inference server requires authentication and the user
-    declined to provide credentials for it.
+    declined to provide credentials for it, or to send them over plain HTTP.
 
     This is a reason to stop rather than an error to surface as a failure.
     """
@@ -206,25 +208,36 @@ class Redirected(RuntimeError):
         self.location = location
 
 
-# Hosts already warned about receiving a token or credentials over plain HTTP.
-_warned_hosts: Set[str] = set()
+# Servers the user agreed to send a token or credentials to over plain HTTP.
+_plaintext_allowed: Set[str] = set()
 
 
-def _warn_plaintext(conn: http.client.HTTPConnection) -> None:
-    """Warn, once per host per session, when a login token or credentials
-    are about to be sent unencrypted to another machine."""
-    if isinstance(conn, (http.client.HTTPSConnection, UnixHTTPConnection)):
+def _confirm_plaintext(connection: Connection) -> None:
+    """Ask the user before a login token or credentials are sent unencrypted
+    to another machine.
+
+    Asks once per server per session, and only for a plain HTTP connection
+    to a host other than this machine.
+
+    Raises AuthenticationRequired if the user declines.
+    """
+    if connection["kind"] != "tcp" or connection["scheme"] != "http":
         return
-    if _is_loopback(conn.host) or conn.host in _warned_hosts:
+    if _is_loopback(connection["host"]):
         return
-    _warned_hosts.add(conn.host)
-    alert_user(
-        f"The Undertale Inference Server at {conn.host} is configured over "
-        "plain HTTP, so your login token and credentials are sent "
-        "unencrypted.\n\nUse an HTTPS connection instead, via "
-        f"{CONFIGURE_MENU_PATH}.",
-        warning=True,
-    )
+    server = describe_server(connection)
+    if server in _plaintext_allowed:
+        return
+    if not confirm_plaintext(
+        f"The Undertale Inference Server at {server} is configured over plain "
+        "HTTP, so your login token and credentials would be sent "
+        "unencrypted.\n\nSend them anyway?\n\nTo use an HTTPS connection "
+        f"instead, answer No and run {CONFIGURE_MENU_PATH}."
+    ):
+        raise AuthenticationRequired(
+            f"Cancelled: declined to send credentials to {server} over plain HTTP"
+        )
+    _plaintext_allowed.add(server)
 
 
 def request(
@@ -239,7 +252,6 @@ def request(
     data = json.dumps(body).encode("utf-8") if body is not None else None
     headers = {"Content-Type": "application/json"} if data else {}
     if token is not None:
-        _warn_plaintext(conn)
         headers["Authorization"] = f"Bearer {token}"
     conn.request(method, path, body=data, headers=headers)
     response = conn.getresponse()
@@ -278,14 +290,13 @@ def _login(conn: http.client.HTTPConnection, connection: Connection) -> str:
     Persists the resulting token so future requests skip the prompt until
     it's rejected or the connection is reconfigured.
 
-    Raises AuthenticationRequired if the user cancels the credentials
-    prompt.
+    Raises AuthenticationRequired if the user declines to log in over plain
+    HTTP, or cancels the credentials prompt.
     """
+    _confirm_plaintext(connection)
     credentials = prompt_credentials()
     if credentials is None:
         raise AuthenticationRequired("Login cancelled: no credentials provided")
-
-    _warn_plaintext(conn)
 
     response = request(
         conn, "POST", join_base_url(connection["base_url"], "/login/"), credentials
@@ -310,8 +321,13 @@ def _authenticate(
 
     Returns the bearer token to attach to subsequent requests, or None if
     the server does not require authentication.
+
+    Raises AuthenticationRequired if the user declines to send the token or
+    credentials over plain HTTP, or cancels the credentials prompt.
     """
     token = get_token()
+    if token is not None:
+        _confirm_plaintext(connection)
 
     try:
         body = request(

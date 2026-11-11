@@ -67,7 +67,8 @@ def is_valid_connection(value: Any) -> bool:
 
     port = value["port"]
     return (
-        value["scheme"] in SCHEME_DEFAULT_PORTS
+        isinstance(value["scheme"], str)
+        and value["scheme"] in SCHEME_DEFAULT_PORTS
         and isinstance(value["host"], str)
         and bool(value["host"])
         and isinstance(port, int)

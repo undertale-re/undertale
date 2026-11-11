@@ -7,9 +7,10 @@ be reconfigured at any time via the command named by
 :py:func:`configure_plugin`.
 """
 
+import ipaddress
 import os
+import re
 import socket
-import ssl
 import stat
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -22,6 +23,7 @@ from binaryninja import (
     log_warn,
 )
 
+from .client import build_tls_context
 from .connection import (
     DEFAULT_BASE_URL,
     Connection,
@@ -58,6 +60,9 @@ INFERENCE_DEFAULT_TLS_PORT = "443"
 INFERENCE_DEFAULT_SOCKET_PATH = "/path/to/undertale-inference.sock"
 
 UNIX_SOCKET_VALIDATION_TIMEOUT = 10
+
+# A hostname or IPv4 address; IPv6 addresses are checked separately.
+HOST_PATTERN = re.compile(r"[A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9.])?")
 
 # A connection and the CA certificate file to save with it ("" for the system
 # trust store), or None to leave the saved one unchanged.
@@ -145,6 +150,18 @@ def _parse_base_url(base_url: str) -> Optional[str]:
     return normalized
 
 
+def _is_valid_host(host: str) -> bool:
+    """Determine whether ``host`` is a bare hostname, IPv4 address, or IPv6
+    address, rather than, for example, a URL or ``host:port``."""
+    if ":" not in host:
+        return HOST_PATTERN.fullmatch(host) is not None
+    try:
+        ipaddress.IPv6Address(host)
+    except ValueError:
+        return False
+    return True
+
+
 def _build_tcp(
     scheme: str, host: str, port: str, base_url: str
 ) -> Optional[Connection]:
@@ -159,11 +176,19 @@ def _build_tcp(
     if host.startswith("[") and host.endswith("]"):
         host = host[1:-1]
 
-    if not host or not port.isdecimal() or not 0 < int(port) < 65536:
+    if not _is_valid_host(host):
         alert_user(
-            f"Invalid host:port: {host!r}:{port!r}.\n\nRe-run "
-            f"{CONFIGURE_MENU_PATH} and enter a hostname or IP address (e.g. "
-            "127.0.0.1) for Host, and a numeric port (e.g. 8000) for Port."
+            f"Invalid host: {host!r}.\n\nRe-run {CONFIGURE_MENU_PATH} and "
+            "enter only a hostname or IP address (e.g. 127.0.0.1) for Host, "
+            "without a scheme, port, or path. Pick HTTP or HTTPS as the "
+            "Connection Type, and enter the port in the Port field."
+        )
+        return None
+
+    if not port.isdecimal() or not 0 < int(port) < 65536:
+        alert_user(
+            f"Invalid port: {port!r}.\n\nRe-run {CONFIGURE_MENU_PATH} and "
+            "enter a numeric port (e.g. 8000) from 1 to 65535 for Port."
         )
         return None
 
@@ -209,17 +234,19 @@ def _parse_ca_file(path: str) -> Optional[str]:
     exist and hold at least one PEM certificate.
 
     Alerts the user and returns None if the file cannot be loaded; otherwise
-    returns the path as entered (:py:func:`~.settings.get_ca_file` expands
-    it), or "" for the system trust store.
+    returns the absolute path, so it does not depend on Binary Ninja's
+    working directory, or "" for the system trust store.
     """
     if not path:
         return ""
 
+    path = os.path.abspath(os.path.expanduser(path))
     try:
-        ssl.create_default_context(cafile=os.path.expanduser(path))
-    except OSError as error:  # includes ssl.SSLError
+        build_tls_context(path)
+    except RuntimeError as error:
         alert_user(
-            f"Unable to load the CA certificate file {path!r}: {error}.\n\n"
+            f"Unable to load the CA certificate file {path!r}: "
+            f"{error.__cause__}.\n\n"
             "Enter the path to a PEM file with the certificate authority (or "
             "the self-signed certificate) the Undertale Inference Server's certificate "
             "is signed by, or leave it empty to use the system trust store."

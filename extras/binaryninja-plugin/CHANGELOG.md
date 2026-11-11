@@ -22,9 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the optional `truststore` package is installed, or Python's default trust
   store. Certificate, TLS, and redirect errors are reported with hints on how
   to fix them.
-- A warning pop-up is shown, once per host per session, when a login token or
-  credentials are about to be sent over plain HTTP to a host other than this
-  machine.
+- Before a login token or credentials are sent over plain HTTP to a host
+  other than this machine, the plugin asks for confirmation, once per server
+  per session. Nothing is sent unless the user agrees.
 
 ### Changed
 

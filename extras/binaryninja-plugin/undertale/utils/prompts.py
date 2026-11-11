@@ -1,6 +1,6 @@
 """Dialogs that ask the user for input from a background task.
 
-Both run their dialogs on the UI thread, since they are called from
+They all run their dialogs on the UI thread, since they are called from
 background tasks.
 """
 
@@ -13,6 +13,12 @@ from binaryninja import (
     execute_on_main_thread_and_wait,
     get_form_input,
 )
+from binaryninja.enums import (
+    MessageBoxButtonResult,
+    MessageBoxButtonSet,
+    MessageBoxIcon,
+)
+from binaryninja.interaction import show_message_box
 from binaryninjaui import UIContext
 from PySide6.QtWidgets import QInputDialog, QLineEdit
 
@@ -61,6 +67,28 @@ def prompt_credentials() -> Optional[Dict[str, str]]:
         alert_user("Username and password are both required")
         return None
     return {"username": username, "password": password}
+
+
+def confirm_plaintext(message: str) -> bool:
+    """Ask the user whether to go ahead despite the warning in ``message``.
+
+    Blocks until the user answers. The message box runs on the UI thread
+    because this is called from a background task.
+
+    Returns True only if the user answers Yes.
+    """
+    answers = []
+    execute_on_main_thread_and_wait(
+        lambda: answers.append(
+            show_message_box(
+                "Undertale",
+                message,
+                MessageBoxButtonSet.YesNoButtonSet,
+                MessageBoxIcon.WarningIcon,
+            )
+        )
+    )
+    return bool(answers) and answers[0] == MessageBoxButtonResult.YesButton
 
 
 def prompt_feedback(
