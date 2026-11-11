@@ -293,15 +293,13 @@ def request(
     raw = response.read()
 
     if response.status >= 400:
+        text = raw.decode("utf-8", "replace")
         try:
-            parsed = json.loads(raw.decode("utf-8"))
+            parsed = json.loads(text)
         except ValueError:
             parsed = None
         structured = isinstance(parsed, dict)
-        if structured:
-            error = parsed.get("error", raw)
-        else:
-            error = raw.decode("utf-8", "replace")
+        error = parsed.get("error", text) if structured else text
         message = f"{method} {path} -> {response.status}: {error}"
         if response.status in UNAUTHORIZED_STATUSES:
             raise Unauthorized(message)
@@ -561,8 +559,9 @@ def report_failure(exc: Exception, action: str, connection: Connection) -> None:
         )
     elif isinstance(exc, (TimeoutError, socket.timeout)):
         alert_user(
-            f"Timed out after {INFERENCE_CONNECT_TIMEOUT}s connecting to the "
-            f"Undertale Inference Server at {endpoint}.\n\nCheck that the server "
+            f"Timed out after {INFERENCE_CONNECT_TIMEOUT}s connecting to, or "
+            "waiting for a response from, the Undertale Inference Server at "
+            f"{endpoint}.\n\nCheck that the server "
             "is reachable and not overloaded, or reconfigure the connection "
             f"via {CONFIGURE_MENU_PATH}."
         )

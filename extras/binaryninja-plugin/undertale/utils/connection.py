@@ -239,17 +239,25 @@ def _validate_unix_socket_path(path: str) -> bool:
     """Check that ``path`` exists, is a Unix domain socket, and accepts a
     connection.
 
-    Logs an error and returns False if any of these checks fail.
+    Alerts the user and returns False if any of these checks fail.
     """
-    if not os.path.exists(path):
+    try:
+        mode = os.stat(path).st_mode
+    except FileNotFoundError:
         alert_user(
             f"Unix domain socket does not exist: {path!r}.\n\nThe Inference Server "
             "may not be running, or the path is wrong.\n\nStart the server, then "
             f"re-run {CONFIGURE_MENU_PATH} and enter the correct socket path."
         )
         return False
+    except OSError as error:
+        alert_user(
+            f"Unable to access Unix domain socket {path!r}: {error}.\n\nCheck the "
+            f"path's permissions, then re-run {CONFIGURE_MENU_PATH}."
+        )
+        return False
 
-    if not stat.S_ISSOCK(os.stat(path).st_mode):
+    if not stat.S_ISSOCK(mode):
         alert_user(
             f"Not a Unix domain socket: {path!r}.\n\nThis path points to a regular "
             f"file or directory.\n\nRe-run {CONFIGURE_MENU_PATH} "
@@ -297,12 +305,12 @@ def _build_tcp(
     A bracketed IPv6 address (e.g. ``[::1]``) is stored without its brackets,
     since http.client expects the bare address.
 
-    Logs an error and returns None if any of them is invalid.
+    Alerts the user and returns None if any of them is invalid.
     """
     if host.startswith("[") and host.endswith("]"):
         host = host[1:-1]
 
-    if not host or not port.isdigit() or not 0 < int(port) < 65536:
+    if not host or not port.isdecimal() or not 0 < int(port) < 65536:
         alert_user(
             f"Invalid host:port: {host!r}:{port!r}.\n\nRe-run "
             f"{CONFIGURE_MENU_PATH} and enter a hostname or IP address (e.g. "
@@ -327,7 +335,7 @@ def _build_unix(path: str, base_url: str) -> Optional[Connection]:
     """Validate a Unix domain socket path and base URL and build a connection
     dict.
 
-    Logs an error and returns None if either is empty or unusable.
+    Alerts the user and returns None if either is empty or unusable.
     """
     if not path:
         alert_user(
@@ -352,14 +360,14 @@ def _parse_ca_file(path: str) -> Optional[str]:
     exist and hold at least one PEM certificate.
 
     Alerts the user and returns None if the file cannot be loaded; otherwise
-    returns the path, or "" for the system trust store.
+    returns the path as entered (:py:func:`get_ca_file` expands it), or ""
+    for the system trust store.
     """
     if not path:
         return ""
 
-    path = os.path.expanduser(path)
     try:
-        ssl.create_default_context(cafile=path)
+        ssl.create_default_context(cafile=os.path.expanduser(path))
     except OSError as error:  # includes ssl.SSLError
         alert_user(
             f"Unable to load the CA certificate file {path!r}: {error}.\n\n"
@@ -403,12 +411,17 @@ def describe_server(connection: Connection) -> str:
 def _parse_timeout(timeout: str) -> Optional[int]:
     """Validate a poll timeout entered as a string, in seconds.
 
-    Logs an error and returns None if it is not a whole number of at least 1.
+    Alerts the user and returns None if it is not a whole number between
+    :py:data:`MIN_POLL_TIMEOUT` and :py:data:`MAX_POLL_TIMEOUT`.
     """
-    if not timeout.isdigit() or int(timeout) < 1:
+    if (
+        not timeout.isdecimal()
+        or not MIN_POLL_TIMEOUT <= int(timeout) <= MAX_POLL_TIMEOUT
+    ):
         alert_user(
             f"Invalid poll timeout: {timeout!r}.\n\nEnter a whole number of "
-            f"seconds (1 or greater).\n\nRe-run {CONFIGURE_MENU_PATH} to try again."
+            f"seconds from {MIN_POLL_TIMEOUT} to {MAX_POLL_TIMEOUT}.\n\nRe-run "
+            f"{CONFIGURE_MENU_PATH} to try again."
         )
         return None
 
