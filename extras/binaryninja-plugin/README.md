@@ -41,7 +41,8 @@ its stored completion, so only the latest generated name can be rated.
   compares against to detect a later rename. Save the `.bndb` to keep these
   references, otherwise they are lost when the file is closed.
 - **Feedback only goes to the server that generated the name.** If the plugin
-  is now configured for a different server or base URL, rating is refused.
+  is now configured for a different server, connection type, or base URL,
+  rating is refused.
   Before sending anything, the plugin also checks that the completion still
   exists on the server and still matches the generated name, so a rating is
   never attributed to the wrong completion.
@@ -95,36 +96,58 @@ Ninja restart is all that is needed to pick up local changes.
 
 ## Configuration
 
-On first use, the plugin prompts you to configure the inference server connection, as either:
+On first use, the plugin asks for the inference server connection in two steps: first the **Connection Type**, then the fields for that type.
 
-* a TCP address (`host:port`), or
-* a Unix domain socket path
+* **HTTP**: plain HTTP to a host and port. Fields: Host, Port (default `8000`), and Base URL.
+* **HTTPS**: HTTPS to a host and port, with the server's certificate verified (see [HTTPS Certificates](#https-certificates)). Fields: Host, Port (default `443`), Base URL, and CA Certificate File (optional).
+* **Unix Domain Socket**: a socket on this machine. Fields: Socket Path and Base URL.
+
+The **Base URL** (default `/`) is a path prefix applied to every request. Use `/` when the inference server is served at the root, or a subpath such as `/api` when it is mounted behind a reverse proxy under that prefix.
 
 This configuration is saved in Binary Ninja's user settings and persists across restarts.
 
-To change any of the plugin's settings later, select **Undertale > Configure Plugin**. This opens a single form where you can:
+To change any of the plugin's settings later, select **Undertale > Configure Plugin**. The first form lets you:
 
-* re-pick or edit the connection (TCP host/port or Unix socket path),
-* set the **Base URL** (default `/`), a path prefix applied to every request. Use `/` when the inference server is served at the root, or a subpath such as `/api` when it is mounted behind a reverse proxy under that prefix,
+* re-pick the **Connection Type**,
 * set the **Inference Completion Poll Timeout** (default 60 seconds, up to a maximum of 3600 seconds), which controls how long the plugin waits for the inference server to finish naming a function before giving up, and
 * clear the saved login token (shown only when one is cached — see below).
 
-Nothing is saved unless every field validates, so cancelling or entering an invalid value leaves your existing configuration untouched. Changing the connection to a different server also discards any saved login token, so stale credentials never carry over.
+The second form asks for the details of the chosen type, prefilled with your current values if you kept the same type.
+
+Nothing is saved unless every field in both forms validates, so cancelling either form or entering an invalid value leaves your existing configuration untouched. Changing the connection to a different server (including a different base URL) also discards any saved login token, so stale credentials never carry over.
 
 All of these values are also editable directly in Binary Ninja's Settings under the **Undertale** group.
+
+### HTTPS Certificates
+
+HTTPS connections always verify the server's certificate and hostname, and require TLS 1.2 or newer. The certificate is checked against, in order of precedence:
+
+1. the **CA Certificate File**, if set: a PEM file with the certificate authority that signed the server's certificate, or the server's self-signed certificate itself,
+2. the operating system's trust store (macOS Keychain, Linux system store), if the optional [`truststore`](https://pypi.org/project/truststore/) package is installed in the Python interpreter Binary Ninja uses, or
+3. Python's default trust store otherwise.
+
+The plugin does not require `truststore`. Install it (`pip install truststore` into Binary Ninja's Python) only if your organization's certificate authority is already in the OS trust store and you'd rather not set a CA file.
+
+> [!NOTE]
+> On macOS, the Python bundled with Binary Ninja may not find any trusted certificates by default, so even publicly-signed certificates can fail to verify. Set the **CA Certificate File** to your certificate authority (or to a system bundle such as `/etc/ssl/cert.pem`), or install `truststore`.
+
+The certificate must list the host you configured in its `subjectAltName`.
 
 Which one to pick depends on how the [inference server](../inference-server) is deployed:
 
 ### Authenticated Systemd Service
 
-This deployment uses NGINX as a frontend for Gunicorn, with LDAP authentication. Configure the plugin to use the TCP option and point it to the endpoint exposed by NGINX.
+This deployment uses NGINX as a frontend for Gunicorn, with LDAP authentication. Configure the plugin to use the **HTTPS** option and point it to the endpoint exposed by NGINX (see [HTTPS Certificates](#https-certificates) if the server uses a self-signed certificate or a private certificate authority).
 
 Set the **Base URL** to match the subpath NGINX serves the API under (usually `/api`).
+
+Avoid the **HTTP** option here: it sends your username, password, and login token unencrypted. The plugin shows a warning, once per host per session, when it sends credentials or a token over plain HTTP to a host other than this machine.
 
 The first time the plugin talks to an authenticated server, it prompts for your LDAP username and password, logs in, and caches the resulting token in Binary Ninja's user settings (usually at `~/.binaryninja/settings.json`) so you aren't prompted again until the token is rejected (e.g. it expires) or you clear it via **Undertale > Configure Plugin**.
 
 > [!WARNING]
 > **Credential and token handling is not hardened yet:**
+> - Credentials and the token are only protected in transit over an **HTTPS** connection.
 > - The login token is stored **unencrypted** in Binary Ninja's user settings file (`settings.json` in the user directory), the same place the plugin caches your connection info. Anyone with read access to that file (or that user account) can read the token and use it to call the inference server as you until it expires.
 > - Tokens are long-lived. To discard a cached token, use the "clear saved login token" option in **Undertale > Configure Plugin** (it also clears automatically when you switch to a different server), or manually clear `undertale.inferenceServerToken` from Binary Ninja's settings.
 > - There is no token refresh: once a token expires or is revoked server-side, the plugin re-prompts for credentials on the next request.
