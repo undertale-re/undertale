@@ -17,7 +17,8 @@ A struct containing a union of other structs (a "tagged union"), and a struct of
 ```
 Shape { ShapeKind kind; const ShapeOps *ops; Point origin;
         union { Circle circle; Rect rect; Triangle tri; } as; }
-ShapeOps { area(); perimeter(); name }```
+ShapeOps { area(); perimeter(); name }
+```
 
 ## task_list.c
 A linked list of tasks. Each node is a struct that points to another struct of the same type, and a separate container struct tracks the list as a whole.  
