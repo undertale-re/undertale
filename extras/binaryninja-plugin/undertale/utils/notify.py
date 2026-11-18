@@ -16,8 +16,9 @@ def alert_user(message: str, warning: bool = False) -> None:
 
     Args:
         message: The text to show.
-        warning: Show a warning (warning icon, logged as a warning) instead
-            of an error.
+        warning: If True, show a warning (warning icon, logged with
+            ``log_warn``). Defaults to False, which shows an error (error
+            icon, logged with ``log_error``).
     """
     log = log_warn if warning else log_error
     log(message.replace("\n\n", " "))
